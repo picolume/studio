@@ -1,19 +1,49 @@
-# README
+# PicoLume Studio
 
-## About
+**The Open-Source Wireless Lighting Platform for the Marching Arts.**
 
-This is the official Wails Vanilla template.
+PicoLume Studio is a professional-grade timeline sequencer designed specifically for marching bands, drum corps, and winter guards. It bridges the gap between expensive professional DMX gear and fragile DIY hobbyist projects.
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+Designed to work with the **PicoLume Hardware Ecosystem**, it allows directors and designers to choreograph complex lighting shows synchronized to music without writing a single line of code.
 
-## Live Development
+![PicoLume Banner](https://via.placeholder.com/800x200?text=PicoLume+Studio+Preview+Coming+Soon)
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+## Why PicoLume?
 
-## Building
+Traditional lighting solutions (like WLED) are **state-based** (Turn On / Turn Off). Marching bands are **time-based** (Measure 4, Beat 1).
 
-To build a redistributable, production mode package, use `wails build`.
+PicoLume Studio provides a video-editor-style timeline that allows you to:
+
+- **Visualize:** See your lighting effects alongside the audio waveform.
+- **Group:** Organize hundreds of props into logical groups (e.g., "Snares," "Trumpets," "Color Guard").
+- **Compile:** Export optimized binary instructions ensuring perfect sync on low-cost hardware.
+
+## Features
+
+- **Cross-Platform:** Built with [Wails](https://wails.io/) (Go + Web Technologies), running natively on Windows, macOS, and Linux.
+- **Smart Patching:** decoupled hardware addresses from logical groups. Swap a broken badge without reprogramming the show.
+- **Binary Compilation:** Compiles shows into a lightweight binary format (`.bin`) optimized for the RP2040 microcontroller.
+- **Auto-Upload:** One-click upload and reset for PicoLume devices via USB.
+
+## The Ecosystem
+
+PicoLume is more than just software. It is a complete ecosystem:
+
+- **[PicoLume Firmware](https://github.com/picolume/firmware):** (Coming Soon) The C/C++ firmware for the RP2040 and RFM69 radio modules.
+- **[PicoLume Hardware](https://github.com/picolume/hardware):** (Coming Soon) Open-source KiCad PCB designs for the wireless badges.
+
+## Development Setup
+
+PicoLume Studio is built using **Wails**. To run it locally:
+
+### Prerequisites
+
+- [Go 1.21+](https://go.dev/)
+- [Node.js](https://nodejs.org/) (npm)
+- [Wails CLI](https://wails.io/docs/gettingstarted/installation)
+
+### Run in Dev Mode
+
+```bash
+wails dev
+```
