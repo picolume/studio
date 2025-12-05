@@ -45,5 +45,3 @@ PicoLume Studio is built using **Wails**. To run it locally:
 ```bash
 wails dev
 ```
-
-test
