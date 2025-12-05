@@ -1,6 +1,6 @@
 # PicoLume Studio
 
-**The Open-Source Wireless Lighting Platform for the Marching Arts.**
+**The Open Source Wireless Lighting Platform for the Marching Arts.**
 
 PicoLume Studio is a timeline sequencer designed specifically for marching bands, drum corps, and winter guards. It bridges the gap between expensive professional DMX gear and fragile DIY hobbyist projects.
 
