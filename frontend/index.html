@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicoLume Studio</title>
+    <meta name="wails-options" content="noautoinject" />
+
+    <link href="./src/assets/fontawesome/css/all.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="./src/style.css">
+
+    <script src="/wailsjs/runtime/runtime.js"></script>
+</head>
+
+<body class="h-screen flex flex-col">
+    <a href="#timeline-container" class="skip-link">Skip to Timeline</a>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <header class="h-14 bg-neutral-900 border-b border-gray-800 flex items-center justify-between px-4 shrink-0" role="banner">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-bolt text-cyan-400 text-xl" aria-hidden="true"></i>
+            <h1 class="font-bold text-lg tracking-wide text-gray-200">PICOLUME STUDIO</h1>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex bg-neutral-800 rounded p-1" role="group">
+                <button id="btn-undo" class="w-8 h-8 hover:bg-neutral-700 rounded text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-undo"></i></button>
+                <button id="btn-redo" class="w-8 h-8 hover:bg-neutral-700 rounded text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-redo"></i></button>
+            </div>
+
+            <div class="flex bg-neutral-800 rounded p-1" role="group">
+                <button id="btn-to-start" class="w-8 h-8 hover:bg-neutral-700 rounded text-gray-400"><i class="fas fa-step-backward"></i></button>
+                <button id="btn-play" class="w-10 h-8 hover:bg-neutral-700 rounded text-white"><i class="fas fa-play"></i></button>
+                <button id="btn-stop" class="w-8 h-8 hover:bg-neutral-700 rounded text-gray-400"><i class="fas fa-stop"></i></button>
+            </div>
+
+            <div class="flex items-center gap-2 ml-2 mr-2 group">
+                <i id="vol-icon" class="fas fa-volume-up text-gray-500 text-xs group-hover:text-gray-300 w-5 text-center"></i>
+                <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="1" class="w-20 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500">
+            </div>
+
+            <div class="h-8 border-l border-gray-700 mx-2"></div>
+            <span id="time-display" class="font-mono text-cyan-400 text-lg w-24 text-center">00:00.00</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btn-upload" class="w-32 py-1.5 bg-green-700 hover:bg-green-600 rounded text-xs border border-green-500 text-white transition flex items-center justify-center font-bold">
+                <i class="fas fa-microchip mr-2"></i>Upload
+            </button>
+            <button id="btn-export-bin" class="w-32 py-1.5 bg-cyan-900 hover:bg-cyan-800 rounded text-xs border border-cyan-700 text-white transition flex items-center justify-center font-bold">
+                <i class="fas fa-download mr-2"></i>Export
+            </button>
+            <button id="btn-new" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
+                <i class="fas fa-file mr-2"></i>New
+            </button>
+            <button id="btn-save" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
+                <i class="fas fa-save mr-2"></i>Save
+            </button>
+            <button id="btn-save-as" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
+                <i class="fas fa-file-export mr-2"></i>Save As
+            </button>
+            <button id="btn-open" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
+                <i class="fas fa-folder-open mr-2"></i>Open
+            </button>
+            <button id="btn-settings" class="w-8 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center" title="Settings">
+                <i class="fas fa-cog"></i>
+            </button>
+            <a href="manual.html" target="_blank" class="w-8 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 text-gray-200 transition flex items-center justify-center no-underline" title="Manual">
+                <i class="fas fa-book"></i>
+            </a>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        <div class="sidebar-palette w-64 bg-neutral-900 border-r border-gray-800 flex flex-col shrink-0">
+            <div class="p-3 border-b border-gray-800 text-xs font-bold uppercase tracking-wider text-gray-500">Effect Palette</div>
+            <div class="p-3 overflow-y-auto flex-1" id="palette-container">
+                <div class="text-xs text-gray-600 mb-2 italic">Drag to LED Tracks</div>
+
+                <div class="palette-item" draggable="true" data-type="solid"><div class="w-6 h-6 rounded bg-solid"></div><div><div class="text-sm font-medium">Solid Color</div><div class="text-xs text-gray-500">Static color</div></div></div>
+                <div class="palette-item" draggable="true" data-type="flash"><div class="w-6 h-6 rounded bg-flash"></div><div><div class="text-sm font-medium">Camera Flash</div><div class="text-xs text-gray-500">Quick White Bursts</div></div></div>
+                <div class="palette-item" draggable="true" data-type="strobe"><div class="w-6 h-6 rounded bg-strobe"></div><div><div class="text-sm font-medium">Strobe</div><div class="text-xs text-gray-500">Rapid flashing</div></div></div>
+                <div class="palette-item" draggable="true" data-type="wipe"><div class="w-6 h-6 rounded bg-wipe"></div><div><div class="text-sm font-medium">Wipe</div><div class="text-xs text-gray-500">Linear fill</div></div></div>
+                <div class="palette-item" draggable="true" data-type="chase"><div class="w-6 h-6 rounded bg-chase"></div><div><div class="text-sm font-medium">Chase</div><div class="text-xs text-gray-500">Moving segment</div></div></div>
+                <div class="palette-item" draggable="true" data-type="rainbow"><div class="w-6 h-6 rounded bg-rainbow"></div><div><div class="text-sm font-medium">Rainbow</div><div class="text-xs text-gray-500">Moving hue shift</div></div></div>
+                <div class="palette-item" draggable="true" data-type="scanner"><div class="w-6 h-6 rounded bg-scanner"></div><div><div class="text-sm font-medium">Scanner</div><div class="text-xs text-gray-500">Bouncing eye</div></div></div>
+                <div class="palette-item" draggable="true" data-type="meteor"><div class="w-6 h-6 rounded bg-meteor"></div><div><div class="text-sm font-medium">Meteor</div><div class="text-xs text-gray-500">Trail projectile</div></div></div>
+                <div class="palette-item" draggable="true" data-type="fire"><div class="w-6 h-6 rounded bg-fire"></div><div><div class="text-sm font-medium">Fire</div><div class="text-xs text-gray-500">Heat flicker</div></div></div>
+                <div class="palette-item" draggable="true" data-type="breathe"><div class="w-6 h-6 rounded bg-breathe"></div><div><div class="text-sm font-medium">Breathe</div><div class="text-xs text-gray-500">Pulse in/out</div></div></div>
+                <div class="palette-item" draggable="true" data-type="heartbeat"><div class="w-6 h-6 rounded bg-heartbeat"></div><div><div class="text-sm font-medium">Heartbeat</div><div class="text-xs text-gray-500">Double pulse rhythm</div></div></div>
+                <div class="palette-item" draggable="true" data-type="sparkle"><div class="w-6 h-6 rounded bg-sparkle"></div><div><div class="text-sm font-medium">Sparkle</div><div class="text-xs text-gray-500">Random glitters</div></div></div>
+                <div class="palette-item" draggable="true" data-type="glitch"><div class="w-6 h-6 rounded bg-glitch"></div><div><div class="text-sm font-medium">Glitch</div><div class="text-xs text-gray-500">Digital noise</div></div></div>
+                <div class="palette-item" draggable="true" data-type="energy"><div class="w-6 h-6 rounded bg-energy"></div><div><div class="text-sm font-medium">Energy</div><div class="text-xs text-gray-500">Flowing plasma</div></div></div>
+                <div class="palette-item" draggable="true" data-type="alternate"><div class="w-6 h-6 rounded bg-alternate"></div><div><div class="text-sm font-medium">Alternate</div><div class="text-xs text-gray-500">ABAB Pattern</div></div></div>
+                <div class="palette-item" draggable="true" data-type="rainbowHold" role="listitem" tabindex="0"><div class="w-6 h-6 rounded bg-rainbow" style="opacity: 0.5;"></div><div><div class="text-sm font-medium">Rainbow Hold</div><div class="text-xs text-gray-500">Static rainbow</div></div></div>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col min-w-0">
+            <div class="h-64 bg-black relative led-preview-container flex items-center justify-center border-b border-gray-800 shrink-0">
+                <canvas id="preview-canvas" width="800" height="200"></canvas>
+                <div class="absolute top-2 left-2 text-xs text-gray-500">Simulated Preview</div>
+            </div>
+
+            <div class="h-8 bg-neutral-800 border-b border-gray-700 flex items-center px-2 justify-between shrink-0">
+                <div class="flex gap-2">
+                    <button id="btn-add-track-led" class="text-xs bg-cyan-900/50 hover:bg-cyan-800 px-2 py-1 rounded text-cyan-200 border border-cyan-900"><i class="fas fa-plus mr-1"></i> LED Track</button>
+                    <button id="btn-add-track-audio" class="text-xs bg-orange-900/50 hover:bg-orange-800 px-2 py-1 rounded text-orange-200 border border-orange-900"><i class="fas fa-music mr-1"></i> Audio Track</button>
+                    <div class="border-l border-gray-700 pl-2 ml-1 flex gap-1">
+                        <button id="btn-copy" class="text-xs bg-neutral-700/50 hover:bg-neutral-600 px-2 py-1 rounded text-gray-300 disabled:opacity-30" disabled><i class="fas fa-copy"></i></button>
+                        <button id="btn-paste" class="text-xs bg-neutral-700/50 hover:bg-neutral-600 px-2 py-1 rounded text-gray-300 disabled:opacity-30" disabled><i class="fas fa-paste"></i></button>
+                        <button id="btn-duplicate" class="text-xs bg-neutral-700/50 hover:bg-neutral-600 px-2 py-1 rounded text-gray-300 disabled:opacity-30" disabled><i class="fas fa-clone"></i></button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 border-r border-gray-700 pr-3 mr-2">
+                        <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer hover:text-white select-none">
+                            <input type="checkbox" id="chk-snap" class="accent-cyan-500" checked> <i class="fas fa-magnet"></i> Snap
+                        </label>
+                        <select id="sel-grid" class="bg-neutral-900 text-xs text-gray-300 border border-gray-700 rounded px-1 outline-none py-0.5">
+                            <option value="1000">1s</option><option value="500">1/2s</option><option value="250">1/4s</option><option value="125">1/8s</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="zoom-slider" min="10" max="200" value="50" class="w-24 accent-cyan-500">
+                        <span id="zoom-display" class="text-xs text-gray-500 w-12">50px/s</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 timeline-container" id="timeline-container">
+                <div class="track-headers" id="track-headers"></div>
+                <div class="timeline-scroll-area" id="timeline-scroll-area">
+                    <div class="timeline-content" id="timeline-content">
+                        <div class="ruler" id="ruler"><div class="playhead-handle" id="playhead-handle" tabindex="0"></div></div>
+                        <div id="tracks-container"></div>
+                        <div class="playhead" id="playhead-line"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-inspector w-72 bg-neutral-900 border-l border-gray-800 flex flex-col shrink-0">
+            <div class="p-3 border-b border-gray-800 text-xs font-bold uppercase tracking-wider text-gray-500">Inspector</div>
+            <div id="inspector-content" class="p-4 flex-1 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="flex items-center gap-4">
+             </div>
+        <div class="flex items-center gap-4"><span id="status-history">History: 0/0</span><span>Space Play | Ctrl+Click Select</span></div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>

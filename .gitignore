@@ -1,0 +1,16 @@
+# Wails specific
+/build/bin/
+/frontend/dist/
+/frontend/wailsjs/
+
+# Go
+/go.sum
+*.exe
+*.dll
+*.so
+*.dylib
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.vscode/

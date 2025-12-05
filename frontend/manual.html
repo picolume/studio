@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicoLume Studio — User Manual</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Matching the app's color palette */
+            --bg-darkest: #121212;
+            --bg-dark: #1a1a1a;
+            --bg-panel: #232323;
+            --bg-elevated: #2a2a2a;
+            --bg-hover: #333333;
+            
+            --accent-teal: #00bcd4;
+            --accent-teal-dim: rgba(0, 188, 212, 0.15);
+            --accent-green: #4caf50;
+            --accent-pink: #e91e63;
+            --accent-orange: #ff9800;
+            
+            --text-primary: #e0e0e0;
+            --text-secondary: #999999;
+            --text-muted: #666666;
+            --border-color: #333333;
+            --border-subtle: #2a2a2a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        /* Navigation - matches app sidebar style */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 240px;
+            height: 100vh;
+            background: var(--bg-darkest);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+        
+        .nav-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        
+        .nav-logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--accent-teal);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .nav-logo-text {
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: -0.01em;
+        }
+        
+        .nav-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 0;
+        }
+        
+        .nav-section {
+            padding: 0 12px;
+            margin-bottom: 16px;
+        }
+        
+        .nav-section-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 4px 8px;
+            margin-bottom: 4px;
+        }
+        
+        .nav-link {
+            display: block;
+            padding: 6px 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+            border-left: 2px solid transparent;
+            margin-left: 4px;
+        }
+        
+        .nav-link:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: var(--accent-teal-dim);
+            color: var(--accent-teal);
+            border-left-color: var(--accent-teal);
+        }
+        
+        .nav-footer {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Main Content */
+        main {
+            margin-left: 240px;
+            padding: 32px 48px 64px;
+            max-width: 900px;
+        }
+
+        /* Header - mimics app header bar style */
+        .page-header {
+            background: var(--bg-darkest);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 24px 32px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .page-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .page-header-badge {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--accent-teal);
+            background: var(--accent-teal-dim);
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        /* Typography */
+        h2 {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 32px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        
+        h3 {
+            font-size: 13px;
+            font-weight: 600;
+            margin: 24px 0 8px;
+            color: var(--accent-teal);
+        }
+        
+        p {
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        
+        ul, ol {
+            margin: 12px 0 12px 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        
+        li {
+            margin-bottom: 6px;
+            line-height: 1.6;
+        }
+        
+        li strong {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        code {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--bg-elevated);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            color: var(--accent-orange);
+        }
+
+        /* Feature Cards - styled like app panels */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+        
+        .feature-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            border-radius: 6px;
+            transition: background 0.15s ease;
+        }
+        
+        .feature-card:hover {
+            background: var(--bg-elevated);
+        }
+        
+        .feature-icon {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .feature-title {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+        
+        .feature-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Interface Screenshot - app window style */
+        .interface-screenshot {
+            background: var(--bg-darkest);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+        
+        .interface-screenshot img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Effects Grid - mimics the effect palette in the app */
+        .effects-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .effect-item {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.15s ease;
+            border-left: 3px solid var(--effect-color, var(--accent-teal));
+        }
+        
+        .effect-item:hover {
+            background: var(--bg-elevated);
+        }
+        
+        .effect-swatch {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        
+        .effect-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .effect-info h4 {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .effect-info p {
+            font-size: 11px;
+            margin: 2px 0 0 0;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+        
+        .effect-params {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* Effect Swatches - with subtle animations */
+        .s-solid { 
+            background: var(--accent-teal); 
+            --effect-color: var(--accent-teal);
+        }
+        .s-flash { 
+            background: #ffffff;
+            --effect-color: #e91e63;
+        }
+        .s-rainbow { 
+            background: linear-gradient(135deg, #f44336, #ff9800, #ffeb3b, #4caf50, #2196f3, #9c27b0); 
+            animation: rainbowShift 4s linear infinite;
+            --effect-color: #9c27b0;
+        }
+        @keyframes rainbowShift {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+        .s-rainbow-hold {
+            background: linear-gradient(90deg, #f44336, #ff9800, #ffeb3b, #4caf50, #2196f3, #9c27b0);
+            --effect-color: #9c27b0;
+        }
+        .s-fire { 
+            background: linear-gradient(to top, #bf360c, #ff5722, #ffab00); 
+            animation: fireFlicker 0.4s ease-in-out infinite alternate;
+            --effect-color: #ff5722;
+        }
+        @keyframes fireFlicker {
+            0% { opacity: 0.85; }
+            100% { opacity: 1; }
+        }
+        .s-strobe { 
+            background: #fff;
+            animation: strobeEffect 0.15s steps(2) infinite;
+            --effect-color: #9e9e9e;
+        }
+        @keyframes strobeEffect {
+            0% { opacity: 1; }
+            50% { opacity: 0.15; }
+        }
+        .s-sparkle { 
+            background: #333;
+            background-image: radial-gradient(white 1px, transparent 1px);
+            background-size: 6px 6px;
+            animation: sparkleShift 0.8s steps(4) infinite;
+            --effect-color: #ffc107;
+        }
+        @keyframes sparkleShift {
+            0% { background-position: 0 0; }
+            25% { background-position: 2px 3px; }
+            50% { background-position: -1px 2px; }
+            75% { background-position: 3px -1px; }
+        }
+        .s-glitch { 
+            background: #4caf50;
+            animation: glitchEffect 2s infinite;
+            --effect-color: #4caf50;
+        }
+        @keyframes glitchEffect {
+            0%, 92%, 100% { clip-path: inset(0 0 0 0); }
+            94% { clip-path: inset(30% 0 40% 0); }
+            96% { clip-path: inset(60% 0 20% 0); }
+            98% { clip-path: inset(10% 0 60% 0); }
+        }
+        .s-wipe {
+            background: linear-gradient(90deg, #e91e63 50%, #333 50%);
+            background-size: 200% 100%;
+            animation: wipeEffect 2s ease-in-out infinite;
+            --effect-color: #e91e63;
+        }
+        @keyframes wipeEffect {
+            0% { background-position: 100% 0; }
+            50% { background-position: 0% 0; }
+            100% { background-position: 100% 0; }
+        }
+        .s-chase {
+            background: #009688;
+            background-image: linear-gradient(90deg, transparent 0%, #4db6ac 30%, transparent 60%);
+            background-size: 200% 100%;
+            animation: chaseEffect 1s linear infinite;
+            --effect-color: #009688;
+        }
+        @keyframes chaseEffect {
+            0% { background-position: 100% 0; }
+            100% { background-position: -100% 0; }
+        }
+        .s-scanner {
+            background: #f44336;
+            background-image: linear-gradient(90deg, transparent 35%, #ff8a80 50%, transparent 65%);
+            animation: scannerEffect 1.2s ease-in-out infinite alternate;
+            --effect-color: #f44336;
+        }
+        @keyframes scannerEffect {
+            0% { background-position: -30% 0; }
+            100% { background-position: 130% 0; }
+        }
+        .s-energy {
+            background: linear-gradient(135deg, #00bcd4, #7c4dff);
+            animation: energyPulse 2s ease-in-out infinite;
+            --effect-color: #7c4dff;
+        }
+        @keyframes energyPulse {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+        .s-breathe {
+            background: #2196f3;
+            animation: breatheEffect 3s ease-in-out infinite;
+            --effect-color: #2196f3;
+        }
+        @keyframes breatheEffect {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        .s-heartbeat {
+            background: #c62828;
+            animation: heartbeatEffect 1.2s ease-in-out infinite;
+            --effect-color: #c62828;
+        }
+        @keyframes heartbeatEffect {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            14% { transform: scale(1.12); opacity: 1; }
+            28% { transform: scale(1); opacity: 0.7; }
+            42% { transform: scale(1.08); opacity: 0.9; }
+        }
+        .s-meteor {
+            background: #333;
+            background-image: linear-gradient(135deg, transparent 40%, #fff 50%, transparent 60%);
+            background-size: 200% 200%;
+            animation: meteorEffect 1.5s ease-out infinite;
+            --effect-color: #9e9e9e;
+        }
+        @keyframes meteorEffect {
+            0% { background-position: 150% 150%; }
+            100% { background-position: -50% -50%; }
+        }
+        .s-alternate {
+            background: linear-gradient(90deg, #00bcd4 50%, #e91e63 50%);
+            --effect-color: #00bcd4;
+        }
+
+        /* Callout - styled like an info panel */
+        .callout {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--accent-teal);
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .callout h4 {
+            margin: 0 0 4px 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-teal);
+        }
+        
+        .callout p {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Keyboard shortcuts */
+        kbd {
+            background: var(--bg-elevated);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'IBM Plex Mono', monospace;
+            border: 1px solid var(--border-color);
+            border-bottom: 2px solid var(--bg-darkest);
+            font-size: 11px;
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 48px;
+            padding: 16px 0;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            nav { display: none; }
+            main { margin-left: 0; padding: 24px; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .effects-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-header">
+            <a href="#" class="nav-logo">
+                <div class="nav-logo-icon">⚡</div>
+                <span class="nav-logo-text">PICOLUME STUDIO</span>
+            </a>
+        </div>
+        <div class="nav-content">
+            <div class="nav-section">
+                <div class="nav-section-title">Overview</div>
+                <a href="#intro" class="nav-link active">Introduction</a>
+                <a href="#interface" class="nav-link">Interface</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <a href="#profiles" class="nav-link">Hardware Profiles</a>
+                <a href="#groups" class="nav-link">Prop Groups</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Creation</div>
+                <a href="#tracks" class="nav-link">Working with Tracks</a>
+                <a href="#effects" class="nav-link">Effects Reference</a>
+                <a href="#audio" class="nav-link">Audio Sync</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Output</div>
+                <a href="#export" class="nav-link">Upload &amp; Export</a>
+            </div>
+        </div>
+        <div class="nav-footer">
+            v2.0 · Firmware v16.0+
+        </div>
+    </nav>
+
+    <main>
+        <header class="page-header">
+            <h1>User Manual</h1>
+            <span class="page-header-badge">Documentation</span>
+        </header>
+
+        <section id="intro">
+            <h2>Introduction</h2>
+            <p>PicoLume Studio is a specialized sequencer for choreographing synchronized light shows on low-bandwidth wireless networks. Unlike traditional DMX software that streams raw data, PicoLume sends high-level "commands" (e.g., "Start Rainbow for 5 seconds"). This allows complex visuals across hundreds of props without clogging the RF network.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎵</div>
+                    <div class="feature-title">Audio Sync</div>
+                    <div class="feature-desc">Visualize waveforms and align lighting cues with frame-perfect precision to your music tracks.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✨</div>
+                    <div class="feature-title">Built-in Effects</div>
+                    <div class="feature-desc">Drag and drop from a library of 16+ procedural effects like Fire, Rainbow, and Glitch.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📐</div>
+                    <div class="feature-title">Hardware Profiles</div>
+                    <div class="feature-desc">Mix props of different sizes (e.g., 30px helmets and 300px towers) in the same show using smart patching.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📡</div>
+                    <div class="feature-title">Direct Upload</div>
+                    <div class="feature-desc">One-click deployment to the Pico Master Controller via USB connection with auto-reboot.</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="interface">
+            <h2>Interface Overview</h2>
+            <p>The Studio interface is organized to maximize timeline visibility while keeping tools accessible. Hover over buttons for tooltips on their specific functions.</p>
+
+            <div class="interface-screenshot">
+                <img src="./interface.jpg" alt="PicoLume Studio Interface">
+            </div>
+
+            <h3>Key Areas</h3>
+            <ul>
+                <li><strong>Header Toolbar:</strong> Contains file operations (Save, Open), Undo/Redo controls, and the critical <strong>Upload/Export</strong> buttons for hardware deployment.</li>
+                <li><strong>Effect Palette (Left):</strong> A library of all available lighting patterns. These are "Smart Clips" that adapt to any duration you set.</li>
+                <li><strong>Timeline (Center):</strong> The main workspace. Top tracks render *above* bottom tracks visually (bottom track = highest priority).</li>
+                <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click an effect.</li>
+                <li><strong>Preview Canvas (Top Center):</strong> A real-time simulation of your show. It approximates the look of your LEDs based on your timeline.</li>
+            </ul>
+        </section>
+
+        <section id="profiles">
+            <h2>Hardware Profiles & Patching</h2>
+            <p>This is the most powerful feature of PicoLume Studio. It allows you to control a "heterogeneous" fleet of props—meaning not all your lights need to be the same length.</p>
+
+            <div class="callout">
+                <h4>Scenario: The Mixed Band</h4>
+                <p>Imagine a marching band show. You have <strong>20 Color Guard Flags</strong> (small, 30 LEDs) and <strong>4 Large Field Towers</strong> (large, 300 LEDs). You want to run a "Rainbow" effect on everything. With Profiles, you create a "Flag" profile and a "Tower" profile. When you apply the Rainbow effect, it automatically scales: the Flags show a mini rainbow, and the Towers show a massive detailed rainbow.</p>
+            </div>
+
+            <h3>1. Creating a Profile</h3>
+            <p>Go to the Inspector panel (ensure no clips are selected so you see "Project Settings").</p>
+            <ol>
+                <li>Find the <strong>Hardware Profiles</strong> section.</li>
+                <li>Click <strong>+ Add Profile</strong>.</li>
+                <li><strong>Name:</strong> Give it a descriptive name (e.g., "Snare Drum").</li>
+                <li><strong>LED Count:</strong> Enter the exact physical number of pixels on that strip.</li>
+            </ol>
+
+            <h3>2. Patching IDs</h3>
+            <p>The <strong>IDs</strong> field tells the system which physical props belong to this profile. You set the ID on the physical Pico controller using the onboard buttons.</p>
+            <ul>
+                <li><strong>Syntax:</strong> You can use single numbers or ranges.</li>
+                <li><strong>Example:</strong> <code>1-10, 15, 20-25</code> means props 1 through 10, prop 15, and props 20 through 25 are all this type.</li>
+            </ul>
+        </section>
+
+        <section id="groups">
+            <h2>Prop Groups</h2>
+            <p>Prop Groups are logical collections of hardware IDs. While Profiles define *what* the hardware is, Groups define *how you select them* in the timeline.</p>
+
+            <h3>Scenario: Split Stages</h3>
+            <p>If you want your stage Left props to flash Red, and stage Right props to flash Blue:</p>
+            <ol>
+                <li>Create a Group named <strong>"Stage Left"</strong> with IDs <code>1-5</code>.</li>
+                <li>Create a Group named <strong>"Stage Right"</strong> with IDs <code>6-10</code>.</li>
+                <li>Create two LED Tracks in the timeline.</li>
+                <li>Assign Track 1 to "Stage Left" and Track 2 to "Stage Right".</li>
+                <li>Place your effects. They will play simultaneously on their respective hardware.</li>
+            </ol>
+
+            <h3>Creating a Group</h3>
+            <p>In the <strong>Prop Groups</strong> section of the Inspector:</p>
+            <ol>
+                <li>Click <strong>+ Add Group</strong>.</li>
+                <li><strong>Name:</strong> Enter a name (e.g., "Odd Numbers").</li>
+                <li><strong>IDs:</strong> Enter the IDs (e.g., <code>1,3,5,7,9</code>).</li>
+            </ol>
+        </section>
+
+        <section id="tracks">
+            <h2>Working with Tracks</h2>
+            <p>The timeline allows you to layer effects. The system processes tracks from top to bottom, meaning effects on lower tracks effectively "paint over" effects on upper tracks if they target the same props.</p>
+            
+            <h3>LED Tracks</h3>
+            <p>To add lighting, click <strong>+ LED Track</strong>. Important: Check the <strong>Target Group</strong> dropdown in the track header to ensure you are sending effects to the correct props.</p>
+            
+            <h3>Audio Tracks</h3>
+            <p>Click <strong>+ Audio Track</strong> to add a lane for music. Click the folder icon on the track header to load an MP3 or WAV file. Use this visual waveform to line up your effects with the beat.</p>
+
+            <div class="callout">
+                <h4>Productivity Tips</h4>
+                <p><strong>Snap:</strong> Enable the "Snap" checkbox to align clips perfectly to the grid (e.g., 1 second).<br>
+                <strong>Multi-Edit:</strong> Hold <kbd>Ctrl</kbd> and click multiple clips to select them. You can move, delete, or duplicate (<kbd>Ctrl+D</kbd>) them as a group.</p>
+            </div>
+        </section>
+
+        <section id="effects">
+            <h2>Effects Reference</h2>
+            <p>Each effect is a procedural algorithm generated in real-time by the Pico. Here is how to use them effectively:</p>
+
+            <div class="effects-grid">
+                <div class="effect-item">
+                    <div class="effect-swatch s-solid"></div>
+                    <div class="effect-info">
+                        <h4>Solid Color</h4>
+                        <p>Fills the strip with a single static color.</p>
+                        <span class="effect-params">Color</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-flash"></div>
+                    <div class="effect-info">
+                        <h4>Camera Flash</h4>
+                        <p>Quick white bursts. Best used for high-impact accents or simulating paparazzi.</p>
+                        <span class="effect-params">Color (Tint)</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-strobe"></div>
+                    <div class="effect-info">
+                        <h4>Strobe</h4>
+                        <p>High-frequency flashing. Use sparingly as it is very intense.</p>
+                        <span class="effect-params">Color, Rate (Hz)</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-wipe"></div>
+                    <div class="effect-info">
+                        <h4>Wipe</h4>
+                        <p>Fills the strip linearly from 0% to 100%. Useful for transitions.</p>
+                        <span class="effect-params">Color</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-chase"></div>
+                    <div class="effect-info">
+                        <h4>Chase</h4>
+                        <p>A moving dot or segment that loops endlessly.</p>
+                        <span class="effect-params">Color, Speed, Width</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-rainbow"></div>
+                    <div class="effect-info">
+                        <h4>Rainbow</h4>
+                        <p>Moving spectrum cycle. "Frequency" controls how many rainbows fit on one strip.</p>
+                        <span class="effect-params">Speed, Frequency</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-scanner"></div>
+                    <div class="effect-info">
+                        <h4>Scanner</h4>
+                        <p>Bouncing "Cylon" eye effect that moves back and forth.</p>
+                        <span class="effect-params">Color, Speed, Width</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-meteor"></div>
+                    <div class="effect-info">
+                        <h4>Meteor</h4>
+                        <p>A projectile with a fading tail. Looks great on tall vertical props.</p>
+                        <span class="effect-params">Color, Speed, Length</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-fire"></div>
+                    <div class="effect-info">
+                        <h4>Fire</h4>
+                        <p>Procedural heat flicker using Red/Orange/Yellow palette.</p>
+                        <span class="effect-params">None (Automatic)</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-energy"></div>
+                    <div class="effect-info">
+                        <h4>Energy</h4>
+                        <p>Flowing plasma-like interference pattern between two colors.</p>
+                        <span class="effect-params">Color A, Color B, Speed</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-glitch"></div>
+                    <div class="effect-info">
+                        <h4>Glitch</h4>
+                        <p>Digital noise and random color corruption. Good for "breakdown" sections.</p>
+                        <span class="effect-params">Color A, Color B, Amount</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-sparkle"></div>
+                    <div class="effect-info">
+                        <h4>Sparkle</h4>
+                        <p>Random pixels popping on and off over a background color.</p>
+                        <span class="effect-params">Color, Density</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-breathe"></div>
+                    <div class="effect-info">
+                        <h4>Breathe</h4>
+                        <p>Smooth sine-wave fading in and out. Good for idle states.</p>
+                        <span class="effect-params">Color, Speed</span>
+                    </div>
+                </div>
+
+                <div class="effect-item">
+                    <div class="effect-swatch s-heartbeat"></div>
+                    <div class="effect-info">
+                        <h4>Heartbeat</h4>
+                        <p>Double-pulse rhythm pattern (lub-dub... lub-dub).</p>
+                        <span class="effect-params">Color, Speed</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="audio">
+            <h2>Audio Integration</h2>
+            <p>1. Add an <strong>Audio Track</strong> using the button above the timeline.</p>
+            <p>2. Click the file icon on the track header to select an MP3/WAV file.</p>
+            <p>3. Use the waveform to visually align your lighting effects (e.g., placing a "Flash" right on a snare hit).</p>
+        </section>
+
+        <section id="export">
+            <h2>Upload & Export</h2>
+            <p>Once your show is designed, transfer it to the Master Controller. The file generated includes the event list and the Hardware Profile Lookup Table (LUT).</p>
+
+            <h3>Option A: Direct Upload (Recommended)</h3>
+            <ol>
+                <li>Connect the Pico via USB to your computer.</li>
+                <li><strong>Hold the CONFIG button</strong> on the Pico while plugging it in (or while pressing Reset). The Pico will mount as a USB Mass Storage Device (like a flash drive).</li>
+                <li>Click the green <strong>Upload</strong> button in Studio.</li>
+                <li>The app will automatically find the drive, write the <code>show.bin</code> file, and send a reboot command to the Pico.</li>
+            </ol>
+
+            <h3>Option B: Manual Export</h3>
+            <p>If automatic upload fails, click <strong>Export</strong> to download the <code>show.bin</code> file. You can then manually drag and drop this file onto the Pico's USB drive.</p>
+        </section>
+
+        <footer>
+            PicoLume Studio v2.0 · Compatible with Firmware v16.0+
+        </footer>
+    </main>
+
+    <script>
+        // Scroll-based navigation highlighting
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            const observerOptions = {
+                root: null,
+                rootMargin: '-20% 0px -70% 0px',
+                threshold: 0
+            };
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const activeId = entry.target.getAttribute('id');
+                        
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === `#${activeId}`) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+            
+            sections.forEach(section => observer.observe(section));
+            
+            // Smooth scroll for nav links
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('href').slice(1);
+                    const targetSection = document.getElementById(targetId);
+                    if (targetSection) {
+                        targetSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
