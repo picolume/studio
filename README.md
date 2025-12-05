@@ -2,15 +2,13 @@
 
 **The Open-Source Wireless Lighting Platform for the Marching Arts.**
 
-PicoLume Studio is a professional-grade timeline sequencer designed specifically for marching bands, drum corps, and winter guards. It bridges the gap between expensive professional DMX gear and fragile DIY hobbyist projects.
+PicoLume Studio is a timeline sequencer designed specifically for marching bands, drum corps, and winter guards. It bridges the gap between expensive professional DMX gear and fragile DIY hobbyist projects.
 
 Designed to work with the **PicoLume Hardware Ecosystem**, it allows directors and designers to choreograph complex lighting shows synchronized to music without writing a single line of code.
 
-![PicoLume Banner](https://via.placeholder.com/800x200?text=PicoLume+Studio+Preview+Coming+Soon)
-
 ## Why PicoLume?
 
-Traditional lighting solutions (like WLED) are **state-based** (Turn On / Turn Off). Marching bands are **time-based** (Measure 4, Beat 1).
+Traditional lighting solutions (like WLED) are **state-based** (Turn On / Turn Off). Marching bands are **time-based**.
 
 PicoLume Studio provides a video-editor-style timeline that allows you to:
 
@@ -21,7 +19,7 @@ PicoLume Studio provides a video-editor-style timeline that allows you to:
 ## Features
 
 - **Cross-Platform:** Built with [Wails](https://wails.io/) (Go + Web Technologies), running natively on Windows, macOS, and Linux.
-- **Smart Patching:** decoupled hardware addresses from logical groups. Swap a broken badge without reprogramming the show.
+- **Smart Patching:** decoupled hardware addresses from logical groups. Swap a broken receiver without reprogramming the show.
 - **Binary Compilation:** Compiles shows into a lightweight binary format (`.bin`) optimized for the RP2040 microcontroller.
 - **Auto-Upload:** One-click upload and reset for PicoLume devices via USB.
 
