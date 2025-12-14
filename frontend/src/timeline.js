@@ -3,6 +3,7 @@ import { CONFIG, getSnappedTime, lerpColor, hslToRgb, hexToRgb, pseudoRandom, pa
 const deps = {
     stateManager: null,
     timelineController: null,
+    audioService: null,
     errorHandler: null,
     elements: {}
 };
@@ -15,6 +16,7 @@ export function initTimeline(injected) {
     }
     deps.stateManager = injected?.stateManager ?? null;
     deps.timelineController = injected?.timelineController ?? null;
+    deps.audioService = injected?.audioService ?? null;
     deps.errorHandler = injected?.errorHandler ?? null;
     deps.elements = injected?.elements ?? injected?.els ?? {};
 }
@@ -217,7 +219,10 @@ export function buildTimeline() {
     if(ruler) { ruler.style.width = `${newWidth}px`; ruler.style.minWidth = `${newWidth}px`; }
     if(container) { container.style.width = `${newWidth}px`; container.style.minWidth = `${newWidth}px`; }
 
-    headers.innerHTML = ''; 
+    headers.innerHTML = '';
+    const headerSpacer = document.createElement('div');
+    headerSpacer.className = 'track-headers-spacer';
+    headers.appendChild(headerSpacer);
     container.innerHTML = '';
 
     const tracks = project.tracks || [];
@@ -821,10 +826,14 @@ export function populateInspector(clipId) {
             deps.stateManager?.update(draft => {
                 draft.project.tracks.forEach(t => {
                     const c = t.clips.find(x => x.id === clipId);
-                    if (c) c.props.volume = val;
+                    if (c) {
+                        if (!c.props) c.props = {};
+                        c.props.volume = val;
+                    }
                 });
                 draft.isDirty = true;
             }, { skipHistory: true });
+            deps.audioService?.setClipVolume?.(clipId, val);
         };
     }
 

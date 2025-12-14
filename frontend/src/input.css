@@ -11,6 +11,7 @@
     --playhead-color: #ff5252;
     --track-height: 80px;
     --header-width: 240px;
+    --ruler-height: 24px;
     --inspector-width: 288px;
     --palette-width: 256px;
     --toolbar-height: 56px;
@@ -84,8 +85,13 @@ body {
     min-height: 100%;
 }
 .ruler {
-    height: 24px;
+    height: var(--ruler-height);
     position: relative;
+    background: #222;
+    border-bottom: 1px solid #444;
+}
+.track-headers-spacer {
+    height: var(--ruler-height);
     background: #222;
     border-bottom: 1px solid #444;
 }

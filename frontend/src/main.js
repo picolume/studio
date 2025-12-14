@@ -44,6 +44,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initTimeline({
         stateManager,
         timelineController,
+        audioService,
         errorHandler,
         elements: els
     });
@@ -786,4 +787,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateTimeDisplay();
     updateGridBackground();
     updateClipboardUI();
+    // Show project settings by default when nothing is selected.
+    populateInspector(null);
 });

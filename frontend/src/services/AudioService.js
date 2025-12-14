@@ -160,6 +160,8 @@ export class AudioService {
      */
     startPlayback() {
         this.ensureInit();
+        // Prevent stacking sources if startPlayback is called repeatedly.
+        this.stopAll();
 
         const currentTime = this.stateManager.get('playback.currentTime') || 0;
         const playheadTime = currentTime / 1000;
@@ -190,7 +192,11 @@ export class AudioService {
                     try {
                         const source = this.ctx.createBufferSource();
                         source.buffer = buffer;
-                        source.connect(this.masterGain);
+                        const gain = this.ctx.createGain();
+                        const clipVolume = clip.props?.volume ?? 1.0;
+                        gain.gain.value = Math.max(0, Math.min(1, clipVolume));
+                        source.connect(gain);
+                        gain.connect(this.masterGain);
 
                         const durationSec = clip.duration / 1000;
 
@@ -204,10 +210,14 @@ export class AudioService {
                         } else {
                             // Clip already started, resume from current position
                             const offset = playheadTime - clipStart;
-                            source.start(0, offset, durationSec - offset);
+                            source.start(this.ctx.currentTime, offset, durationSec - offset);
                         }
 
-                        this.activeSources.push(source);
+                        const entry = { clipId: clip.id, source, gain };
+                        source.onended = () => {
+                            this.activeSources = this.activeSources.filter(x => x.source !== source);
+                        };
+                        this.activeSources.push(entry);
                     } catch (error) {
                         console.error('Failed to start audio source:', error);
                     }
@@ -236,7 +246,7 @@ export class AudioService {
      * Stop all active audio sources
      */
     stopAll() {
-        this.activeSources.forEach(source => {
+        this.activeSources.forEach(({ source }) => {
             try {
                 source.stop();
             } catch (error) {
@@ -248,6 +258,26 @@ export class AudioService {
         this.stateManager.update(draft => {
             draft.activeAudioSources = [];
         }, { skipHistory: true, skipNotify: true });
+    }
+
+    /**
+     * Set volume for a specific audio clip (affects currently playing sources).
+     * @param {string} clipId - Clip ID
+     * @param {number} volume - Volume level (0.0 to 1.0)
+     */
+    setClipVolume(clipId, volume) {
+        if (!clipId) return;
+        if (!this.ctx) return;
+        const clampedVolume = Math.max(0, Math.min(1, volume));
+        this.activeSources
+            .filter(x => x.clipId === clipId)
+            .forEach(({ gain }) => {
+                try {
+                    gain.gain.setValueAtTime(clampedVolume, this.ctx.currentTime);
+                } catch (e) {
+                    // Ignore if node is disconnected/stopped
+                }
+            });
     }
 
     /**
