@@ -1,5 +1,3 @@
-import { STATE } from './state.js';
-
 export const CONFIG = {
     defaultDuration: 3000,
     minClipDuration: 100,
@@ -53,8 +51,27 @@ export function hslToRgb(h, s, l) {
 }
 
 export function getSnappedTime(time) {
-    if (!STATE.snapEnabled) return time;
-    return Math.round(time / STATE.gridSize) * STATE.gridSize;
+    // Backward-compatible signature:
+    // - getSnappedTime(time, snapEnabled, gridSize)
+    // - getSnappedTime(time, { snapEnabled, gridSize })
+    // If snapping params omitted, return time unchanged.
+    let snapEnabled;
+    let gridSize;
+
+    if (arguments.length >= 2) {
+        const arg1 = arguments[1];
+        if (typeof arg1 === 'object' && arg1 !== null) {
+            snapEnabled = Boolean(arg1.snapEnabled);
+            gridSize = arg1.gridSize;
+        } else {
+            snapEnabled = Boolean(arg1);
+            gridSize = arguments.length >= 3 ? arguments[2] : undefined;
+        }
+    }
+
+    if (!snapEnabled) return time;
+    const size = (typeof gridSize === 'number' && !Number.isNaN(gridSize) && gridSize > 0) ? gridSize : 1000;
+    return Math.round(time / size) * size;
 }
 
 export function blobToDataURL(blob) {

@@ -147,7 +147,7 @@ function pasteClip() {
             if (end > pasteOffset) pasteOffset = end;
         });
     }
-    if (STATE.snapEnabled) pasteOffset = getSnappedTime(pasteOffset);
+    pasteOffset = getSnappedTime(pasteOffset, { snapEnabled: STATE.snapEnabled, gridSize: STATE.gridSize });
 
     // Calculate the start time of the FIRST clip in clipboard to maintain relative offsets
     const baseTime = STATE.clipboard[0].startTime;
@@ -380,12 +380,12 @@ window.addEventListener('DOMContentLoaded', () => {
                 const init = initialStates[clip.id];
                 let newDur = init.dur + (dx / pxPerMs);
                 if (newDur < CONFIG.minClipDuration) newDur = CONFIG.minClipDuration;
-                if (STATE.snapEnabled) newDur = getSnappedTime(init.start + newDur) - init.start;
+                if (STATE.snapEnabled) newDur = getSnappedTime(init.start + newDur, { snapEnabled: STATE.snapEnabled, gridSize: STATE.gridSize }) - init.start;
                 clip.duration = Math.max(CONFIG.minClipDuration, newDur);
             } else if (isResizeLeft) {
                 const init = initialStates[clip.id];
                 let newStart = init.start + (dx / pxPerMs);
-                if (STATE.snapEnabled) newStart = getSnappedTime(newStart);
+                if (STATE.snapEnabled) newStart = getSnappedTime(newStart, { snapEnabled: STATE.snapEnabled, gridSize: STATE.gridSize });
                 if (newStart < 0) newStart = 0;
                 let newDur = (init.start + init.dur) - newStart;
                 if (newDur < CONFIG.minClipDuration) { 
@@ -405,7 +405,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 let rawNewStart = leadInit.start + dt;
                 
                 if (STATE.snapEnabled) {
-                    const snappedNewStart = getSnappedTime(rawNewStart);
+                    const snappedNewStart = getSnappedTime(rawNewStart, { snapEnabled: STATE.snapEnabled, gridSize: STATE.gridSize });
                     dt = snappedNewStart - leadInit.start; // Recalculate delta to fit snap
                 }
 
@@ -536,7 +536,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     const type = item.dataset.type;
                     saveStateForUndo(`Add ${type} Clip`);
                     const newClip = {
-                        id: 'c_' + Date.now(), type: type, startTime: getSnappedTime(STATE.currentTime), duration: CONFIG.defaultDuration,
+                        id: 'c_' + Date.now(), type: type, startTime: getSnappedTime(STATE.currentTime, { snapEnabled: STATE.snapEnabled, gridSize: STATE.gridSize }), duration: CONFIG.defaultDuration,
                         props: getDefaultProps(type)
                     };
                     ledTrack.clips.push(newClip); 
@@ -552,7 +552,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const type = event.dataTransfer.getData('type'); if (!type) return;
         const x = event.clientX - els.timelineScroll.getBoundingClientRect().left + els.timelineScroll.scrollLeft - 240; 
         let startTime = Math.max(0, (x / STATE.zoom) * 1000);
-        if (STATE.snapEnabled) startTime = getSnappedTime(startTime);
+        if (STATE.snapEnabled) startTime = getSnappedTime(startTime, { snapEnabled: STATE.snapEnabled, gridSize: STATE.gridSize });
         
         saveStateForUndo('Add Clip');
         const track = STATE.project.tracks.find(t => t.id === trackId);
@@ -584,7 +584,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 const track = STATE.project.tracks.find(t => t.id === trackId);
                 const newClip = {
                     id: 'c_' + Date.now(), type: 'audio',
-                    startTime: getSnappedTime(STATE.currentTime),
+                    startTime: getSnappedTime(STATE.currentTime, { snapEnabled: STATE.snapEnabled, gridSize: STATE.gridSize }),
                     duration: buffer.duration * 1000,
                     bufferId: assetId,
                     props: { name: file.name }

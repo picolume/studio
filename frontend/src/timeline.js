@@ -1,29 +1,75 @@
-import { STATE, els } from './stateBridge.js';
 import { CONFIG, getSnappedTime, lerpColor, hslToRgb, hexToRgb, pseudoRandom, parseIdString } from './utils.js';
 
-let saveStateForUndoRef = () => {}; 
-let showToastRef = () => {};
+let stateManager = null;
+let timelineController = null;
+let errorHandler = null;
+let els = {};
 
-export function setCallbacks(saveUndoFn, showToastFn) {
-    saveStateForUndoRef = saveUndoFn;
-    showToastRef = showToastFn;
+let lastPreviewRender = 0;
+
+export function initTimeline(deps) {
+    stateManager = deps?.stateManager ?? null;
+    timelineController = deps?.timelineController ?? null;
+    errorHandler = deps?.errorHandler ?? null;
+    els = deps?.elements ?? deps?.els ?? els;
 }
 
-function triggerToast(msg) {
+export function setCallbacks() {
+    // Legacy no-op (kept to avoid breaking old imports).
+}
+
+function getZoom() {
+    return stateManager?.get('ui.zoom') ?? 50;
+}
+
+function getGridSize() {
+    return stateManager?.get('ui.gridSize') ?? 1000;
+}
+
+function isSnapEnabled() {
+    return stateManager?.get('ui.snapEnabled') ?? true;
+}
+
+function isPlaying() {
+    return stateManager?.get('playback.isPlaying') ?? false;
+}
+
+function getCurrentTime() {
+    return stateManager?.get('playback.currentTime') ?? 0;
+}
+
+function getProject() {
+    return stateManager?.get('project') ?? null;
+}
+
+function getAssets() {
+    return stateManager?.get('assets') ?? {};
+}
+
+function getSelection() {
+    return stateManager?.get('selection') ?? [];
+}
+
+function setSelection(ids) {
+    stateManager?.set('selection', Array.isArray(ids) ? ids : [], { skipHistory: true });
+}
+
+function toast(msg) {
+    if (errorHandler?.showToast) return errorHandler.showToast(msg);
     window.dispatchEvent(new CustomEvent('app:toast', { detail: msg }));
 }
 
 export function updateGridBackground() {
     const content = els.timelineContent || document.getElementById('timeline-content');
     if (!content) return;
-    const pixelsPerGrid = (STATE.gridSize / 1000) * STATE.zoom;
+    const pixelsPerGrid = (getGridSize() / 1000) * getZoom();
     content.style.backgroundSize = `${pixelsPerGrid}px 100%`;
-    content.classList.toggle('grid-hidden', !STATE.snapEnabled);
+    content.classList.toggle('grid-hidden', !isSnapEnabled());
 }
 
 export function updateTimeDisplay() {
     if (!els.timeDisplay) return;
-    const totalSec = Math.max(0, STATE.currentTime / 1000);
+    const totalSec = Math.max(0, getCurrentTime() / 1000);
     const min = Math.floor(totalSec / 60).toString().padStart(2, '0');
     const sec = Math.floor(totalSec % 60).toString().padStart(2, '0');
     const ms = Math.floor((totalSec % 1) * 100).toString().padStart(2, '0');
@@ -31,12 +77,12 @@ export function updateTimeDisplay() {
 }
 
 export function updatePlayheadUI() {
-    const x = (STATE.currentTime / 1000) * STATE.zoom;
+    const x = (getCurrentTime() / 1000) * getZoom();
     if (els.playheadLine) els.playheadLine.style.transform = `translateX(${x}px)`;
     if (els.playheadHandle) els.playheadHandle.style.transform = `translateX(${x}px)`;
     
     const scroll = els.timelineScroll || document.getElementById('timeline-scroll-area');
-    if (STATE.isPlaying && scroll) {
+    if (isPlaying() && scroll) {
         if (x > scroll.scrollLeft + scroll.clientWidth - 50) {
             scroll.scrollLeft = x - 50;
         }
@@ -45,8 +91,8 @@ export function updatePlayheadUI() {
 
 export function renderPreview() {
     const now = performance.now();
-    if (STATE.isPlaying && now - STATE.lastPreviewRender < CONFIG.previewThrottleMs) return;
-    STATE.lastPreviewRender = now;
+    if (isPlaying() && now - lastPreviewRender < CONFIG.previewThrottleMs) return;
+    lastPreviewRender = now;
 
     const canvas = els.previewCanvas || document.getElementById('preview-canvas');
     if (!canvas) return;
@@ -54,8 +100,11 @@ export function renderPreview() {
     const w = canvas.width;
     const h = canvas.height;
     
-    if (!STATE.project || !STATE.project.tracks) return;
-    const ledTracks = STATE.project.tracks.filter(t => t.type === 'led');
+    const project = getProject();
+    if (!project?.tracks) return;
+
+    const currentTime = getCurrentTime();
+    const ledTracks = project.tracks.filter(t => t.type === 'led');
 
     if (ledTracks.length === 0) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h); return; }
 
@@ -66,7 +115,7 @@ export function renderPreview() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
 
     ledTracks.forEach((track, tIndex) => {
-        const activeClips = track.clips.filter(c => STATE.currentTime >= c.startTime && STATE.currentTime < (c.startTime + c.duration))
+        const activeClips = track.clips.filter(c => currentTime >= c.startTime && currentTime < (c.startTime + c.duration))
             .sort((a, b) => a.startTime - b.startTime);
 
         for (let i = 0; i < CONFIG.ledsPerTrack; i++) {
@@ -75,7 +124,7 @@ export function renderPreview() {
 
             if (activeClips.length > 0) {
                 const clip = activeClips[activeClips.length - 1];
-                const localTime = STATE.currentTime - clip.startTime;
+                const localTime = currentTime - clip.startTime;
                 const progress = localTime / clip.duration;
                 const pixelPct = i / CONFIG.ledsPerTrack;
 
@@ -148,9 +197,12 @@ export function buildTimeline() {
     const ruler = els.ruler || document.getElementById('ruler');
 
     if (!content || !headers || !container) return;
+
+    const project = getProject();
+    if (!project) return;
     
-    const dur = STATE.project.duration || 60000;
-    const zoom = STATE.zoom || 50;
+    const dur = project.duration || 60000;
+    const zoom = getZoom();
     const newWidth = (dur/1000) * zoom + 500;
     
     content.style.width = `${newWidth}px`;
@@ -161,9 +213,9 @@ export function buildTimeline() {
     headers.innerHTML = ''; 
     container.innerHTML = '';
 
-    if (!STATE.project.tracks) STATE.project.tracks = [];
+    const tracks = project.tracks || [];
 
-    STATE.project.tracks.forEach((track, index) => {
+    tracks.forEach((track, index) => {
         const h = document.createElement('div');
         h.className = 'track-header group cursor-move relative';
         h.draggable = true;
@@ -186,9 +238,11 @@ export function buildTimeline() {
             h.style.borderTop = '';
             const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
             if (fromIndex !== index && !isNaN(fromIndex)) {
-                saveStateForUndoRef('Reorder Tracks');
-                const moved = STATE.project.tracks.splice(fromIndex, 1)[0];
-                STATE.project.tracks.splice(index, 0, moved);
+                stateManager?.update(draft => {
+                    const moved = draft.project.tracks.splice(fromIndex, 1)[0];
+                    draft.project.tracks.splice(index, 0, moved);
+                    draft.isDirty = true;
+                });
                 buildTimeline(); renderPreview();
             }
         });
@@ -204,7 +258,19 @@ export function buildTimeline() {
             e.stopPropagation();
             const inp = document.createElement('input'); inp.value = track.label;
             inp.className = "bg-neutral-800 text-white px-1 py-0.5 rounded text-xs w-full";
-            const save = () => { if(inp.value.trim()) { saveStateForUndoRef('Rename'); track.label=inp.value.trim(); buildTimeline(); } };
+            const trackId = track.id;
+            const save = () => {
+                const next = inp.value.trim();
+                if (!next) return;
+                stateManager?.update(draft => {
+                    const t = draft.project.tracks.find(x => x.id === trackId);
+                    if (t) {
+                        t.label = next;
+                        draft.isDirty = true;
+                    }
+                });
+                buildTimeline();
+            };
             inp.onblur = save; inp.onkeydown = (ev) => { if(ev.key==='Enter') save(); };
             row1.replaceChild(inp, label); inp.focus();
         };
@@ -230,20 +296,39 @@ export function buildTimeline() {
         const delBtn = document.createElement('button');
         delBtn.innerHTML = '<i class="fas fa-trash"></i>';
         delBtn.className = "text-gray-600 hover:text-red-500 p-1 text-[10px]";
-        delBtn.onclick = (e) => { e.stopPropagation(); if(confirm('Delete?')) { saveStateForUndoRef('Del Track'); STATE.project.tracks=STATE.project.tracks.filter(t=>t.id!==track.id); buildTimeline(); }};
+        delBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (!confirm('Delete?')) return;
+            const trackId = track.id;
+            stateManager?.update(draft => {
+                draft.project.tracks = draft.project.tracks.filter(t => t.id !== trackId);
+                draft.isDirty = true;
+            });
+            buildTimeline();
+        };
         row1.appendChild(delBtn); 
         h.appendChild(row1); 
 
         if (track.type === 'led') {
              const row2 = document.createElement('div'); row2.className = "w-full mt-1";
              const sel = document.createElement('select'); sel.className = "w-full bg-neutral-800 text-[10px] text-gray-300 border border-gray-700 rounded px-1 py-0.5";
-             if (!STATE.project.propGroups) STATE.project.propGroups = [];
-             STATE.project.propGroups.forEach(grp => {
+             const propGroups = project.propGroups || [];
+             propGroups.forEach(grp => {
                  const opt = document.createElement('option'); opt.value = grp.id; opt.innerText = grp.name;
                  if (track.groupId === grp.id) opt.selected = true;
                  sel.appendChild(opt);
              });
-             sel.onchange = (e) => { saveStateForUndoRef('Grp Change'); track.groupId = e.target.value; };
+             const trackId = track.id;
+             sel.onchange = (e) => {
+                 const groupId = e.target.value;
+                 stateManager?.update(draft => {
+                     const t = draft.project.tracks.find(x => x.id === trackId);
+                     if (t) {
+                         t.groupId = groupId;
+                         draft.isDirty = true;
+                     }
+                 });
+             };
              row2.appendChild(sel); h.appendChild(row2);
         }
         els.trackHeaders.appendChild(h);
@@ -263,10 +348,11 @@ export function buildTimeline() {
 function createClipElement(clip) {
     const el = document.createElement('div');
     el.id = `clip-${clip.id}`;
-    el.style.left = `${(clip.startTime/1000)*STATE.zoom}px`;
-    el.style.width = `${(clip.duration/1000)*STATE.zoom}px`;
+    const zoom = getZoom();
+    el.style.left = `${(clip.startTime/1000)*zoom}px`;
+    el.style.width = `${(clip.duration/1000)*zoom}px`;
     el.dataset.clipId = clip.id;
-    const isSelected = STATE.selection.includes(clip.id);
+    const isSelected = getSelection().includes(clip.id);
     el.className = `clip ${clip.type==='audio'?'audio-clip bg-orange-900':'bg-'+clip.type} ${isSelected?'selected':''}`;
     el.innerHTML = `<div class="clip-handle left"></div><div class="clip-handle right"></div>`;
     
@@ -275,18 +361,19 @@ function createClipElement(clip) {
         el.appendChild(lbl);
         const cvs = document.createElement('canvas'); 
         cvs.className="clip-waveform absolute top-0 left-0 w-full h-full opacity-50 pointer-events-none";
-        cvs.width = Math.max(10, (clip.duration / 1000) * STATE.zoom);
+        cvs.width = Math.max(10, (clip.duration / 1000) * zoom);
         cvs.height = 80; 
         el.appendChild(cvs);
-        if (clip.bufferId && STATE.assets[clip.bufferId]) {
-            drawClipWaveform(cvs, STATE.assets[clip.bufferId], '#d97706', clip.duration);
+        const assets = getAssets();
+        if (clip.bufferId && assets[clip.bufferId]) {
+            drawClipWaveform(cvs, assets[clip.bufferId], '#d97706', clip.duration);
         }
     } else {
         el.appendChild(document.createTextNode(clip.type.toUpperCase()));
     }
     el.onmousedown = (e) => { 
         e.stopPropagation(); 
-        window.dispatchEvent(new CustomEvent('app:clip-mousedown', { detail: { event: e, clip: clip } })); 
+        window.dispatchEvent(new CustomEvent('app:clip-mousedown', { detail: { event: e, clipId: clip.id } })); 
     };
     return el;
 }
@@ -324,9 +411,9 @@ function drawRuler() {
     ruler.innerHTML = ''; 
     if(handle) ruler.appendChild(handle);
     
-    const dur = STATE.project.duration || 60000;
+    const dur = getProject()?.duration || 60000;
     const durSecs = Math.ceil(dur/1000);
-    const zoom = STATE.zoom || 50;
+    const zoom = getZoom();
     const rulerWidth = (dur / 1000) * zoom + 500;
     ruler.style.width = `${rulerWidth}px`;
     ruler.style.minWidth = `${rulerWidth}px`;
@@ -341,35 +428,41 @@ function drawRuler() {
 
 export function selectClip(id) {
     if (id === null) {
-        STATE.selection = [];
+        setSelection([]);
     } else {
-        STATE.selection = [id];
+        setSelection([id]);
     }
     updateSelectionUI();
 }
 
 export function updateSelectionUI() {
+    const selection = getSelection();
     document.querySelectorAll('.clip').forEach(el => {
-        const isSel = STATE.selection.includes(el.dataset.clipId);
+        const isSel = selection.includes(el.dataset.clipId);
         el.classList.toggle('selected', isSel);
     });
-    if (STATE.selection.length === 1) populateInspector(STATE.selection[0]);
+    if (selection.length === 1) populateInspector(selection[0]);
     else populateInspector(null);
 }
 
-// --- NEW: Sync Patch Map Logic ---
-const rebuildPatch = () => {
-    STATE.project.settings.patch = {};
-    if (!STATE.project.settings.profiles) return;
-    
-    STATE.project.settings.profiles.forEach(p => {
-        if(!p.assignedIds) return;
+// --- Sync Patch Map Logic ---
+function computePatchFromProfiles(profiles) {
+    const patch = {};
+    if (!profiles) return patch;
+    profiles.forEach(p => {
+        if (!p?.assignedIds) return;
         const ids = parseIdString(p.assignedIds);
-        ids.forEach(id => {
-            // "Patch" the ID to this profile
-            STATE.project.settings.patch[String(id)] = p.id;
-        });
+        ids.forEach(id => { patch[String(id)] = p.id; });
     });
+    return patch;
+}
+
+const rebuildPatch = () => {
+    stateManager?.update(draft => {
+        const profiles = draft.project?.settings?.profiles || [];
+        draft.project.settings.patch = computePatchFromProfiles(profiles);
+        draft.isDirty = true;
+    }, { skipHistory: true });
 };
 
 export function populateInspector(clipId) {
@@ -377,16 +470,27 @@ export function populateInspector(clipId) {
     if (!container) return;
     container.innerHTML = '';
 
+    const project = getProject();
+    if (!project) return;
+
     // --- CASE 1: MULTIPLE SELECTION ---
-    if (STATE.selection.length > 1) {
+    const selection = getSelection();
+    if (selection.length > 1) {
         container.innerHTML = `<div class="font-bold text-white mb-2 border-b border-gray-700 pb-2">MULTIPLE CLIPS</div>`;
-        container.insertAdjacentHTML('beforeend', `<div class="text-xs text-gray-500 italic mb-4">${STATE.selection.length} clips selected</div>`);
+        container.insertAdjacentHTML('beforeend', `<div class="text-xs text-gray-500 italic mb-4">${selection.length} clips selected</div>`);
         const del = document.createElement('button'); del.innerText="Delete Selected"; del.className="w-full bg-red-900 hover:bg-red-800 text-red-100 py-1 rounded text-xs";
         del.onclick = () => { 
-            saveStateForUndoRef('Del Clips'); 
-            STATE.project.tracks.forEach(t => t.clips = t.clips.filter(c => !STATE.selection.includes(c.id)));
-            STATE.selection = [];
-            buildTimeline(); updateSelectionUI();
+            if (timelineController?.deleteSelected) {
+                timelineController.deleteSelected();
+            } else {
+                stateManager?.update(draft => {
+                    draft.project.tracks.forEach(t => t.clips = t.clips.filter(c => !selection.includes(c.id)));
+                    draft.selection = [];
+                    draft.isDirty = true;
+                });
+            }
+            buildTimeline();
+            updateSelectionUI();
         };
         container.appendChild(del);
         return;
@@ -395,10 +499,16 @@ export function populateInspector(clipId) {
     // --- CASE 2: NO SELECTION (GLOBAL SETTINGS) ---
     if (!clipId) {
         // --- SAFEGUARD ---
-        if (!STATE.project.settings.profiles) {
-            STATE.project.settings.profiles = [{ id: 'p_def', name: 'Standard Prop', ledCount: 164, assignedIds: '1-164' }];
+        if (!project.settings?.profiles || !project.settings?.patch) {
+            stateManager?.update(draft => {
+                if (!draft.project.settings.profiles) {
+                    draft.project.settings.profiles = [{ id: 'p_def', name: 'Standard Prop', ledCount: 164, assignedIds: '1-164' }];
+                }
+                if (!draft.project.settings.patch) {
+                    draft.project.settings.patch = computePatchFromProfiles(draft.project.settings.profiles);
+                }
+            }, { skipHistory: true });
         }
-        if (!STATE.project.settings.patch) STATE.project.settings.patch = {};
 
         container.innerHTML = `<div class="font-bold text-white mb-2 border-b border-gray-700 pb-2">PROJECT SETTINGS</div>`;
         
@@ -409,15 +519,21 @@ export function populateInspector(clipId) {
         
         const nameLbl = document.createElement('label'); nameLbl.className="block text-xs text-gray-500 mb-1"; nameLbl.innerText="Project Name"; infoDiv.appendChild(nameLbl);
         const nameInp = document.createElement('input'); nameInp.className = "w-full bg-neutral-900 text-sm text-gray-300 border border-gray-700 rounded px-1 py-1 outline-none mb-3";
-        const pName = STATE.project.name || "My Show"; nameInp.setAttribute('value', pName); nameInp.value = pName;
-        nameInp.oninput = (e) => { STATE.project.name = e.target.value; };
+        const pName = project.name || "My Show"; nameInp.setAttribute('value', pName); nameInp.value = pName;
+        nameInp.oninput = (e) => {
+            const next = e.target.value;
+            stateManager?.update(draft => {
+                draft.project.name = next;
+                draft.isDirty = true;
+            }, { skipHistory: true });
+        };
         infoDiv.appendChild(nameInp); 
 
         const durLbl = document.createElement('label'); durLbl.className="block text-xs text-gray-500 mb-1"; durLbl.innerText="Duration (Seconds)"; infoDiv.appendChild(durLbl);
         const durRow = document.createElement('div'); durRow.className = "flex gap-2";
         const durInp = document.createElement('input'); durInp.type = "number"; durInp.min = "1";
         durInp.className = "flex-1 bg-neutral-900 text-sm text-gray-300 border border-gray-700 rounded px-1 py-1 outline-none";
-        const secs = Math.ceil((STATE.project.duration || 60000) / 1000);
+        const secs = Math.ceil((project.duration || 60000) / 1000);
         durInp.setAttribute('value', secs); durInp.value = secs;
         const updateBtn = document.createElement('button');
         updateBtn.className = "px-3 py-1 bg-neutral-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-neutral-700 cursor-pointer";
@@ -426,9 +542,12 @@ export function populateInspector(clipId) {
             e.stopPropagation(); e.preventDefault();
             let val = parseInt(durInp.value);
             if (isNaN(val) || val < 1) val = 60;
-            saveStateForUndoRef('Edit Duration');
-            STATE.project.duration = val * 1000;
-            buildTimeline(); triggerToast(`Duration set to ${val}s`);
+            stateManager?.update(draft => {
+                draft.project.duration = val * 1000;
+                draft.isDirty = true;
+            });
+            buildTimeline();
+            toast(`Duration set to ${val}s`);
         });
         durRow.appendChild(durInp); durRow.appendChild(updateBtn); infoDiv.appendChild(durRow);
 
@@ -437,10 +556,14 @@ export function populateInspector(clipId) {
         const asCheck = document.createElement('input'); 
         asCheck.type = "checkbox"; 
         asCheck.className = "accent-cyan-500 cursor-pointer";
-        asCheck.checked = (STATE.autoSaveEnabled !== undefined) ? STATE.autoSaveEnabled : true;
+        const autoSaveEnabled = stateManager?.get('autoSaveEnabled');
+        asCheck.checked = (autoSaveEnabled !== undefined) ? autoSaveEnabled : true;
         asCheck.onchange = (e) => { 
-            STATE.autoSaveEnabled = e.target.checked; 
-            triggerToast(`Auto Save: ${STATE.autoSaveEnabled ? 'ON' : 'OFF'}`);
+            const enabled = e.target.checked;
+            stateManager?.update(draft => {
+                draft.autoSaveEnabled = enabled;
+            }, { skipHistory: true });
+            toast(`Auto Save: ${enabled ? 'ON' : 'OFF'}`);
         };
         const asLabel = document.createElement('label');
         asLabel.innerText = "Enable Auto-Save";
@@ -453,7 +576,8 @@ export function populateInspector(clipId) {
         // --- Hardware Profiles (Styled like Groups) ---
         container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Hardware Profiles</div>`);
         
-        STATE.project.settings.profiles.forEach((profile, idx) => {
+        const profiles = (stateManager?.get('project.settings.profiles') || []);
+        profiles.forEach((profile, idx) => {
             const card = document.createElement('div'); 
             card.className = "bg-neutral-800 p-2 rounded mb-2 border border-gray-700 relative group";
 
@@ -465,18 +589,30 @@ export function populateInspector(clipId) {
             pName.className = "bg-transparent text-sm font-bold text-white outline-none w-2/3 border-b border-transparent focus:border-cyan-500";
             pName.setAttribute('value', profile.name || "Profile"); 
             pName.value = profile.name || "Profile";
-            pName.oninput = (e) => { profile.name = e.target.value; };
+            const profileId = profile.id;
+            pName.oninput = (e) => {
+                const next = e.target.value;
+                stateManager?.update(draft => {
+                    const p = (draft.project.settings.profiles || []).find(x => x.id === profileId);
+                    if (p) {
+                        p.name = next;
+                        draft.isDirty = true;
+                    }
+                }, { skipHistory: true });
+            };
             
             row1.appendChild(pName);
 
-            if (STATE.project.settings.profiles.length > 1) {
+            if (profiles.length > 1) {
                 const del = document.createElement('button'); 
                 del.innerHTML = "<i class='fas fa-times'></i>"; 
                 del.className = "text-gray-500 hover:text-red-500";
                 del.onclick = () => {
-                    saveStateForUndoRef('Del Profile');
-                    STATE.project.settings.profiles.splice(idx, 1);
-                    rebuildPatch();
+                    stateManager?.update(draft => {
+                        draft.project.settings.profiles = (draft.project.settings.profiles || []).filter(p => p.id !== profileId);
+                        draft.project.settings.patch = computePatchFromProfiles(draft.project.settings.profiles);
+                        draft.isDirty = true;
+                    });
                     populateInspector(null);
                 };
                 row1.appendChild(del);
@@ -492,7 +628,16 @@ export function populateInspector(clipId) {
             cInp.type = "number"; 
             cInp.className = "bg-neutral-900 text-xs text-cyan-300 rounded px-1 py-0.5 flex-1 outline-none border border-gray-700";
             cInp.value = profile.ledCount;
-            cInp.onchange = (e) => { profile.ledCount = parseInt(e.target.value) || 10; };
+            cInp.onchange = (e) => {
+                const next = parseInt(e.target.value) || 10;
+                stateManager?.update(draft => {
+                    const p = (draft.project.settings.profiles || []).find(x => x.id === profileId);
+                    if (p) {
+                        p.ledCount = next;
+                        draft.isDirty = true;
+                    }
+                }, { skipHistory: true });
+            };
             
             row2.appendChild(cInp);
             card.appendChild(row2);
@@ -507,8 +652,14 @@ export function populateInspector(clipId) {
             idInp.value = profile.assignedIds || "";
             idInp.placeholder = "1-10, 15";
             idInp.oninput = (e) => { 
-                profile.assignedIds = e.target.value;
-                rebuildPatch(); 
+                const next = e.target.value;
+                stateManager?.update(draft => {
+                    const p = (draft.project.settings.profiles || []).find(x => x.id === profileId);
+                    if (!p) return;
+                    p.assignedIds = next;
+                    draft.project.settings.patch = computePatchFromProfiles(draft.project.settings.profiles);
+                    draft.isDirty = true;
+                }, { skipHistory: true });
             };
             
             row3.appendChild(idInp);
@@ -522,12 +673,16 @@ export function populateInspector(clipId) {
         addBtn.className = "w-full py-1.5 bg-neutral-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-neutral-700 mb-4";
         addBtn.innerHTML = "<i class='fas fa-plus mr-1'></i> Add Profile";
         addBtn.onclick = () => {
-            saveStateForUndoRef('Add Profile');
-            STATE.project.settings.profiles.push({
-                id: 'p_' + Date.now(),
-                name: 'New Hardware',
-                ledCount: 164,
-                assignedIds: ''
+            stateManager?.update(draft => {
+                if (!draft.project.settings.profiles) draft.project.settings.profiles = [];
+                draft.project.settings.profiles.push({
+                    id: 'p_' + Date.now(),
+                    name: 'New Hardware',
+                    ledCount: 164,
+                    assignedIds: ''
+                });
+                draft.project.settings.patch = computePatchFromProfiles(draft.project.settings.profiles);
+                draft.isDirty = true;
             });
             populateInspector(null);
         };
@@ -538,39 +693,79 @@ export function populateInspector(clipId) {
         const bDiv = document.createElement('div'); bDiv.className = "bg-neutral-800 p-2 rounded mb-4 border border-gray-700";
         bDiv.innerHTML = `<label class="block text-xs text-gray-500 mb-1">Master Brightness (0-255)</label>`;
         const bInp = document.createElement('input'); bInp.type="number"; bInp.className="w-full bg-neutral-900 text-sm text-gray-300 border border-gray-700 rounded px-1 py-1";
-        bInp.value = STATE.project.settings.brightness;
-        bInp.oninput = (e) => { STATE.project.settings.brightness = parseInt(e.target.value) || 0; };
+        bInp.value = project.settings?.brightness ?? 255;
+        bInp.oninput = (e) => {
+            const next = parseInt(e.target.value) || 0;
+            stateManager?.update(draft => {
+                draft.project.settings.brightness = next;
+                draft.isDirty = true;
+            }, { skipHistory: true });
+        };
         bDiv.appendChild(bInp);
         container.appendChild(bDiv);
 
         // Groups
         container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Prop Groups</div>`);
-        if(!STATE.project.propGroups) STATE.project.propGroups = [];
-        STATE.project.propGroups.forEach((grp, idx) => {
+        const propGroups = (project.propGroups || []);
+        propGroups.forEach((grp, idx) => {
             const card = document.createElement('div'); card.className = "bg-neutral-800 p-2 rounded mb-2 border border-gray-700";
             const row1 = document.createElement('div'); row1.className="flex justify-between mb-1";
             const gName = document.createElement('input'); gName.className="bg-transparent text-sm font-bold text-white outline-none w-2/3 border-b border-transparent focus:border-cyan-500";
             gName.setAttribute('value', grp.name || ""); gName.value = grp.name || "";
-            gName.oninput = e => { grp.name=e.target.value; buildTimeline(); };
+            const groupId = grp.id;
+            gName.oninput = e => {
+                const next = e.target.value;
+                stateManager?.update(draft => {
+                    const g = (draft.project.propGroups || []).find(x => x.id === groupId);
+                    if (g) {
+                        g.name = next;
+                        draft.isDirty = true;
+                    }
+                }, { skipHistory: true });
+                buildTimeline();
+            };
             const del = document.createElement('button'); del.innerHTML="<i class='fas fa-times'></i>"; del.className="text-gray-500 hover:text-red-500";
-            del.onclick = () => { saveStateForUndoRef('Del Grp'); STATE.project.propGroups.splice(idx,1); populateInspector(null); buildTimeline(); };
+            del.onclick = () => {
+                stateManager?.update(draft => {
+                    draft.project.propGroups = (draft.project.propGroups || []).filter(g => g.id !== groupId);
+                    draft.isDirty = true;
+                });
+                populateInspector(null);
+                buildTimeline();
+            };
             row1.appendChild(gName); row1.appendChild(del); card.appendChild(row1);
             const row2 = document.createElement('div'); row2.innerHTML=`<span class="text-xs text-gray-500 mr-2">IDs:</span>`;
             const ids = document.createElement('input'); ids.className="bg-neutral-900 text-xs text-gray-300 rounded px-1 py-0.5 flex-1 outline-none border border-gray-700";
             ids.setAttribute('value', grp.ids || ""); ids.value = grp.ids || "";
-            ids.oninput = e => { grp.ids=e.target.value; };
+            ids.oninput = e => {
+                const next = e.target.value;
+                stateManager?.update(draft => {
+                    const g = (draft.project.propGroups || []).find(x => x.id === groupId);
+                    if (g) {
+                        g.ids = next;
+                        draft.isDirty = true;
+                    }
+                }, { skipHistory: true });
+            };
             row2.appendChild(ids); card.appendChild(row2);
             container.appendChild(card);
         });
         const addGrpBtn = document.createElement('button'); addGrpBtn.innerText="+ Add Group"; addGrpBtn.className="w-full py-1.5 mt-2 bg-neutral-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-neutral-700";
-        addGrpBtn.onclick = () => { saveStateForUndoRef('Add Grp'); STATE.project.propGroups.push({id:'g_'+Date.now(), name:'New Group', ids:''}); populateInspector(null); };
+        addGrpBtn.onclick = () => {
+            stateManager?.update(draft => {
+                if (!draft.project.propGroups) draft.project.propGroups = [];
+                draft.project.propGroups.push({id:'g_'+Date.now(), name:'New Group', ids:''});
+                draft.isDirty = true;
+            });
+            populateInspector(null);
+        };
         container.appendChild(addGrpBtn);
         return;
     }
 
     // --- CASE 3: SINGLE CLIP (EDIT PROPS) ---
     let clip = null;
-    STATE.project.tracks.forEach(t => { const c = t.clips.find(x => x.id === clipId); if(c) clip = c; });
+    project.tracks.forEach(t => { const c = t.clips.find(x => x.id === clipId); if(c) clip = c; });
     if (!clip) return;
 
     container.innerHTML = `<div class="font-bold text-white mb-4 border-b border-gray-700 pb-2">${clip.type.toUpperCase()} CLIP</div>`;
@@ -595,29 +790,71 @@ export function populateInspector(clipId) {
         inp.setAttribute('value', safeVal); inp.value = safeVal;
         inp.oninput = cb; d.appendChild(inp); container.appendChild(d);
     }
-    addInp("Start Time", clip.startTime, e => { saveStateForUndoRef('Time'); clip.startTime=parseFloat(e.target.value); buildTimeline(); });
-    addInp("Duration", clip.duration, e => { saveStateForUndoRef('Dur'); clip.duration=parseFloat(e.target.value); buildTimeline(); });
+    addInp("Start Time", clip.startTime, e => {
+        const next = parseFloat(e.target.value);
+        stateManager?.update(draft => {
+            draft.project.tracks.forEach(t => {
+                const c = t.clips.find(x => x.id === clipId);
+                if (c) c.startTime = next;
+            });
+            draft.isDirty = true;
+        });
+        buildTimeline();
+    });
+    addInp("Duration", clip.duration, e => {
+        const next = parseFloat(e.target.value);
+        stateManager?.update(draft => {
+            draft.project.tracks.forEach(t => {
+                const c = t.clips.find(x => x.id === clipId);
+                if (c) c.duration = next;
+            });
+            draft.isDirty = true;
+        });
+        buildTimeline();
+    });
 
     if (clip.type === 'rainbowHold') {
-        addInp("Frequency", clip.props.frequency || 1, e => { saveStateForUndoRef('Prop'); clip.props.frequency=parseFloat(e.target.value); renderPreview(); });
+        addInp("Frequency", clip.props.frequency || 1, e => {
+            const next = parseFloat(e.target.value);
+            stateManager?.update(draft => {
+                draft.project.tracks.forEach(t => {
+                    const c = t.clips.find(x => x.id === clipId);
+                    if (c) c.props.frequency = next;
+                });
+                draft.isDirty = true;
+            });
+            renderPreview();
+        });
     }
 
     Object.keys(clip.props).forEach(key => { 
         if(key!=='audioSrcPath' && key!=='name' && key!=='frequency') { 
             addInp(key, clip.props[key], e => { 
-                saveStateForUndoRef('Prop'); 
-                clip.props[key] = (e.target.type === 'number') ? parseFloat(e.target.value) : e.target.value; 
+                const next = (e.target.type === 'number') ? parseFloat(e.target.value) : e.target.value;
+                stateManager?.update(draft => {
+                    draft.project.tracks.forEach(t => {
+                        const c = t.clips.find(x => x.id === clipId);
+                        if (c) c.props[key] = next;
+                    });
+                    draft.isDirty = true;
+                });
                 renderPreview(); 
             }); 
         }
     });
     const del = document.createElement('button'); del.innerText="Delete Clip"; del.className="w-full bg-red-900 hover:bg-red-800 text-red-100 py-1 rounded text-xs mt-4";
     del.onclick = () => { 
-        saveStateForUndoRef('Del Clip'); 
-        STATE.project.tracks.forEach(t => t.clips=t.clips.filter(c=>c.id!==clip.id)); 
-        STATE.selection = []; 
+        if (timelineController?.deleteClip) {
+            timelineController.deleteClip(clipId);
+        } else {
+            stateManager?.update(draft => {
+                draft.project.tracks.forEach(t => t.clips = t.clips.filter(c => c.id !== clipId));
+                draft.selection = [];
+                draft.isDirty = true;
+            });
+        }
         updateSelectionUI();
-        buildTimeline(); 
+        buildTimeline();
     };
     container.appendChild(del);
 }

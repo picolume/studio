@@ -5,16 +5,15 @@
  */
 
 import { app } from './core/Application.js';
-import { CONFIG } from './utils.js';
-import { setStateManager, els as bridgeEls } from './stateBridge.js';
+import { CONFIG, getSnappedTime } from './utils.js';
 
 // Import legacy timeline functions (to be refactored later)
 import {
+    initTimeline,
     buildTimeline,
     renderPreview,
     updatePlayheadUI,
     updateTimeDisplay,
-    setCallbacks,
     selectClip,
     updateGridBackground,
     updateSelectionUI
@@ -40,15 +39,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const els = app.elements;
 
-    // Connect state bridge for legacy code compatibility
-    setStateManager(stateManager);
-    Object.assign(bridgeEls, els);
-
-    // Set up legacy timeline callbacks
-    setCallbacks(
-        (actionName) => stateManager.update(() => {}, {}), // Save for undo (now handled by StateManager)
-        (msg) => errorHandler.showToast(msg)
-    );
+    // Wire timeline module to the application state/services (no bridge/proxy).
+    initTimeline({
+        stateManager,
+        timelineController,
+        errorHandler,
+        elements: els
+    });
 
     // ==========================================
     // PROJECT OPERATIONS
@@ -273,21 +270,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Handler: Drop clip from palette to timeline
     window.addEventListener('app:drop-clip', (e) => {
         const { event, trackId } = e.detail;
-        const type = event.dataTransfer.getData('text/plain');
+        const type = event.dataTransfer.getData('type') || event.dataTransfer.getData('text/plain');
 
         if (!type) return;
 
-        const rect = event.target.getBoundingClientRect();
+        const scrollRect = els.timelineScroll?.getBoundingClientRect();
         const scrollLeft = els.timelineScroll?.scrollLeft || 0;
-        const x = event.clientX - rect.left + scrollLeft;
+        const x = event.clientX - (scrollRect?.left || 0) + scrollLeft - CONFIG.headerWidth;
         const zoom = stateManager.get('ui.zoom');
         let startTime = (x / zoom) * 1000;
 
         const snapEnabled = stateManager.get('ui.snapEnabled');
-        if (snapEnabled) {
-            const gridSize = stateManager.get('ui.gridSize');
-            startTime = Math.round(startTime / gridSize) * gridSize;
-        }
+        const gridSize = stateManager.get('ui.gridSize');
+        startTime = getSnappedTime(startTime, { snapEnabled, gridSize });
 
         const clip = createDefaultClip(type, startTime);
         timelineController.addClip(trackId, clip);
@@ -295,26 +290,210 @@ window.addEventListener('DOMContentLoaded', async () => {
         selectClip(clip.id);
     });
 
-    // Handler: Clip mousedown for selection and dragging
+    // --- SCRUBBER & DESELECT (timeline click to set playhead) ---
+    const handleScrub = (e) => {
+        if (e.target.closest('.clip') || e.target.closest('.clip-handle')) return;
+
+        const clickedTimelineArea =
+            e.target.closest('.track-header') ||
+            e.target.classList.contains('track-lane') ||
+            e.target === els.timelineContent ||
+            e.target === els.timelineScroll ||
+            e.target === els.tracksContainer;
+
+        if (clickedTimelineArea) {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                document.activeElement.blur();
+            }
+
+            // Clear selection when clicking empty space
+            stateManager.set('selection', [], { skipHistory: true });
+            updateSelectionUI();
+            updateClipboardUI();
+        }
+
+        const scrollRect = els.timelineScroll.getBoundingClientRect();
+        const startX = e.clientX - scrollRect.left + els.timelineScroll.scrollLeft - CONFIG.headerWidth;
+        const zoom = stateManager.get('ui.zoom');
+        const duration = stateManager.get('project.duration');
+
+        const updateTime = (xPos) => {
+            const t = (xPos / zoom) * 1000;
+            timelineController.setCurrentTime(Math.max(0, Math.min(duration, t)));
+            updatePlayheadUI();
+            renderPreview();
+            updateTimeDisplay();
+        };
+
+        updateTime(startX);
+
+        const move = (ev) => {
+            updateTime(ev.clientX - scrollRect.left + els.timelineScroll.scrollLeft - CONFIG.headerWidth);
+        };
+        const up = () => {
+            window.removeEventListener('mousemove', move);
+            window.removeEventListener('mouseup', up);
+        };
+
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+    };
+
+    if (els.timelineScroll) {
+        els.timelineScroll.addEventListener('mousedown', handleScrub);
+    }
+
+    // Handler: Clip mousedown for selection and drag/resize
     window.addEventListener('app:clip-mousedown', (e) => {
-        const { event, clip } = e.detail;
+        const { event, clipId } = e.detail;
+        const startX = event.clientX;
+
+        const zoom = stateManager.get('ui.zoom');
+        const pxPerMs = zoom / 1000;
+
+        // --- 1) SELECTION LOGIC ---
+        const selection = stateManager.get('selection') || [];
+        let nextSelection = selection;
 
         if (event.ctrlKey || event.metaKey) {
-            // Toggle selection
-            const selection = stateManager.get('selection');
-            const isSelected = selection.includes(clip.id);
-            timelineController.selectClips(clip.id, true); // toggle
+            // Toggle
+            nextSelection = selection.includes(clipId)
+                ? selection.filter(id => id !== clipId)
+                : [...selection, clipId];
         } else {
-            // Replace selection (unless clicking already selected item)
-            const selection = stateManager.get('selection');
-            if (!selection.includes(clip.id)) {
-                timelineController.selectClips([clip.id]);
+            // Select only if clicking an unselected item (keep multi until we know it's a click vs drag)
+            if (!selection.includes(clipId)) {
+                nextSelection = [clipId];
             }
         }
 
-        selectClip(clip.id);
+        stateManager.set('selection', nextSelection, { skipHistory: true });
         updateSelectionUI();
         updateClipboardUI();
+
+        // --- 2) DRAG/RESIZE PREP ---
+        const isResizeRight = event.target.classList.contains('right');
+        const isResizeLeft = event.target.classList.contains('left');
+        const isMove = !isResizeRight && !isResizeLeft;
+
+        // Capture initial state (no object references; state is immutable)
+        const initialStates = {};
+        const state = stateManager.state;
+
+        const captureClip = (id) => {
+            for (const track of (state.project?.tracks || [])) {
+                const clip = (track.clips || []).find(c => c.id === id);
+                if (clip) {
+                    initialStates[id] = { start: clip.startTime, dur: clip.duration };
+                    return;
+                }
+            }
+        };
+
+        if (!isMove) {
+            captureClip(clipId);
+        } else {
+            nextSelection.forEach(captureClip);
+        }
+
+        let hasMoved = false;
+        let historyStarted = false;
+
+        const startHistory = () => {
+            if (historyStarted) return;
+            historyStarted = true;
+            // Push a single undo boundary for the entire drag.
+            stateManager.update(() => {}, { skipNotify: true });
+        };
+
+        const moveHandler = (ev) => {
+            const dx = ev.clientX - startX;
+            if (Math.abs(dx) > 3 && !hasMoved) {
+                hasMoved = true;
+                startHistory();
+            }
+            if (!hasMoved) return;
+
+            stateManager.update(draft => {
+                const snapEnabled = draft.ui.snapEnabled;
+                const gridSize = draft.ui.gridSize;
+
+                const findDraftClip = (id) => {
+                    for (const t of draft.project.tracks) {
+                        const c = t.clips.find(x => x.id === id);
+                        if (c) return c;
+                    }
+                    return null;
+                };
+
+                if (isResizeRight) {
+                    const init = initialStates[clipId];
+                    if (!init) return;
+                    let newDur = init.dur + (dx / pxPerMs);
+                    if (newDur < CONFIG.minClipDuration) newDur = CONFIG.minClipDuration;
+                    if (snapEnabled) newDur = getSnappedTime(init.start + newDur, { snapEnabled, gridSize }) - init.start;
+                    const c = findDraftClip(clipId);
+                    if (c) c.duration = Math.max(CONFIG.minClipDuration, newDur);
+                } else if (isResizeLeft) {
+                    const init = initialStates[clipId];
+                    if (!init) return;
+                    let newStart = init.start + (dx / pxPerMs);
+                    if (snapEnabled) newStart = getSnappedTime(newStart, { snapEnabled, gridSize });
+                    if (newStart < 0) newStart = 0;
+                    let newDur = (init.start + init.dur) - newStart;
+                    if (newDur < CONFIG.minClipDuration) {
+                        newStart = (init.start + init.dur) - CONFIG.minClipDuration;
+                        newDur = CONFIG.minClipDuration;
+                    }
+                    const c = findDraftClip(clipId);
+                    if (c) { c.startTime = newStart; c.duration = newDur; }
+                } else {
+                    // MOVE (multi)
+                    let dt = dx / pxPerMs;
+                    const leadInit = initialStates[clipId];
+                    if (!leadInit) return;
+
+                    const rawNewStart = leadInit.start + dt;
+                    if (snapEnabled) {
+                        const snappedNewStart = getSnappedTime(rawNewStart, { snapEnabled, gridSize });
+                        dt = snappedNewStart - leadInit.start;
+                    }
+
+                    Object.keys(initialStates).forEach(id => {
+                        const init = initialStates[id];
+                        let newStart = init.start + dt;
+                        if (newStart < 0) newStart = 0;
+                        const c = findDraftClip(id);
+                        if (c) c.startTime = newStart;
+                    });
+                }
+
+                draft.isDirty = true;
+            }, { skipHistory: true, skipNotify: true });
+
+            buildTimeline();
+            updateSelectionUI();
+            renderPreview();
+        };
+
+        const upHandler = () => {
+            window.removeEventListener('mousemove', moveHandler);
+            window.removeEventListener('mouseup', upHandler);
+
+            // If it was a click (no drag) on an already-selected clip without Ctrl,
+            // collapse multi-selection to just that clip.
+            const finalSelection = stateManager.get('selection') || [];
+            if (!hasMoved && !event.ctrlKey && !event.metaKey && finalSelection.length > 1) {
+                if (finalSelection.includes(clipId)) {
+                    stateManager.set('selection', [clipId], { skipHistory: true });
+                    updateSelectionUI();
+                    updateClipboardUI();
+                }
+            }
+        };
+
+        window.addEventListener('mousemove', moveHandler);
+        window.addEventListener('mouseup', upHandler);
     });
 
     // Helper: Create default clip based on type
