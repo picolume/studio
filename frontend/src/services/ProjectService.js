@@ -1,0 +1,256 @@
+/**
+ * ProjectService - Handles project save/load/new operations
+ *
+ * Responsibilities:
+ * - Save projects to disk
+ * - Load projects from disk
+ * - Create new projects
+ * - Export binary files
+ * - Upload to devices
+ */
+
+import { createInitialState } from '../core/StateManager.js';
+
+export class ProjectService {
+    constructor(stateManager, audioService) {
+        this.stateManager = stateManager;
+        this.audioService = audioService;
+    }
+
+    /**
+     * Save project to specified path
+     * @param {string} path - File path (optional, will prompt if not provided)
+     * @param {boolean} forceSaveAs - Force "Save As" dialog
+     * @param {boolean} silent - Suppress success notification
+     * @returns {Promise<{success: boolean, message: string, path?: string}>}
+     */
+    async save(path = null, forceSaveAs = false, silent = false) {
+        try {
+            let targetPath = path || this.stateManager.get('filePath');
+
+            // Request path if needed
+            if (forceSaveAs || !targetPath) {
+                targetPath = await window.go.main.App.RequestSavePath();
+                if (!targetPath) {
+                    return { success: false, message: 'Save cancelled' };
+                }
+            }
+
+            // Prepare project data
+            const projectData = this._prepareProjectForSave();
+
+            // Call backend to save
+            const result = await window.go.main.App.SaveProjectToPath(
+                targetPath,
+                JSON.stringify(projectData.project),
+                projectData.audio
+            );
+
+            if (result === "Saved") {
+                // Update state
+                this.stateManager.update(draft => {
+                    draft.filePath = targetPath;
+                    draft.isDirty = false;
+                }, { skipHistory: true });
+
+                return {
+                    success: true,
+                    message: silent ? '' : 'Project Saved',
+                    path: targetPath
+                };
+            } else {
+                return { success: false, message: result };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: `Save Error: ${error.message || error}`
+            };
+        }
+    }
+
+    /**
+     * Load project from disk
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async load() {
+        try {
+            const result = await window.go.main.App.LoadProject();
+            if (!result || result === "Cancelled") {
+                return { success: false, message: 'Load cancelled' };
+            }
+
+            const data = JSON.parse(result);
+
+            // Validate project data
+            if (!data.project || !data.path) {
+                return { success: false, message: 'Invalid project file' };
+            }
+
+            // Ensure project has version field (migration)
+            if (!data.project.version) {
+                data.project.version = '1.0.0';
+            }
+
+            // Load audio assets
+            if (data.audioLibrary) {
+                Object.keys(data.audioLibrary).forEach(bufferId => {
+                    this.audioService.loadAudioFromDataURL(
+                        bufferId,
+                        data.audioLibrary[bufferId]
+                    );
+                });
+            }
+
+            // Replace state with loaded project
+            const newState = createInitialState();
+            newState.project = data.project;
+            newState.filePath = data.path;
+            newState.isDirty = false;
+
+            this.stateManager.replaceState(newState, true);
+
+            return { success: true, message: 'Project Loaded' };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Load Error: ${error.message || error}`
+            };
+        }
+    }
+
+    /**
+     * Create new project
+     * @param {boolean} confirm - Whether to confirm if there are unsaved changes
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async createNew(confirm = true) {
+        // Check for unsaved changes
+        if (confirm && this.stateManager.get('isDirty')) {
+            const shouldContinue = window.confirm(
+                'You have unsaved changes. Create new project anyway?'
+            );
+            if (!shouldContinue) {
+                return { success: false, message: 'New project cancelled' };
+            }
+        }
+
+        // Stop playback if playing
+        const isPlaying = this.stateManager.get('playback.isPlaying');
+        if (isPlaying) {
+            window.dispatchEvent(new CustomEvent('app:stop-playback'));
+        }
+
+        // Clear audio assets
+        this.audioService.clearAll();
+
+        // Reset to initial state
+        const newState = createInitialState();
+        this.stateManager.replaceState(newState, true);
+
+        return { success: true, message: 'New Project Created' };
+    }
+
+    /**
+     * Export project as binary
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async exportBinary() {
+        try {
+            const project = this.stateManager.get('project');
+            const result = await window.go.main.App.SaveBinary(
+                JSON.stringify(project)
+            );
+
+            if (result === "OK") {
+                return { success: true, message: 'Binary Exported' };
+            } else {
+                return { success: false, message: result };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: `Export Error: ${error.message || error}`
+            };
+        }
+    }
+
+    /**
+     * Upload project to PicoLume device
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async uploadToDevice() {
+        try {
+            const project = this.stateManager.get('project');
+            const result = await window.go.main.App.UploadToPico(
+                JSON.stringify(project)
+            );
+
+            if (result.startsWith("Success")) {
+                return { success: true, message: result };
+            } else {
+                return { success: false, message: result };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: `Upload Error: ${error.message || error}`
+            };
+        }
+    }
+
+    /**
+     * Check if there are unsaved changes
+     * @returns {boolean}
+     */
+    hasUnsavedChanges() {
+        return this.stateManager.get('isDirty') === true;
+    }
+
+    /**
+     * Get current project name
+     * @returns {string}
+     */
+    getProjectName() {
+        return this.stateManager.get('project.name') || 'Untitled';
+    }
+
+    /**
+     * Get current file path
+     * @returns {string|null}
+     */
+    getFilePath() {
+        return this.stateManager.get('filePath');
+    }
+
+    // ==================== Private Methods ====================
+
+    /**
+     * Prepare project data for saving
+     * @private
+     */
+    _prepareProjectForSave() {
+        const project = JSON.parse(
+            JSON.stringify(this.stateManager.get('project'))
+        );
+        const audio = {};
+
+        // Extract audio library references
+        project.tracks.forEach(track => {
+            if (track.type === 'audio') {
+                track.clips.forEach(clip => {
+                    if (clip.bufferId) {
+                        const audioData = this.audioService.getAudioDataURL(clip.bufferId);
+                        if (audioData) {
+                            audio[clip.bufferId] = audioData;
+                            clip.props.audioSrcPath = `audio/${clip.bufferId}.bin`;
+                            delete clip.props.sourceData;
+                        }
+                    }
+                });
+            }
+        });
+
+        return { project, audio };
+    }
+}

@@ -1,4 +1,4 @@
-import { STATE, els } from './state.js';
+import { STATE, els } from './stateBridge.js';
 import { CONFIG, getSnappedTime, lerpColor, hslToRgb, hexToRgb, pseudoRandom, parseIdString } from './utils.js';
 
 let saveStateForUndoRef = () => {}; 

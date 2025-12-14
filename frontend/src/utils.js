@@ -19,6 +19,13 @@ export function hexToRgb(hex) {
     } : { r: 0, g: 0, b: 0 };
 }
 
+export function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+}
+
 export function lerpColor(c1, c2, t) {
     const r1 = parseInt(c1.slice(1, 3), 16), g1 = parseInt(c1.slice(3, 5), 16), b1 = parseInt(c1.slice(5, 7), 16);
     const r2 = parseInt(c2.slice(1, 3), 16), g2 = parseInt(c2.slice(3, 5), 16), b2 = parseInt(c2.slice(5, 7), 16);
@@ -78,12 +85,26 @@ export function parseIdString(str) {
             if (!isNaN(start) && !isNaN(end)) {
                 const low = Math.min(start, end);
                 const high = Math.max(start, end);
-                for (let i = low; i <= high; i++) ids.add(i);
+                for (let i = low; i <= high; i++) {
+                    if (i >= 1 && i <= 224) ids.add(i); // Limit to valid range
+                }
             }
         } else {
             const num = parseInt(part);
-            if (!isNaN(num)) ids.add(num);
+            if (!isNaN(num) && num >= 1 && num <= 224) ids.add(num);
         }
     });
-    return Array.from(ids);
+    return Array.from(ids).sort((a, b) => a - b);
+}
+
+export function formatTime(ms) {
+    const totalSecs = ms / 1000;
+    const mins = Math.floor(totalSecs / 60);
+    const secs = Math.floor(totalSecs % 60);
+    const centisecs = Math.floor((totalSecs % 1) * 100);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centisecs.toString().padStart(2, '0')}`;
+}
+
+export function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
 }
