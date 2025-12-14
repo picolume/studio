@@ -71,7 +71,6 @@ export class Application {
             // 10. Initial render
             this._updateTitle();
 
-            console.log('✅ Application initialized successfully');
             return { success: true };
 
         } catch (error) {

@@ -66,18 +66,18 @@ export class AudioService {
 
         try {
             const arrayBuffer = await file.arrayBuffer();
-            const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
 
-            // Store buffer
-            this.stateManager.update(draft => {
-                draft.assets[bufferId] = audioBuffer;
-            }, { skipHistory: true });
-
-            // Convert to data URL for saving
+            // IMPORTANT: Create the blob/dataURL BEFORE decodeAudioData, because
+            // decodeAudioData can "detach" the ArrayBuffer making it unusable
             const blob = new Blob([arrayBuffer], { type: file.type });
             const dataURL = await this._blobToDataURL(blob);
 
+            // Now decode the audio (this may detach the original arrayBuffer)
+            const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+
+            // Store both the buffer and data URL in a single update
             this.stateManager.update(draft => {
+                draft.assets[bufferId] = audioBuffer;
                 draft.audioLibrary[bufferId] = dataURL;
             }, { skipHistory: true });
 

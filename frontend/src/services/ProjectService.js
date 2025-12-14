@@ -76,39 +76,50 @@ export class ProjectService {
     async load() {
         try {
             const result = await window.go.main.App.LoadProject();
-            if (!result || result === "Cancelled") {
+
+            // Check for cancellation or error
+            if (!result || result.error === "Cancelled") {
                 return { success: false, message: 'Load cancelled' };
             }
 
-            const data = JSON.parse(result);
+            if (result.error) {
+                return { success: false, message: result.error };
+            }
+
+            // Parse the project JSON string from the response
+            const project = JSON.parse(result.projectJson);
 
             // Validate project data
-            if (!data.project || !data.path) {
+            if (!project) {
                 return { success: false, message: 'Invalid project file' };
             }
 
             // Ensure project has version field (migration)
-            if (!data.project.version) {
-                data.project.version = '1.0.0';
+            if (!project.version) {
+                project.version = '1.0.0';
             }
 
-            // Load audio assets
-            if (data.audioLibrary) {
-                Object.keys(data.audioLibrary).forEach(bufferId => {
-                    this.audioService.loadAudioFromDataURL(
-                        bufferId,
-                        data.audioLibrary[bufferId]
-                    );
-                });
-            }
-
-            // Replace state with loaded project
+            // Replace state with loaded project FIRST
             const newState = createInitialState();
-            newState.project = data.project;
-            newState.filePath = data.path;
+            newState.project = project;
+            newState.filePath = result.filePath;
             newState.isDirty = false;
 
             this.stateManager.replaceState(newState, true);
+
+            // Load audio assets AFTER state is replaced (so they don't get wiped)
+            if (result.audioFiles) {
+                for (const bufferId of Object.keys(result.audioFiles)) {
+                    try {
+                        await this.audioService.loadAudioFromDataURL(
+                            bufferId,
+                            result.audioFiles[bufferId]
+                        );
+                    } catch (err) {
+                        console.error(`Failed to load audio buffer ${bufferId}:`, err);
+                    }
+                }
+            }
 
             return { success: true, message: 'Project Loaded' };
         } catch (error) {
@@ -235,12 +246,19 @@ export class ProjectService {
         );
         const audio = {};
 
+        // Debug: log audioLibrary contents
+        const audioLibrary = this.stateManager.get('audioLibrary');
+        console.log('[ProjectService] audioLibrary keys:', Object.keys(audioLibrary || {}));
+
         // Extract audio library references
         project.tracks.forEach(track => {
             if (track.type === 'audio') {
+                console.log('[ProjectService] Processing audio track:', track.id, 'clips:', track.clips.length);
                 track.clips.forEach(clip => {
+                    console.log('[ProjectService] Audio clip:', clip.id, 'bufferId:', clip.bufferId);
                     if (clip.bufferId) {
                         const audioData = this.audioService.getAudioDataURL(clip.bufferId);
+                        console.log('[ProjectService] Got audioData for', clip.bufferId, ':', audioData ? `${audioData.substring(0, 50)}...` : 'null');
                         if (audioData) {
                             audio[clip.bufferId] = audioData;
                             clip.props.audioSrcPath = `audio/${clip.bufferId}.bin`;
@@ -251,6 +269,7 @@ export class ProjectService {
             }
         });
 
+        console.log('[ProjectService] Audio files to save:', Object.keys(audio));
         return { project, audio };
     }
 }

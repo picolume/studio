@@ -267,8 +267,19 @@ export class StateManager {
             return obj.map(item => this._deepClone(item));
         }
 
+        // Don't clone binary data, audio buffers, or audio context objects
         if (obj instanceof ArrayBuffer || ArrayBuffer.isView(obj)) {
-            // Don't clone binary data (audio buffers)
+            return obj;
+        }
+
+        // Don't clone Web Audio API objects (AudioBuffer, AudioContext, GainNode, etc.)
+        if (typeof AudioBuffer !== 'undefined' && obj instanceof AudioBuffer) {
+            return obj;
+        }
+        if (typeof AudioContext !== 'undefined' && obj instanceof AudioContext) {
+            return obj;
+        }
+        if (typeof GainNode !== 'undefined' && obj instanceof GainNode) {
             return obj;
         }
 
@@ -290,6 +301,17 @@ export class StateManager {
 
         // Don't freeze binary data (audio buffers, typed arrays)
         if (obj instanceof ArrayBuffer || ArrayBuffer.isView(obj)) {
+            return obj;
+        }
+
+        // Don't freeze Web Audio API objects (AudioBuffer, AudioContext, GainNode, etc.)
+        if (typeof AudioBuffer !== 'undefined' && obj instanceof AudioBuffer) {
+            return obj;
+        }
+        if (typeof AudioContext !== 'undefined' && obj instanceof AudioContext) {
+            return obj;
+        }
+        if (typeof GainNode !== 'undefined' && obj instanceof GainNode) {
             return obj;
         }
 

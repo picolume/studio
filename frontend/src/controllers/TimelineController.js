@@ -133,6 +133,64 @@ export class TimelineController {
     }
 
     /**
+     * Move clips to a different track
+     * @param {string[]} clipIds - Array of clip IDs to move
+     * @param {string} targetTrackId - Target track ID
+     * @returns {{success: boolean, message?: string, movedCount?: number}}
+     */
+    moveClipsToTrack(clipIds, targetTrackId) {
+        const tracks = this.stateManager.get('project.tracks');
+        const targetTrack = tracks.find(t => t.id === targetTrackId);
+
+        if (!targetTrack) {
+            return { success: false, message: 'Target track not found' };
+        }
+
+        // Find clips and their source tracks
+        const clipsToMove = [];
+        for (const clipId of clipIds) {
+            for (const track of tracks) {
+                const clip = track.clips.find(c => c.id === clipId);
+                if (clip) {
+                    // Only allow moving between same track types
+                    if (track.type !== targetTrack.type) {
+                        continue; // Skip incompatible clips
+                    }
+                    if (track.id !== targetTrackId) {
+                        clipsToMove.push({ clip, sourceTrackId: track.id });
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (clipsToMove.length === 0) {
+            return { success: false, message: 'No clips to move' };
+        }
+
+        this.stateManager.update(draft => {
+            clipsToMove.forEach(({ clip, sourceTrackId }) => {
+                // Remove from source track
+                const sourceTrack = draft.project.tracks.find(t => t.id === sourceTrackId);
+                if (sourceTrack) {
+                    sourceTrack.clips = sourceTrack.clips.filter(c => c.id !== clip.id);
+                }
+
+                // Add to target track
+                const draftTargetTrack = draft.project.tracks.find(t => t.id === targetTrackId);
+                if (draftTargetTrack) {
+                    // Clone the clip to avoid reference issues
+                    draftTargetTrack.clips.push(JSON.parse(JSON.stringify(clip)));
+                }
+            });
+            draft.isDirty = true;
+        });
+
+        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        return { success: true, movedCount: clipsToMove.length };
+    }
+
+    /**
      * Select clip(s)
      * @param {string|string[]} clipIds - Clip ID or array of IDs
      * @param {boolean} toggle - Toggle selection
@@ -208,24 +266,21 @@ export class TimelineController {
             return { success: false, message: 'No clips selected' };
         }
 
-        // Filter out audio clips (not fully supported)
-        const validClips = selectedClips.filter(c => c.type !== 'audio');
-
-        if (validClips.length === 0) {
-            return { success: false, message: 'Audio clips cannot be copied' };
-        }
+        // Get track types for each clip
+        const tracks = this.stateManager.get('project.tracks');
 
         // Sort by start time
-        validClips.sort((a, b) => a.startTime - b.startTime);
+        selectedClips.sort((a, b) => a.startTime - b.startTime);
 
         this.stateManager.update(draft => {
-            draft.clipboard = validClips.map(c => {
+            draft.clipboard = selectedClips.map(c => {
+                const track = tracks.find(t => t.id === c.trackId);
                 const { trackId, ...clip } = c;
-                return clip;
+                return { ...clip, _trackType: track?.type || 'led' };
             });
         }, { skipHistory: true });
 
-        this.errorHandler.success(`Copied ${validClips.length} clip(s)`);
+        this.errorHandler.success(`Copied ${selectedClips.length} clip(s)`);
         return { success: true };
     }
 
@@ -239,43 +294,78 @@ export class TimelineController {
             return { success: false, message: 'Nothing to paste' };
         }
 
-        // Find first LED track
         const tracks = this.stateManager.get('project.tracks');
-        const ledTrack = tracks.find(t => t.type === 'led');
 
-        if (!ledTrack) {
+        // Group clips by track type
+        const ledClips = clipboard.filter(c => c._trackType !== 'audio');
+        const audioClips = clipboard.filter(c => c._trackType === 'audio');
+
+        // Find target tracks
+        const ledTrack = tracks.find(t => t.type === 'led');
+        const audioTrack = tracks.find(t => t.type === 'audio');
+
+        if (ledClips.length > 0 && !ledTrack) {
             return this.errorHandler.handle('No LED track available for paste');
         }
 
-        // Find paste offset (end of track)
-        let pasteOffset = 0;
-        if (ledTrack.clips.length > 0) {
-            ledTrack.clips.forEach(c => {
-                const end = c.startTime + c.duration;
-                if (end > pasteOffset) pasteOffset = end;
-            });
+        if (audioClips.length > 0 && !audioTrack) {
+            return this.errorHandler.handle('No audio track available for paste');
         }
 
         const snapEnabled = this.stateManager.get('ui.snapEnabled');
-        if (snapEnabled) {
-            const gridSize = this.stateManager.get('ui.gridSize');
-            pasteOffset = Math.round(pasteOffset / gridSize) * gridSize;
-        }
+        const gridSize = this.stateManager.get('ui.gridSize');
+
+        // Helper to find paste offset for a track
+        const getPasteOffset = (track) => {
+            let offset = 0;
+            if (track && track.clips.length > 0) {
+                track.clips.forEach(c => {
+                    const end = c.startTime + c.duration;
+                    if (end > offset) offset = end;
+                });
+            }
+            if (snapEnabled) {
+                offset = Math.round(offset / gridSize) * gridSize;
+            }
+            return offset;
+        };
+
+        const ledOffset = ledTrack ? getPasteOffset(ledTrack) : 0;
+        const audioOffset = audioTrack ? getPasteOffset(audioTrack) : 0;
 
         // Calculate relative positions
         const firstClipStart = clipboard[0].startTime;
 
         this.stateManager.update(draft => {
-            const track = draft.project.tracks.find(t => t.id === ledTrack.id);
-            if (track) {
-                clipboard.forEach(clip => {
-                    const newClip = JSON.parse(JSON.stringify(clip));
-                    newClip.id = `c${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    newClip.startTime = pasteOffset + (clip.startTime - firstClipStart);
-                    track.clips.push(newClip);
-                });
-                draft.isDirty = true;
+            // Paste LED clips
+            if (ledClips.length > 0 && ledTrack) {
+                const track = draft.project.tracks.find(t => t.id === ledTrack.id);
+                if (track) {
+                    ledClips.forEach(clip => {
+                        const { _trackType, ...clipData } = clip;
+                        const newClip = JSON.parse(JSON.stringify(clipData));
+                        newClip.id = `c${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        newClip.startTime = ledOffset + (clip.startTime - firstClipStart);
+                        track.clips.push(newClip);
+                    });
+                }
             }
+
+            // Paste audio clips
+            if (audioClips.length > 0 && audioTrack) {
+                const track = draft.project.tracks.find(t => t.id === audioTrack.id);
+                if (track) {
+                    audioClips.forEach(clip => {
+                        const { _trackType, ...clipData } = clip;
+                        const newClip = JSON.parse(JSON.stringify(clipData));
+                        newClip.id = `c${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        newClip.startTime = audioOffset + (clip.startTime - firstClipStart);
+                        track.clips.push(newClip);
+                    });
+                }
+            }
+
+            draft.isDirty = true;
         });
 
         this.errorHandler.success(`Pasted ${clipboard.length} clip(s)`);

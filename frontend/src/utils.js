@@ -50,23 +50,17 @@ export function hslToRgb(h, s, l) {
     return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
 }
 
-export function getSnappedTime(time) {
-    // Backward-compatible signature:
-    // - getSnappedTime(time, snapEnabled, gridSize)
-    // - getSnappedTime(time, { snapEnabled, gridSize })
-    // If snapping params omitted, return time unchanged.
-    let snapEnabled;
+export function getSnappedTime(time, snapOpts = null, gridSizeLegacy = undefined) {
+    let snapEnabled = false;
     let gridSize;
 
-    if (arguments.length >= 2) {
-        const arg1 = arguments[1];
-        if (typeof arg1 === 'object' && arg1 !== null) {
-            snapEnabled = Boolean(arg1.snapEnabled);
-            gridSize = arg1.gridSize;
-        } else {
-            snapEnabled = Boolean(arg1);
-            gridSize = arguments.length >= 3 ? arguments[2] : undefined;
-        }
+    if (snapOpts !== null && typeof snapOpts === 'object') {
+        snapEnabled = Boolean(snapOpts.snapEnabled);
+        gridSize = snapOpts.gridSize;
+    } else if (snapOpts !== null) {
+        // Legacy positional: getSnappedTime(time, snapEnabled, gridSize)
+        snapEnabled = Boolean(snapOpts);
+        gridSize = gridSizeLegacy;
     }
 
     if (!snapEnabled) return time;

@@ -20,14 +20,23 @@ package main
 
 import (
 	"embed"
+	"io/fs"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
-//go:embed all:frontend/dist
+//go:embed all:frontend
 var assets embed.FS
+
+func getAssets() fs.FS {
+	sub, err := fs.Sub(assets, "frontend")
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}
 
 func main() {
 	// Create an instance of the app structure
@@ -39,7 +48,7 @@ func main() {
 		Width:  1280,
 		Height: 800,
 		AssetServer: &assetserver.Options{
-			Assets: assets,
+			Assets: getAssets(),
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,
