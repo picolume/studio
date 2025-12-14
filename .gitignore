@@ -10,6 +10,20 @@
 *.so
 *.dylib
 
+# Node.js
+node_modules/
+*.md5
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+/frontend/src/style.css
+
+# Development tools
+.claude/
+.vite/
+
 # System & IDE
 .DS_Store
 Thumbs.db
