@@ -594,6 +594,22 @@ export function populateInspector(clipId) {
         infoDiv.appendChild(autoSaveDiv);
         container.appendChild(infoDiv);
 
+        // Global Brightness (still global)
+        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Global Settings</div>`);
+        const bDiv = document.createElement('div'); bDiv.className = "bg-neutral-800 p-2 rounded mb-4 border border-gray-700";
+        bDiv.innerHTML = `<label class="block text-xs text-gray-500 mb-1">Master Brightness (0-255)</label>`;
+        const bInp = document.createElement('input'); bInp.type="number"; bInp.className="w-full bg-neutral-900 text-sm text-gray-300 border border-gray-700 rounded px-1 py-1";
+        bInp.value = project.settings?.brightness ?? 255;
+        bInp.oninput = (e) => {
+            const next = parseInt(e.target.value) || 0;
+            deps.stateManager?.update(draft => {
+                draft.project.settings.brightness = next;
+                draft.isDirty = true;
+            }, { skipHistory: true });
+        };
+        bDiv.appendChild(bInp);
+        container.appendChild(bDiv);
+
         // --- Hardware Profiles (Styled like Groups) ---
         container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Hardware Profiles</div>`);
         
@@ -708,22 +724,6 @@ export function populateInspector(clipId) {
             populateInspector(null);
         };
         container.appendChild(addBtn);
-
-        // Global Brightness (still global)
-        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Global Settings</div>`);
-        const bDiv = document.createElement('div'); bDiv.className = "bg-neutral-800 p-2 rounded mb-4 border border-gray-700";
-        bDiv.innerHTML = `<label class="block text-xs text-gray-500 mb-1">Master Brightness (0-255)</label>`;
-        const bInp = document.createElement('input'); bInp.type="number"; bInp.className="w-full bg-neutral-900 text-sm text-gray-300 border border-gray-700 rounded px-1 py-1";
-        bInp.value = project.settings?.brightness ?? 255;
-        bInp.oninput = (e) => {
-            const next = parseInt(e.target.value) || 0;
-            deps.stateManager?.update(draft => {
-                draft.project.settings.brightness = next;
-                draft.isDirty = true;
-            }, { skipHistory: true });
-        };
-        bDiv.appendChild(bInp);
-        container.appendChild(bDiv);
 
         // Groups
         container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Prop Groups</div>`);
