@@ -284,7 +284,8 @@ window.addEventListener('DOMContentLoaded', async () => {
                 props: { name: file.name }
             };
 
-            timelineController.addClip(trackId, clip);
+            const result = timelineController.addClip(trackId, clip);
+            if (!result?.success) return;
             buildTimeline();
             errorHandler.success(`Loaded: ${file.name}`);
         } catch (error) {
@@ -312,7 +313,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         startTime = getSnappedTime(startTime, { snapEnabled, gridSize });
 
         const clip = createDefaultClip(type, startTime);
-        timelineController.addClip(trackId, clip);
+        const result = timelineController.addClip(trackId, clip);
+        if (!result?.success) return;
         buildTimeline();
         selectClip(clip.id);
     });
@@ -372,24 +374,25 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Handler: Clip mousedown for selection and drag/resize
+    // Uses direct DOM manipulation during drag for smooth visual feedback
     window.addEventListener('app:clip-mousedown', (e) => {
         const { event, clipId } = e.detail;
         const startX = event.clientX;
 
         const zoom = stateManager.get('ui.zoom');
         const pxPerMs = zoom / 1000;
+        const snapEnabled = stateManager.get('ui.snapEnabled');
+        const gridSize = stateManager.get('ui.gridSize');
 
         // --- 1) SELECTION LOGIC ---
         const selection = stateManager.get('selection') || [];
         let nextSelection = selection;
 
         if (event.ctrlKey || event.metaKey) {
-            // Toggle
             nextSelection = selection.includes(clipId)
                 ? selection.filter(id => id !== clipId)
                 : [...selection, clipId];
         } else {
-            // Select only if clicking an unselected item (keep multi until we know it's a click vs drag)
             if (!selection.includes(clipId)) {
                 nextSelection = [clipId];
             }
@@ -404,167 +407,222 @@ window.addEventListener('DOMContentLoaded', async () => {
         const isResizeLeft = event.target.classList.contains('left');
         const isMove = !isResizeRight && !isResizeLeft;
 
-        // Capture initial state (no object references; state is immutable)
-        const initialStates = {};
+        // Find clip data and DOM elements for all selected clips
+        const clipInfos = {};
         const state = stateManager.state;
+        const clipsToManipulate = isMove ? nextSelection : [clipId];
 
-        const captureClip = (id) => {
+        for (const id of clipsToManipulate) {
+            const el = document.getElementById(`clip-${id}`);
+            if (!el) continue;
+
             for (const track of (state.project?.tracks || [])) {
                 const clip = (track.clips || []).find(c => c.id === id);
                 if (clip) {
-                    initialStates[id] = { start: clip.startTime, dur: clip.duration };
-                    return;
+                    clipInfos[id] = {
+                        el,
+                        trackId: track.id,
+                        trackType: track.type,
+                        origLeft: parseFloat(el.style.left),
+                        origWidth: parseFloat(el.style.width),
+                        origStart: clip.startTime,
+                        origDur: clip.duration
+                    };
+                    break;
                 }
             }
-        };
+        }
 
-        if (!isMove) {
-            captureClip(clipId);
-        } else {
-            nextSelection.forEach(captureClip);
+        // Track current computed values during drag
+        const currentValues = {};
+        for (const id in clipInfos) {
+            currentValues[id] = {
+                startTime: clipInfos[id].origStart,
+                duration: clipInfos[id].origDur
+            };
         }
 
         let hasMoved = false;
-        let historyStarted = false;
         let targetTrackId = null;
-        let lastHoveredLane = null;
+        let sourceTrackId = clipInfos[clipId]?.trackId || null;
+        let sourceTrackType = clipInfos[clipId]?.trackType || null;
 
-        const startHistory = () => {
-            if (historyStarted) return;
-            historyStarted = true;
-            // Push a single undo boundary for the entire drag.
-            stateManager.update(() => {}, { skipNotify: true });
-        };
-
-        // Helper to find track lane under cursor
-        const getTrackUnderCursor = (clientX, clientY) => {
-            const lanes = document.querySelectorAll('.track-lane');
-            for (const lane of lanes) {
-                const rect = lane.getBoundingClientRect();
-                if (clientY >= rect.top && clientY <= rect.bottom &&
-                    clientX >= rect.left && clientX <= rect.right) {
-                    return { lane, trackId: lane.dataset.trackId };
-                }
-            }
-            return null;
-        };
+        // Set cursor style
+        document.body.style.cursor = isResizeLeft || isResizeRight ? 'col-resize' : 'grabbing';
 
         const moveHandler = (ev) => {
             const dx = ev.clientX - startX;
             if (Math.abs(dx) > 3 && !hasMoved) {
                 hasMoved = true;
-                startHistory();
             }
             if (!hasMoved) return;
 
-            // Track which lane we're hovering over (for cross-track move)
-            if (isMove) {
-                const trackInfo = getTrackUnderCursor(ev.clientX, ev.clientY);
-                if (trackInfo) {
-                    targetTrackId = trackInfo.trackId;
-                    // Visual feedback
-                    if (lastHoveredLane && lastHoveredLane !== trackInfo.lane) {
-                        lastHoveredLane.classList.remove('drag-over');
-                    }
-                    trackInfo.lane.classList.add('drag-over');
-                    lastHoveredLane = trackInfo.lane;
-                } else {
-                    targetTrackId = null;
-                    if (lastHoveredLane) {
-                        lastHoveredLane.classList.remove('drag-over');
-                        lastHoveredLane = null;
+            if (isResizeRight) {
+                // Resize from right edge
+                const info = clipInfos[clipId];
+                if (!info) return;
+
+                let newWidth = info.origWidth + dx;
+                const minWidth = (CONFIG.minClipDuration / 1000) * zoom;
+                if (newWidth < minWidth) newWidth = minWidth;
+
+                let newDur = (newWidth / zoom) * 1000;
+                if (snapEnabled) {
+                    const endTime = info.origStart + newDur;
+                    const snappedEnd = getSnappedTime(endTime, { snapEnabled, gridSize });
+                    newDur = snappedEnd - info.origStart;
+                    newWidth = (newDur / 1000) * zoom;
+                }
+
+                info.el.style.width = `${newWidth}px`;
+                currentValues[clipId].duration = newDur;
+
+            } else if (isResizeLeft) {
+                // Resize from left edge
+                const info = clipInfos[clipId];
+                if (!info) return;
+
+                let newLeft = info.origLeft + dx;
+                let newWidth = info.origWidth - dx;
+                const minWidth = (CONFIG.minClipDuration / 1000) * zoom;
+
+                if (newWidth < minWidth) {
+                    newLeft = info.origLeft + info.origWidth - minWidth;
+                    newWidth = minWidth;
+                }
+                if (newLeft < 0) {
+                    newWidth += newLeft;
+                    newLeft = 0;
+                }
+
+                let newStart = (newLeft / zoom) * 1000;
+                let newDur = (newWidth / zoom) * 1000;
+
+                if (snapEnabled) {
+                    const snappedStart = getSnappedTime(newStart, { snapEnabled, gridSize });
+                    const delta = newStart - snappedStart;
+                    newStart = snappedStart;
+                    newDur += delta;
+                    newLeft = (newStart / 1000) * zoom;
+                    newWidth = (newDur / 1000) * zoom;
+                }
+
+                info.el.style.left = `${newLeft}px`;
+                info.el.style.width = `${newWidth}px`;
+                currentValues[clipId].startTime = newStart;
+                currentValues[clipId].duration = newDur;
+
+            } else {
+                // Move clips
+                // Calculate delta time based on lead clip
+                const leadInfo = clipInfos[clipId];
+                if (!leadInfo) return;
+
+                let newLeadLeft = leadInfo.origLeft + dx;
+                if (newLeadLeft < 0) newLeadLeft = 0;
+
+                let newLeadStart = (newLeadLeft / zoom) * 1000;
+                if (snapEnabled) {
+                    newLeadStart = getSnappedTime(newLeadStart, { snapEnabled, gridSize });
+                    newLeadLeft = (newLeadStart / 1000) * zoom;
+                }
+
+                const dt = newLeadStart - leadInfo.origStart;
+
+                // Move all selected clips by the same delta
+                for (const id in clipInfos) {
+                    const info = clipInfos[id];
+                    let newStart = info.origStart + dt;
+                    if (newStart < 0) newStart = 0;
+                    const newLeft = (newStart / 1000) * zoom;
+
+                    info.el.style.left = `${newLeft}px`;
+                    currentValues[id].startTime = newStart;
+                }
+
+                // Cross-track detection: find lane under cursor and move clip element there
+                const lanes = document.querySelectorAll('.track-lane');
+                lanes.forEach(lane => lane.classList.remove('drag-over'));
+
+                for (const lane of lanes) {
+                    const rect = lane.getBoundingClientRect();
+                    if (ev.clientY >= rect.top && ev.clientY <= rect.bottom) {
+                        const laneTrackId = lane.dataset.trackId;
+                        const laneTrack = state.project.tracks.find(t => t.id === laneTrackId);
+                        // Only allow if same track type
+                        if (laneTrack && laneTrack.type === sourceTrackType) {
+                            lane.classList.add('drag-over');
+                            targetTrackId = laneTrackId;
+
+                            // Move clip elements to target lane visually (during drag)
+                            for (const id in clipInfos) {
+                                const info = clipInfos[id];
+                                if (info.el.parentElement !== lane) {
+                                    lane.appendChild(info.el);
+                                }
+                            }
+                        }
+                        break;
                     }
                 }
             }
 
-            stateManager.update(draft => {
-                const snapEnabled = draft.ui.snapEnabled;
-                const gridSize = draft.ui.gridSize;
-
-                const findDraftClip = (id) => {
-                    for (const t of draft.project.tracks) {
-                        const c = t.clips.find(x => x.id === id);
-                        if (c) return c;
-                    }
-                    return null;
-                };
-
-                if (isResizeRight) {
-                    const init = initialStates[clipId];
-                    if (!init) return;
-                    let newDur = init.dur + (dx / pxPerMs);
-                    if (newDur < CONFIG.minClipDuration) newDur = CONFIG.minClipDuration;
-                    if (snapEnabled) newDur = getSnappedTime(init.start + newDur, { snapEnabled, gridSize }) - init.start;
-                    const c = findDraftClip(clipId);
-                    if (c) c.duration = Math.max(CONFIG.minClipDuration, newDur);
-                } else if (isResizeLeft) {
-                    const init = initialStates[clipId];
-                    if (!init) return;
-                    let newStart = init.start + (dx / pxPerMs);
-                    if (snapEnabled) newStart = getSnappedTime(newStart, { snapEnabled, gridSize });
-                    if (newStart < 0) newStart = 0;
-                    let newDur = (init.start + init.dur) - newStart;
-                    if (newDur < CONFIG.minClipDuration) {
-                        newStart = (init.start + init.dur) - CONFIG.minClipDuration;
-                        newDur = CONFIG.minClipDuration;
-                    }
-                    const c = findDraftClip(clipId);
-                    if (c) { c.startTime = newStart; c.duration = newDur; }
-                } else {
-                    // MOVE (multi)
-                    let dt = dx / pxPerMs;
-                    const leadInit = initialStates[clipId];
-                    if (!leadInit) return;
-
-                    const rawNewStart = leadInit.start + dt;
-                    if (snapEnabled) {
-                        const snappedNewStart = getSnappedTime(rawNewStart, { snapEnabled, gridSize });
-                        dt = snappedNewStart - leadInit.start;
-                    }
-
-                    Object.keys(initialStates).forEach(id => {
-                        const init = initialStates[id];
-                        let newStart = init.start + dt;
-                        if (newStart < 0) newStart = 0;
-                        const c = findDraftClip(id);
-                        if (c) c.startTime = newStart;
-                    });
-                }
-
-                draft.isDirty = true;
-            }, { skipHistory: true, skipNotify: true });
-
-            buildTimeline();
-            updateSelectionUI();
             renderPreview();
         };
 
         const upHandler = () => {
             window.removeEventListener('mousemove', moveHandler);
             window.removeEventListener('mouseup', upHandler);
+            document.body.style.cursor = '';
 
-            // Clear visual feedback
-            if (lastHoveredLane) {
-                lastHoveredLane.classList.remove('drag-over');
-            }
+            // Clear drag-over highlights
+            document.querySelectorAll('.track-lane').forEach(lane => lane.classList.remove('drag-over'));
 
-            // If it was a click (no drag) on an already-selected clip without Ctrl,
-            // collapse multi-selection to just that clip.
-            const finalSelection = stateManager.get('selection') || [];
-            if (!hasMoved && !event.ctrlKey && !event.metaKey && finalSelection.length > 1) {
-                if (finalSelection.includes(clipId)) {
-                    stateManager.set('selection', [clipId], { skipHistory: true });
-                    updateSelectionUI();
-                    updateClipboardUI();
-                }
-            }
+            if (hasMoved) {
+                // Commit changes to state
+                stateManager.update(draft => {
+                    // Update clip positions/durations
+                    for (const id in currentValues) {
+                        for (const track of draft.project.tracks) {
+                            const clip = track.clips.find(c => c.id === id);
+                            if (clip) {
+                                clip.startTime = currentValues[id].startTime;
+                                clip.duration = currentValues[id].duration;
+                                break;
+                            }
+                        }
+                    }
 
-            // If we were moving and dropped on a different track, move the clips
-            if (hasMoved && isMove && targetTrackId) {
-                const result = timelineController.moveClipsToTrack(finalSelection, targetTrackId);
-                if (result.success && result.movedCount > 0) {
-                    buildTimeline();
-                    updateSelectionUI();
+                    // Handle cross-track move
+                    if (isMove && targetTrackId && targetTrackId !== sourceTrackId) {
+                        const targetTrack = draft.project.tracks.find(t => t.id === targetTrackId);
+                        const sourceTrack = draft.project.tracks.find(t => t.id === sourceTrackId);
+
+                        if (targetTrack && sourceTrack && targetTrack.type === sourceTrack.type) {
+                            for (const id in clipInfos) {
+                                const clipIndex = sourceTrack.clips.findIndex(c => c.id === id);
+                                if (clipIndex !== -1) {
+                                    const [movedClip] = sourceTrack.clips.splice(clipIndex, 1);
+                                    targetTrack.clips.push(movedClip);
+                                }
+                            }
+                        }
+                    }
+
+                    draft.isDirty = true;
+                });
+
+                buildTimeline();
+                updateSelectionUI();
+            } else {
+                // Click without drag - collapse multi-selection if needed
+                const finalSelection = stateManager.get('selection') || [];
+                if (!event.ctrlKey && !event.metaKey && finalSelection.length > 1) {
+                    if (finalSelection.includes(clipId)) {
+                        stateManager.set('selection', [clipId], { skipHistory: true });
+                        updateSelectionUI();
+                        updateClipboardUI();
+                    }
                 }
             }
         };

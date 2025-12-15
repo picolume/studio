@@ -370,7 +370,7 @@ describe('TimelineController', () => {
             const result = controller.moveClipsToTrack(['c1'], 't1');
 
             expect(result.success).toBe(false);
-            expect(result.message).toBe('No clips to move');
+            expect(result.message).toBe('Clips can only be moved between tracks of the same type');
 
             // Clip should still be in original track
             const track = stateManager.get('project.tracks').find(t => t.id === 't2');

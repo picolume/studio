@@ -4,8 +4,11 @@
   "outputfilename": "PicoLume",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
-  "frontend:dev:command": "npm run build:css",
+  "frontend:dev:watcher": "npm run build:css -- --watch",
   "frontend:dir": "frontend",
+  "wailsjsdir": "frontend/src",
+  "assetdir": "frontend",
+  "reloaddirs": "frontend/src",
   "author": {
     "name": "Brad Henson",
     "email": "bradfordhenson@gmail.com"

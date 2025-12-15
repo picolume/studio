@@ -11,6 +11,13 @@ export class TimelineController {
         this.errorHandler = errorHandler;
     }
 
+    _isClipCompatibleWithTrack(trackType, clipType) {
+        if (!trackType || !clipType) return false;
+        if (trackType === 'audio') return clipType === 'audio';
+        if (trackType === 'led') return clipType !== 'audio';
+        return false;
+    }
+
     /**
      * Add a new track
      * @param {string} type - Track type ('led' or 'audio')
@@ -61,12 +68,24 @@ export class TimelineController {
             return this.errorHandler.handleValidationError(validation, 'Add Clip');
         }
 
+        const track = this.stateManager.get('project.tracks')?.find(t => t.id === trackId);
+        if (!track) {
+            return this.errorHandler.handle('Track not found', { prefix: 'Add Clip' });
+        }
+        if (!this._isClipCompatibleWithTrack(track.type, clipData.type)) {
+            return this.errorHandler.handle(
+                track.type === 'audio'
+                    ? 'LED clips can only be placed on LED tracks'
+                    : 'Audio clips can only be placed on audio tracks',
+                { prefix: 'Add Clip', log: false }
+            );
+        }
+
         this.stateManager.update(draft => {
-            const track = draft.project.tracks.find(t => t.id === trackId);
-            if (track) {
-                track.clips.push(clipData);
-                draft.isDirty = true;
-            }
+            const draftTrack = draft.project.tracks.find(t => t.id === trackId);
+            if (!draftTrack) return;
+            draftTrack.clips.push(clipData);
+            draft.isDirty = true;
         });
 
         window.dispatchEvent(new CustomEvent('app:timeline-changed'));
@@ -148,13 +167,15 @@ export class TimelineController {
 
         // Find clips and their source tracks
         const clipsToMove = [];
+        let incompatibleCount = 0;
         for (const clipId of clipIds) {
             for (const track of tracks) {
                 const clip = track.clips.find(c => c.id === clipId);
                 if (clip) {
                     // Only allow moving between same track types
                     if (track.type !== targetTrack.type) {
-                        continue; // Skip incompatible clips
+                        incompatibleCount++;
+                        break; // Found it, but incompatible
                     }
                     if (track.id !== targetTrackId) {
                         clipsToMove.push({ clip, sourceTrackId: track.id });
@@ -165,6 +186,9 @@ export class TimelineController {
         }
 
         if (clipsToMove.length === 0) {
+            if (incompatibleCount > 0) {
+                return { success: false, message: 'Clips can only be moved between tracks of the same type' };
+            }
             return { success: false, message: 'No clips to move' };
         }
 
