@@ -17,7 +17,7 @@
     <a href="#timeline-container" class="skip-link">Skip to Timeline</a>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <header class="h-14 bg-neutral-900 border-b border-gray-800 flex items-center justify-between px-4 shrink-0" role="banner">
+    <header class="h-14 bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-gray-800 flex items-center justify-between px-4 shrink-0" role="banner">
         <div class="flex items-center gap-3">
             <i class="fas fa-bolt text-cyan-400 text-xl" aria-hidden="true"></i>
             <h1 class="font-bold text-lg tracking-wide text-gray-200">PICOLUME STUDIO</h1>
@@ -44,36 +44,52 @@
             <span id="time-display" class="font-mono text-cyan-400 text-lg w-24 text-center">00:00.00</span>
         </div>
 
-        <div class="flex items-center gap-2">
-            <button id="btn-upload" class="w-32 py-1.5 bg-green-700 hover:bg-green-600 rounded text-xs border border-green-500 text-white transition flex items-center justify-center font-bold">
-                <i class="fas fa-microchip mr-2"></i>Upload
-            </button>
-            <button id="btn-export-bin" class="w-32 py-1.5 bg-cyan-900 hover:bg-cyan-800 rounded text-xs border border-cyan-700 text-white transition flex items-center justify-center font-bold">
-                <i class="fas fa-download mr-2"></i>Export
-            </button>
-            <button id="btn-new" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
-                <i class="fas fa-file mr-2"></i>New
-            </button>
-            <button id="btn-save" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
-                <i class="fas fa-save mr-2"></i>Save
-            </button>
-            <button id="btn-save-as" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
-                <i class="fas fa-file-export mr-2"></i>Save As
-            </button>
-            <button id="btn-open" class="w-24 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center">
-                <i class="fas fa-folder-open mr-2"></i>Open
-            </button>
-            <button id="btn-settings" class="w-8 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 transition flex items-center justify-center" title="Settings">
-                <i class="fas fa-cog"></i>
-            </button>
-            <a href="manual.html" target="_blank" class="w-8 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs border border-gray-700 text-gray-200 transition flex items-center justify-center no-underline" title="Manual">
-                <i class="fas fa-book"></i>
-            </a>
+        <div class="menu-bar">
+            <div class="menu-group" role="group" aria-label="Project">
+                <button id="btn-upload" class="btn btn--success btn--wide">
+                    <i class="fas fa-microchip"></i><span>Upload</span>
+                </button>
+                <button id="btn-export-bin" class="btn btn--primary btn--wide">
+                    <i class="fas fa-download"></i><span>Export</span>
+                </button>
+                <button id="btn-new" class="btn btn--md">
+                    <i class="fas fa-file"></i><span>New</span>
+                </button>
+                <button id="btn-save" class="btn btn--md">
+                    <i class="fas fa-save"></i><span>Save</span>
+                </button>
+                <button id="btn-save-as" class="btn btn--md">
+                    <i class="fas fa-file-export"></i><span>Save As</span>
+                </button>
+                <button id="btn-open" class="btn btn--md">
+                    <i class="fas fa-folder-open"></i><span>Open</span>
+                </button>
+            </div>
+
+            <div class="menu-sep" aria-hidden="true"></div>
+
+            <div class="menu-group" role="group" aria-label="Layout">
+                <button id="btn-toggle-palette" class="btn btn--icon" aria-pressed="true" title="Toggle Palette (Alt+1)">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button id="btn-toggle-preview" class="btn btn--icon" aria-pressed="true" title="Toggle Preview (Alt+2)">
+                    <i class="fas fa-tv"></i>
+                </button>
+                <button id="btn-toggle-inspector" class="btn btn--icon" aria-pressed="true" title="Toggle Inspector (Alt+3)">
+                    <i class="fas fa-sliders-h"></i>
+                </button>
+                <button id="btn-settings" class="btn btn--icon" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <a id="btn-manual" href="manual.html" class="btn btn--icon no-underline" title="Manual" role="button">
+                    <i class="fas fa-book"></i>
+                </a>
+            </div>
         </div>
     </header>
 
     <div class="flex-1 flex overflow-hidden">
-        <div class="sidebar-palette w-64 bg-neutral-900 border-r border-gray-800 flex flex-col shrink-0">
+        <div id="pane-palette" class="sidebar-palette bg-neutral-900 border-r border-gray-800 flex flex-col shrink-0 overflow-hidden" style="width: var(--palette-width);">
             <div class="p-3 border-b border-gray-800 text-xs font-bold uppercase tracking-wider text-gray-500">Effect Palette</div>
             <div class="p-3 overflow-y-auto flex-1" id="palette-container">
                 <div class="text-xs text-gray-600 mb-2 italic">Drag to LED Tracks</div>
@@ -98,7 +114,7 @@
         </div>
 
         <div class="flex-1 flex flex-col min-w-0">
-            <div class="h-64 bg-black relative led-preview-container flex items-center justify-center border-b border-gray-800 shrink-0">
+            <div id="pane-preview" class="bg-black relative led-preview-container flex items-center justify-center border-b border-gray-800 shrink-0 overflow-hidden" style="height: var(--preview-height);">
                 <canvas id="preview-canvas" width="800" height="200"></canvas>
                 <div class="absolute top-2 left-2 text-xs text-gray-500">Simulated Preview</div>
             </div>
@@ -142,7 +158,7 @@
             </div>
         </div>
 
-        <div class="sidebar-inspector w-72 bg-neutral-900 border-l border-gray-800 flex flex-col shrink-0">
+        <div id="pane-inspector" class="sidebar-inspector bg-neutral-900 border-l border-gray-800 flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);">
             <div class="p-3 border-b border-gray-800 text-xs font-bold uppercase tracking-wider text-gray-500">Inspector</div>
             <div id="inspector-content" class="p-4 flex-1 overflow-y-auto"></div>
         </div>
@@ -152,6 +168,18 @@
         <div class="flex items-center gap-4">
              </div>
         <div class="flex items-center gap-4"><span id="status-history">History: 0/0</span><span>Space Play | Ctrl+Click Select</span></div>
+    </div>
+
+    <div id="manual-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="User Manual" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title">User Manual</div>
+                <button id="btn-manual-close" class="btn btn--icon" title="Close (Esc)" aria-label="Close manual">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <iframe id="manual-frame" class="modal-frame" title="PicoLume Manual"></iframe>
+        </div>
     </div>
 
     <script type="module" src="./src/main.js"></script>

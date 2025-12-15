@@ -40,6 +40,123 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const els = app.elements;
 
+    // ==========================================
+    // LAYOUT TOGGLES (Palette / Preview / Inspector)
+    // ==========================================
+
+    const UI_LAYOUT_KEY = 'picolume:ui';
+    const panePalette = document.getElementById('pane-palette');
+    const panePreview = document.getElementById('pane-preview');
+    const paneInspector = document.getElementById('pane-inspector');
+    const btnTogglePalette = document.getElementById('btn-toggle-palette');
+    const btnTogglePreview = document.getElementById('btn-toggle-preview');
+    const btnToggleInspector = document.getElementById('btn-toggle-inspector');
+    const btnManual = document.getElementById('btn-manual');
+    const manualModal = document.getElementById('manual-modal');
+    const manualFrame = document.getElementById('manual-frame');
+    const btnManualClose = document.getElementById('btn-manual-close');
+
+    const readCssPx = (name, fallback) => {
+        const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        const parsed = parseFloat(raw);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const UI_DEFAULTS = {
+        paletteWidth: readCssPx('--palette-width', 256),
+        inspectorWidth: readCssPx('--inspector-width', 288),
+        previewHeight: readCssPx('--preview-height', 256),
+    };
+
+    let UI_LAYOUT = {
+        paletteOpen: true,
+        previewOpen: true,
+        inspectorOpen: true,
+    };
+
+    const isTypingTarget = (el) => {
+        if (!el) return false;
+        const tag = (el.tagName || '').toLowerCase();
+        return tag === 'input' || tag === 'textarea' || el.isContentEditable;
+    };
+
+    const loadUILayout = () => {
+        try {
+            const raw = localStorage.getItem(UI_LAYOUT_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            if (!saved || typeof saved !== 'object') return;
+            UI_LAYOUT = { ...UI_LAYOUT, ...saved };
+        } catch { }
+    };
+
+    const saveUILayout = () => {
+        try {
+            localStorage.setItem(UI_LAYOUT_KEY, JSON.stringify(UI_LAYOUT));
+        } catch { }
+    };
+
+    const setPressed = (btn, pressed) => {
+        if (!btn) return;
+        btn.setAttribute('aria-pressed', String(pressed));
+    };
+
+    const setPaneOpen = (pane, open) => {
+        if (!pane) return;
+        pane.classList.toggle('pane-collapsed', !open);
+        pane.setAttribute('aria-hidden', String(!open));
+    };
+
+    const applyLayout = () => {
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--palette-width', UI_LAYOUT.paletteOpen ? `${UI_DEFAULTS.paletteWidth}px` : '0px');
+        rootStyle.setProperty('--inspector-width', UI_LAYOUT.inspectorOpen ? `${UI_DEFAULTS.inspectorWidth}px` : '0px');
+        rootStyle.setProperty('--preview-height', UI_LAYOUT.previewOpen ? `${UI_DEFAULTS.previewHeight}px` : '0px');
+
+        setPressed(btnTogglePalette, UI_LAYOUT.paletteOpen);
+        setPressed(btnTogglePreview, UI_LAYOUT.previewOpen);
+        setPressed(btnToggleInspector, UI_LAYOUT.inspectorOpen);
+
+        setPaneOpen(panePalette, UI_LAYOUT.paletteOpen);
+        setPaneOpen(panePreview, UI_LAYOUT.previewOpen);
+        setPaneOpen(paneInspector, UI_LAYOUT.inspectorOpen);
+
+        updatePlayheadUI();
+        updateGridBackground();
+    };
+
+    const togglePane = (which) => {
+        if (which === 'palette') UI_LAYOUT.paletteOpen = !UI_LAYOUT.paletteOpen;
+        if (which === 'preview') UI_LAYOUT.previewOpen = !UI_LAYOUT.previewOpen;
+        if (which === 'inspector') UI_LAYOUT.inspectorOpen = !UI_LAYOUT.inspectorOpen;
+        applyLayout();
+        saveUILayout();
+    };
+
+    btnTogglePalette?.addEventListener('click', () => togglePane('palette'));
+    btnTogglePreview?.addEventListener('click', () => togglePane('preview'));
+    btnToggleInspector?.addEventListener('click', () => togglePane('inspector'));
+
+    const setManualOpen = (open) => {
+        if (!manualModal) return;
+        manualModal.setAttribute('aria-hidden', String(!open));
+        if (open && manualFrame && !manualFrame.getAttribute('src')) {
+            manualFrame.setAttribute('src', 'manual.html');
+        }
+    };
+
+    btnManual?.addEventListener('click', (e) => {
+        e.preventDefault();
+        setManualOpen(true);
+    });
+    btnManualClose?.addEventListener('click', () => setManualOpen(false));
+    manualModal?.addEventListener('mousedown', (e) => {
+        if (e.target === manualModal) setManualOpen(false);
+    });
+
+    loadUILayout();
+    applyLayout();
+
     // Wire timeline module to the application state/services (no bridge/proxy).
     initTimeline({
         stateManager,
@@ -168,6 +285,18 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
+        // Esc: Close manual
+        if (e.key === 'Escape' && manualModal?.getAttribute('aria-hidden') === 'false') {
+            e.preventDefault();
+            setManualOpen(false);
+            return;
+        }
+        // Alt+1/2/3: Toggle panes
+        if (!isTypingTarget(document.activeElement) && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            if (e.key === '1') { e.preventDefault(); togglePane('palette'); return; }
+            if (e.key === '2') { e.preventDefault(); togglePane('preview'); return; }
+            if (e.key === '3') { e.preventDefault(); togglePane('inspector'); return; }
+        }
         // Ctrl+Z / Cmd+Z: Undo
         if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
             e.preventDefault();

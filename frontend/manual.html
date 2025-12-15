@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PicoLume Studio — User Manual</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PicoLume Studio - User Manual</title>
+        <!-- Use system fonts only so the manual works offline inside the app -->
+        <style>
         :root {
             /* Matching the app's color palette */
             --bg-darkest: #121212;
@@ -33,7 +31,7 @@
         html { scroll-behavior: smooth; }
         
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background: var(--bg-dark);
             color: var(--text-primary);
             line-height: 1.6;
@@ -215,7 +213,7 @@
         }
         
         code {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
             background: var(--bg-elevated);
             padding: 2px 6px;
             border-radius: 3px;
@@ -542,6 +540,7 @@
                 <div class="nav-section-title">Overview</div>
                 <a href="#intro" class="nav-link active">Introduction</a>
                 <a href="#interface" class="nav-link">Interface</a>
+                <a href="#layout" class="nav-link">Layout &amp; Shortcuts</a>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Configuration</div>
@@ -608,12 +607,26 @@
 
             <h3>Key Areas</h3>
             <ul>
-                <li><strong>Header Toolbar:</strong> Contains file operations (Save, Open), Undo/Redo controls, and the critical <strong>Upload/Export</strong> buttons for hardware deployment.</li>
+                <li><strong>Header Toolbar:</strong> Project actions (New/Save/Save As/Open), Undo/Redo, playback controls, master volume, and <strong>Upload/Export</strong>.</li>
                 <li><strong>Effect Palette (Left):</strong> A library of all available lighting patterns. These are "Smart Clips" that adapt to any duration you set.</li>
                 <li><strong>Timeline (Center):</strong> The main workspace. Top tracks render *above* bottom tracks visually (bottom track = highest priority).</li>
-                <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click an effect.</li>
+                <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click a clip.</li>
                 <li><strong>Preview Canvas (Top Center):</strong> A real-time simulation of your show. It approximates the look of your LEDs based on your timeline.</li>
             </ul>
+        </section>
+
+        <section id="layout">
+            <h2>Layout &amp; Shortcuts</h2>
+            <p>You can show/hide major panes to maximize workspace. The layout buttons are in the header (right side) and the app remembers your choices.</p>
+            <ul>
+                <li><strong>Toggle Palette:</strong> <kbd>Alt</kbd>+<kbd>1</kbd></li>
+                <li><strong>Toggle Preview:</strong> <kbd>Alt</kbd>+<kbd>2</kbd></li>
+                <li><strong>Toggle Inspector:</strong> <kbd>Alt</kbd>+<kbd>3</kbd></li>
+            </ul>
+            <div class="callout">
+                <h4>Manual Access</h4>
+                <p>The manual opens inside the app. Press <kbd>Esc</kbd> to close it.</p>
+            </div>
         </section>
 
         <section id="profiles">
@@ -671,15 +684,36 @@
             
             <h3>LED Tracks</h3>
             <p>To add lighting, click <strong>+ LED Track</strong>. Important: Check the <strong>Target Group</strong> dropdown in the track header to ensure you are sending effects to the correct props.</p>
+            <p>Drag effects from the Palette onto an LED track lane to create a clip. You can drag clips left/right to change time, and drag their ends to change duration.</p>
             
             <h3>Audio Tracks</h3>
             <p>Click <strong>+ Audio Track</strong> to add a lane for music. Click the folder icon on the track header to load an MP3 or WAV file. Use this visual waveform to line up your effects with the beat.</p>
+            <p><strong>Track rules:</strong> Audio clips can only live on Audio tracks. Lighting clips can only live on LED tracks.</p>
+
+            <h3>Reordering & Moving</h3>
+            <ul>
+                <li><strong>Reorder tracks:</strong> Drag a track header up/down.</li>
+                <li><strong>Move clips between tracks:</strong> Drag selected clips onto another track of the same type.</li>
+            </ul>
 
             <div class="callout">
                 <h4>Productivity Tips</h4>
-                <p><strong>Snap:</strong> Enable the "Snap" checkbox to align clips perfectly to the grid (e.g., 1 second).<br>
-                <strong>Multi-Edit:</strong> Hold <kbd>Ctrl</kbd> and click multiple clips to select them. You can move, delete, or duplicate (<kbd>Ctrl+D</kbd>) them as a group.</p>
+                <p><strong>Snap:</strong> Enable the "Snap" checkbox to align clips to the grid (e.g., 1 second).<br>
+                <strong>Multi-Select:</strong> Hold <kbd>Ctrl</kbd> (or <kbd>Cmd</kbd>) and click multiple clips to move/delete/duplicate them together.</p>
             </div>
+        </section>
+
+        <section id="shortcuts">
+            <h2>Keyboard Shortcuts</h2>
+            <ul>
+                <li><strong>Play/Pause:</strong> <kbd>Space</kbd></li>
+                <li><strong>Undo:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Z</kbd></li>
+                <li><strong>Redo:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></li>
+                <li><strong>Copy:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>C</kbd></li>
+                <li><strong>Paste:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>V</kbd></li>
+                <li><strong>Duplicate:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>D</kbd></li>
+                <li><strong>Delete Selected:</strong> <kbd>Delete</kbd> (or <kbd>Backspace</kbd>)</li>
+            </ul>
         </section>
 
         <section id="effects">
@@ -818,8 +852,9 @@
         <section id="audio">
             <h2>Audio Integration</h2>
             <p>1. Add an <strong>Audio Track</strong> using the button above the timeline.</p>
-            <p>2. Click the file icon on the track header to select an MP3/WAV file.</p>
+            <p>2. Click the folder icon on the track header to select an MP3/WAV file.</p>
             <p>3. Use the waveform to visually align your lighting effects (e.g., placing a "Flash" right on a snare hit).</p>
+            <p><strong>Volume:</strong> Use the header volume slider for overall playback volume, and select an audio clip to adjust its per-clip volume in the Inspector.</p>
         </section>
 
         <section id="export">
