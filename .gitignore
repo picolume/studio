@@ -2,6 +2,10 @@
 /build/bin/
 /frontend/dist/
 /frontend/wailsjs/
+/frontend/src/wailsjs/
+
+# Windows artifacts
+nul
 
 # Go
 /go.sum
