@@ -312,6 +312,44 @@ window.addEventListener('DOMContentLoaded', async () => {
         const gridSize = stateManager.get('ui.gridSize');
         startTime = getSnappedTime(startTime, { snapEnabled, gridSize });
 
+        // Get existing clips on the target track to avoid overlaps
+        const track = stateManager.get('project.tracks')?.find(t => t.id === trackId);
+        const newClipDuration = CONFIG.defaultDuration;
+
+        if (track && track.clips.length > 0) {
+            // Sort clips by start time for proper overlap detection
+            const sortedClips = [...track.clips].sort((a, b) => a.startTime - b.startTime);
+
+            // Keep checking until we find a non-overlapping position
+            let foundOverlap = true;
+            let iterations = 0;
+            const maxIterations = sortedClips.length + 1; // Safety limit
+
+            while (foundOverlap && iterations < maxIterations) {
+                foundOverlap = false;
+                iterations++;
+                const newClipEnd = startTime + newClipDuration;
+
+                for (const existingClip of sortedClips) {
+                    const existingStart = existingClip.startTime;
+                    const existingEnd = existingStart + existingClip.duration;
+
+                    // Check for overlap
+                    const overlaps = (startTime < existingEnd && newClipEnd > existingStart);
+
+                    if (overlaps) {
+                        // Snap to the end of the overlapped clip
+                        startTime = existingEnd;
+                        if (snapEnabled) {
+                            startTime = getSnappedTime(startTime, { snapEnabled, gridSize });
+                        }
+                        foundOverlap = true;
+                        break; // Re-check from the start with new position
+                    }
+                }
+            }
+        }
+
         const clip = createDefaultClip(type, startTime);
         const result = timelineController.addClip(trackId, clip);
         if (!result?.success) return;
