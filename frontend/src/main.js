@@ -17,7 +17,8 @@ import {
     selectClip,
     updateGridBackground,
     updateSelectionUI,
-    populateInspector
+    populateInspector,
+    updateAudioClipWaveform
 } from './timeline.js';
 
 // Global references for legacy code compatibility
@@ -585,18 +586,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
             for (const track of (state.project?.tracks || [])) {
                 const clip = (track.clips || []).find(c => c.id === id);
-                if (clip) {
-                    clipInfos[id] = {
-                        el,
-                        trackId: track.id,
-                        trackType: track.type,
-                        origLeft: parseFloat(el.style.left),
-                        origWidth: parseFloat(el.style.width),
-                        origStart: clip.startTime,
-                        origDur: clip.duration
-                    };
-                    break;
-                }
+                    if (clip) {
+                        clipInfos[id] = {
+                            el,
+                            trackId: track.id,
+                            trackType: track.type,
+                            clipType: clip.type,
+                            origLeft: parseFloat(el.style.left),
+                            origWidth: parseFloat(el.style.width),
+                            origStart: clip.startTime,
+                            origDur: clip.duration
+                        };
+                        break;
+                    }
             }
         }
 
@@ -643,6 +645,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
                 info.el.style.width = `${newWidth}px`;
                 currentValues[clipId].duration = newDur;
+                if (info.clipType === 'audio') {
+                    updateAudioClipWaveform(clipId, newDur);
+                }
 
             } else if (isResizeLeft) {
                 // Resize from left edge
@@ -678,6 +683,9 @@ window.addEventListener('DOMContentLoaded', async () => {
                 info.el.style.width = `${newWidth}px`;
                 currentValues[clipId].startTime = newStart;
                 currentValues[clipId].duration = newDur;
+                if (info.clipType === 'audio') {
+                    updateAudioClipWaveform(clipId, newDur);
+                }
 
             } else {
                 // Move clips

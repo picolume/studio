@@ -466,6 +466,35 @@ export function updateSelectionUI() {
     else populateInspector(null);
 }
 
+export function updateAudioClipWaveform(clipId, durationMs) {
+    const el = document.getElementById(`clip-${clipId}`);
+    if (!el) return;
+    const canvas = el.querySelector('canvas.clip-waveform');
+    if (!canvas) return;
+
+    const project = getProject();
+    if (!project?.tracks) return;
+
+    let clip = null;
+    for (const track of project.tracks) {
+        const found = (track.clips || []).find(c => c.id === clipId);
+        if (found) { clip = found; break; }
+    }
+    if (!clip || clip.type !== 'audio') return;
+
+    const zoom = getZoom();
+    const width = Math.max(10, (durationMs / 1000) * zoom);
+    const height = Math.max(20, el.clientHeight || 80);
+
+    canvas.width = Math.max(10, Math.floor(width));
+    canvas.height = Math.floor(height);
+
+    const assets = getAssets();
+    if (clip.bufferId && assets[clip.bufferId]) {
+        drawClipWaveform(canvas, assets[clip.bufferId], '#d97706', durationMs);
+    }
+}
+
 // --- Sync Patch Map Logic ---
 function computePatchFromProfiles(profiles) {
     const patch = {};
