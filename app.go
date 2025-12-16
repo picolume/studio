@@ -379,19 +379,10 @@ func (a *App) UploadToPico(projectJson string) string {
 				continue
 			}
 
-			// Look for candidates
-			isCandidate := false
+			// Look for Pico-specific markers
 			if _, err := os.Stat(driveRoot + "INDEX.HTM"); err == nil {
-				isCandidate = true
-			}
-			if _, err := os.Stat(driveRoot + "show.bin"); err == nil {
-				isCandidate = true
-			}
-			if !isCandidate && drive != 'C' {
-				isCandidate = true
-			}
-
-			if isCandidate {
+				possibleDrives = append(possibleDrives, driveRoot)
+			} else if _, err := os.Stat(driveRoot + "show.bin"); err == nil {
 				possibleDrives = append(possibleDrives, driveRoot)
 			}
 		}
