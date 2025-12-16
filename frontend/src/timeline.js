@@ -692,7 +692,7 @@ export function populateInspector(clipId) {
             
             const cInp = document.createElement('input'); 
             cInp.type = "number"; 
-            cInp.className = "bg-neutral-900 text-xs text-cyan-300 rounded px-1 py-0.5 flex-1 outline-none border border-gray-700";
+            cInp.className = "bg-neutral-900 text-xs text-gray-300 rounded px-1 py-0.5 flex-1 outline-none border border-gray-700";
             cInp.value = profile.ledCount;
             cInp.onchange = (e) => {
                 const next = parseInt(e.target.value) || 10;

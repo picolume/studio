@@ -77,7 +77,7 @@ body {
 .btn--success:hover { background: #1a7137; }
 
 .btn--icon {
-    height: 25px;
+    height: 30px;
     width: 30px;
     padding: 0;
 }
@@ -249,7 +249,7 @@ body {
 /* Palette Items */
 .palette-item {
     background: #333; padding: 8px; margin-bottom: 8px; border-radius: 4px;
-    cursor: grab; display: flex; align-items: center; gap: 10px; border: 1px solid transparent;
+    cursor: grab; display: flex; align-items: center; gap: 10px; border: 1px solid #374151;
 }
 .palette-item:hover { border-color: #666; background: #3a3a3a; }
 .palette-item:active { cursor: grabbing; }
