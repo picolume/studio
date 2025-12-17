@@ -509,6 +509,10 @@ window.addEventListener('DOMContentLoaded', async () => {
             updateClipboardUI();
         }
 
+        // Only allow scrubbing from the ruler area
+        const clickedRuler = e.target.closest('.ruler');
+        if (!clickedRuler) return;
+
         const scrollRect = els.timelineScroll.getBoundingClientRect();
         // No need to subtract headerWidth - scrollRect.left is already after the headers
         const startX = e.clientX - scrollRect.left + els.timelineScroll.scrollLeft;
