@@ -246,19 +246,12 @@ export class ProjectService {
         );
         const audio = {};
 
-        // Debug: log audioLibrary contents
-        const audioLibrary = this.stateManager.get('audioLibrary');
-        console.log('[ProjectService] audioLibrary keys:', Object.keys(audioLibrary || {}));
-
         // Extract audio library references
         project.tracks.forEach(track => {
             if (track.type === 'audio') {
-                console.log('[ProjectService] Processing audio track:', track.id, 'clips:', track.clips.length);
                 track.clips.forEach(clip => {
-                    console.log('[ProjectService] Audio clip:', clip.id, 'bufferId:', clip.bufferId);
                     if (clip.bufferId) {
                         const audioData = this.audioService.getAudioDataURL(clip.bufferId);
-                        console.log('[ProjectService] Got audioData for', clip.bufferId, ':', audioData ? `${audioData.substring(0, 50)}...` : 'null');
                         if (audioData) {
                             audio[clip.bufferId] = audioData;
                             clip.props.audioSrcPath = `audio/${clip.bufferId}.bin`;
@@ -269,7 +262,6 @@ export class ProjectService {
             }
         });
 
-        console.log('[ProjectService] Audio files to save:', Object.keys(audio));
         return { project, audio };
     }
 }
