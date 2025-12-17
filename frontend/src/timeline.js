@@ -10,6 +10,44 @@ const deps = {
 
 let lastPreviewRender = 0;
 
+/**
+ * Format milliseconds to MM:SS.ss string
+ * @param {number} ms - Time in milliseconds
+ * @returns {string} Formatted time string (e.g., "05:23.45")
+ */
+function formatTime(ms) {
+    const totalSeconds = ms / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const mm = String(minutes).padStart(2, '0');
+    const ss = seconds.toFixed(2).padStart(5, '0');
+    return `${mm}:${ss}`;
+}
+
+/**
+ * Parse time string to milliseconds
+ * Accepts: "MM:SS.ss", "MM:SS", "SS.ss", or just seconds as number
+ * @param {string|number} input - Time input
+ * @returns {number} Time in milliseconds
+ */
+function parseTime(input) {
+    if (typeof input === 'number') return input;
+
+    const str = String(input).trim();
+
+    // Handle MM:SS.ss or MM:SS format
+    if (str.includes(':')) {
+        const [minPart, secPart] = str.split(':');
+        const minutes = parseFloat(minPart) || 0;
+        const seconds = parseFloat(secPart) || 0;
+        return (minutes * 60 + seconds) * 1000;
+    }
+
+    // Treat as seconds
+    const seconds = parseFloat(str) || 0;
+    return seconds * 1000;
+}
+
 export function initTimeline(injected) {
     if (!injected?.stateManager) {
         console.warn('initTimeline: stateManager is required');
@@ -579,25 +617,31 @@ export function populateInspector(clipId) {
         };
         infoDiv.appendChild(nameInp); 
 
-        const durLbl = document.createElement('label'); durLbl.className="block text-xs text-gray-500 mb-1"; durLbl.innerText="Duration (Seconds)"; infoDiv.appendChild(durLbl);
+        const durLbl = document.createElement('label'); durLbl.className="block text-xs text-gray-500 mb-1"; durLbl.innerText="Duration (MM:SS.ss)"; infoDiv.appendChild(durLbl);
         const durRow = document.createElement('div'); durRow.className = "flex gap-2";
-        const durInp = document.createElement('input'); durInp.type = "number"; durInp.min = "1";
+        const durInp = document.createElement('input'); durInp.type = "text";
         durInp.className = "flex-1 bg-neutral-900 text-sm text-gray-300 border border-gray-700 rounded px-1 py-1 outline-none";
-        const secs = Math.ceil((project.duration || 60000) / 1000);
-        durInp.setAttribute('value', secs); durInp.value = secs;
+        const durFormatted = formatTime(project.duration || 60000);
+        durInp.setAttribute('value', durFormatted); durInp.value = durFormatted;
+        const applyDuration = () => {
+            let val = parseTime(durInp.value);
+            if (isNaN(val) || val < 1000) val = 60000;
+            deps.stateManager?.update(draft => {
+                draft.project.duration = val;
+                draft.isDirty = true;
+            });
+            buildTimeline();
+            toast(`Duration set to ${formatTime(val)}`);
+        };
+        durInp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); applyDuration(); }
+        });
         const updateBtn = document.createElement('button');
         updateBtn.className = "px-3 py-1 bg-neutral-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-neutral-700 cursor-pointer";
         updateBtn.innerText = "Set";
         updateBtn.addEventListener('mousedown', (e) => {
             e.stopPropagation(); e.preventDefault();
-            let val = parseInt(durInp.value);
-            if (isNaN(val) || val < 1) val = 60;
-            deps.stateManager?.update(draft => {
-                draft.project.duration = val * 1000;
-                draft.isDirty = true;
-            });
-            buildTimeline();
-            toast(`Duration set to ${val}s`);
+            applyDuration();
         });
         durRow.appendChild(durInp); durRow.appendChild(updateBtn); infoDiv.appendChild(durRow);
 
@@ -884,10 +928,12 @@ export function populateInspector(clipId) {
 
         const safeVal = (val !== undefined) ? val : "";
         inp.setAttribute('value', safeVal); inp.value = safeVal;
-        inp.oninput = cb; d.appendChild(inp); container.appendChild(d);
+        inp.oninput = cb;
+        inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } };
+        d.appendChild(inp); container.appendChild(d);
     }
-    addInp("Start Time", clip.startTime, e => {
-        const next = parseFloat(e.target.value);
+    addInp("Start (MM:SS.ss)", formatTime(clip.startTime), e => {
+        const next = parseTime(e.target.value);
         deps.stateManager?.update(draft => {
             draft.project.tracks.forEach(t => {
                 const c = t.clips.find(x => x.id === clipId);
@@ -897,8 +943,8 @@ export function populateInspector(clipId) {
         });
         buildTimeline();
     });
-    addInp("Duration", clip.duration, e => {
-        const next = parseFloat(e.target.value);
+    addInp("Duration (MM:SS.ss)", formatTime(clip.duration), e => {
+        const next = parseTime(e.target.value);
         deps.stateManager?.update(draft => {
             draft.project.tracks.forEach(t => {
                 const c = t.clips.find(x => x.id === clipId);
