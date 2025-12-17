@@ -1,4 +1,4 @@
-import { CONFIG, getSnappedTime, lerpColor, hslToRgb, hexToRgb, pseudoRandom, parseIdString } from './utils.js';
+import { CONFIG, getSnappedTime, lerpColor, hslToRgb, hexToRgb, pseudoRandom, parseIdString, formatTime, parseTime } from './utils.js';
 
 const deps = {
     stateManager: null,
@@ -9,44 +9,6 @@ const deps = {
 };
 
 let lastPreviewRender = 0;
-
-/**
- * Format milliseconds to MM:SS.ss string
- * @param {number} ms - Time in milliseconds
- * @returns {string} Formatted time string (e.g., "05:23.45")
- */
-function formatTime(ms) {
-    const totalSeconds = ms / 1000;
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    const mm = String(minutes).padStart(2, '0');
-    const ss = seconds.toFixed(2).padStart(5, '0');
-    return `${mm}:${ss}`;
-}
-
-/**
- * Parse time string to milliseconds
- * Accepts: "MM:SS.ss", "MM:SS", "SS.ss", or just seconds as number
- * @param {string|number} input - Time input
- * @returns {number} Time in milliseconds
- */
-function parseTime(input) {
-    if (typeof input === 'number') return input;
-
-    const str = String(input).trim();
-
-    // Handle MM:SS.ss or MM:SS format
-    if (str.includes(':')) {
-        const [minPart, secPart] = str.split(':');
-        const minutes = parseFloat(minPart) || 0;
-        const seconds = parseFloat(secPart) || 0;
-        return (minutes * 60 + seconds) * 1000;
-    }
-
-    // Treat as seconds
-    const seconds = parseFloat(str) || 0;
-    return seconds * 1000;
-}
 
 export function initTimeline(injected) {
     if (!injected?.stateManager) {

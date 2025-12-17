@@ -116,6 +116,23 @@ export function formatTime(ms) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centisecs.toString().padStart(2, '0')}`;
 }
 
+export function parseTime(input) {
+    if (typeof input === 'number') return input;
+
+    const str = String(input ?? '').trim();
+    if (!str) return NaN;
+
+    if (str.includes(':')) {
+        const parts = str.split(':');
+        const minutes = parseFloat(parts[0]) || 0;
+        const seconds = parseFloat(parts.slice(1).join(':')) || 0;
+        return (minutes * 60 + seconds) * 1000;
+    }
+
+    const seconds = parseFloat(str);
+    return Number.isFinite(seconds) ? seconds * 1000 : NaN;
+}
+
 export function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
 }

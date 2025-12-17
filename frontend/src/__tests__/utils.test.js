@@ -4,6 +4,7 @@ import {
     rgbToHex,
     parseIdString,
     formatTime,
+    parseTime,
     clamp,
     pseudoRandom
 } from '../utils.js';
@@ -91,8 +92,8 @@ describe('ID String Parsing', () => {
     });
 });
 
-describe('Time Formatting', () => {
-    describe('formatTime', () => {
+	describe('Time Formatting', () => {
+	    describe('formatTime', () => {
         it('should format zero correctly', () => {
             expect(formatTime(0)).toBe('00:00.00');
         });
@@ -120,8 +121,26 @@ describe('Time Formatting', () => {
 
         it('should handle large values', () => {
             expect(formatTime(599990)).toBe('09:59.99');
+	    });
+
+        describe('parseTime', () => {
+            it('should parse MM:SS.ss', () => {
+                expect(parseTime('01:05.25')).toBe(65250);
+            });
+
+            it('should parse MM:SS', () => {
+                expect(parseTime('02:00')).toBe(120000);
+            });
+
+            it('should parse seconds', () => {
+                expect(parseTime('1.5')).toBe(1500);
+            });
+
+            it('should return NaN for empty input', () => {
+                expect(Number.isNaN(parseTime(''))).toBe(true);
+            });
         });
-    });
+	});
 });
 
 describe('Math Utilities', () => {
