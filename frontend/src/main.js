@@ -423,9 +423,28 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Handler: Drop clip from palette to timeline
+    // Handler: Drop clip from palette to timeline (or audio file from filesystem)
     window.addEventListener('app:drop-clip', (e) => {
         const { event, trackId } = e.detail;
+
+        // Check for external audio file drop
+        const files = event.dataTransfer.files;
+        if (files && files.length > 0) {
+            const file = files[0];
+            const track = stateManager.get('project.tracks')?.find(t => t.id === trackId);
+
+            if (file.type.startsWith('audio/')) {
+                if (track?.type === 'audio') {
+                    window.dispatchEvent(new CustomEvent('app:load-audio', {
+                        detail: { file, trackId }
+                    }));
+                } else {
+                    errorHandler.warn('Audio files can only be dropped on audio tracks');
+                }
+                return;
+            }
+        }
+
         const type = event.dataTransfer.getData('type') || event.dataTransfer.getData('text/plain');
 
         if (!type) return;
