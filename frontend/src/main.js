@@ -864,14 +864,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     // ==========================================
 
     if (els.btnPlay) {
-        els.btnPlay.onclick = () => {
+        els.btnPlay.onclick = async () => {
             const isPlaying = stateManager.get('playback.isPlaying');
 
             if (isPlaying) {
                 audioService.stopPlayback();
                 els.btnPlay.innerHTML = '<i class="fas fa-play"></i>';
             } else {
-                audioService.startPlayback();
+                await audioService.startPlayback();
                 els.btnPlay.innerHTML = '<i class="fas fa-pause"></i>';
                 startAnimationLoop();
             }

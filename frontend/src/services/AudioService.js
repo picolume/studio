@@ -46,12 +46,16 @@ export class AudioService {
     /**
      * Ensure audio context is initialized
      */
-    ensureInit() {
+    async ensureInit() {
         if (!this.ctx) {
             this.init();
         }
         if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
+            try {
+                await this.ctx.resume();
+            } catch (error) {
+                console.error('Failed to resume audio context:', error);
+            }
         }
     }
 
@@ -62,7 +66,7 @@ export class AudioService {
      * @returns {Promise<AudioBuffer>}
      */
     async loadAudioFile(file, bufferId) {
-        this.ensureInit();
+        await this.ensureInit();
 
         try {
             const arrayBuffer = await file.arrayBuffer();
@@ -95,7 +99,7 @@ export class AudioService {
      * @returns {Promise<AudioBuffer>}
      */
     async loadAudioFromDataURL(bufferId, dataURL) {
-        this.ensureInit();
+        await this.ensureInit();
 
         try {
             const response = await fetch(dataURL);
@@ -158,8 +162,8 @@ export class AudioService {
     /**
      * Start playback from current time
      */
-    startPlayback() {
-        this.ensureInit();
+    async startPlayback() {
+        await this.ensureInit();
         // Prevent stacking sources if startPlayback is called repeatedly.
         this.stopAll();
 
