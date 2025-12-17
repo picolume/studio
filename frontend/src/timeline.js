@@ -800,7 +800,7 @@ export function populateInspector(clipId) {
             row2.appendChild(ids); card.appendChild(row2);
             container.appendChild(card);
         });
-        const addGrpBtn = document.createElement('button'); addGrpBtn.innerText="+ Add Group"; addGrpBtn.className="w-full py-1.5 mt-2 bg-neutral-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-neutral-700";
+        const addGrpBtn = document.createElement('button'); addGrpBtn.innerText="+ Add Group"; addGrpBtn.className="w-full py-1.5 bg-neutral-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-neutral-700 mb-4";
         addGrpBtn.onclick = () => {
             deps.stateManager?.update(draft => {
                 if (!draft.project.propGroups) draft.project.propGroups = [];
