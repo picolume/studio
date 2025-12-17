@@ -610,7 +610,7 @@
                 <li><strong>Header Toolbar:</strong> Project actions (New/Save/Save As/Open), Undo/Redo, playback controls, master volume, and <strong>Upload/Export</strong>.</li>
                 <li><strong>Effect Palette (Left):</strong> A library of all available lighting patterns. These are "Smart Clips" that adapt to any duration you set.</li>
                 <li><strong>Timeline (Center):</strong> The main workspace. Top tracks render *above* bottom tracks visually (bottom track = highest priority).</li>
-                <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click a clip.</li>
+                <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click a clip. Time values use <code>MM:SS.ss</code> format (e.g., "05:23.45" for 5 minutes, 23.45 seconds).</li>
                 <li><strong>Preview Canvas (Top Center):</strong> A real-time simulation of your show. It approximates the look of your LEDs based on your timeline.</li>
             </ul>
         </section>
@@ -713,7 +713,13 @@
                 <li><strong>Paste:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>V</kbd></li>
                 <li><strong>Duplicate:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>D</kbd></li>
                 <li><strong>Delete Selected:</strong> <kbd>Delete</kbd> (or <kbd>Backspace</kbd>)</li>
+                <li><strong>Confirm Input:</strong> <kbd>Enter</kbd> (applies the value in text fields)</li>
             </ul>
+
+            <div class="callout">
+                <h4>Undo/Redo History</h4>
+                <p>The undo system stores up to <strong>50 history states</strong>. The current position is shown in the status bar at the bottom of the screen (e.g., "History: 5/12").</p>
+            </div>
         </section>
 
         <section id="effects">
@@ -852,7 +858,11 @@
         <section id="audio">
             <h2>Audio Integration</h2>
             <p>1. Add an <strong>Audio Track</strong> using the button above the timeline.</p>
-            <p>2. Click the folder icon on the track header to select an MP3/WAV file.</p>
+            <p>2. Load audio using one of these methods:</p>
+            <ul>
+                <li><strong>Folder icon:</strong> Click the folder icon on the track header to browse for a file.</li>
+                <li><strong>Drag &amp; drop:</strong> Drag an MP3, WAV, or OGG file directly from your file explorer onto an audio track.</li>
+            </ul>
             <p>3. Use the waveform to visually align your lighting effects (e.g., placing a "Flash" right on a snare hit).</p>
             <p><strong>Volume:</strong> Use the header volume slider for overall playback volume, and select an audio clip to adjust its per-clip volume in the Inspector.</p>
         </section>
