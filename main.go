@@ -58,9 +58,8 @@ func main() {
 		Bind: []interface{}{
 			app,
 		},
-		// === ADD THIS SECTION ===
+
 		WindowStartState: options.Maximised,
-		// ========================
 	})
 
 	if err != nil {

@@ -129,9 +129,7 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 		if len(hex) == 0 {
 			return 0
 		}
-		if strings.HasPrefix(hex, "#") {
-			hex = hex[1:]
-		}
+		hex = strings.TrimPrefix(hex, "#")
 		val, _ := strconv.ParseUint(hex, 16, 32)
 		return uint32(val)
 	}
