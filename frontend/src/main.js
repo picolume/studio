@@ -158,6 +158,80 @@ window.addEventListener('DOMContentLoaded', async () => {
     loadUILayout();
     applyLayout();
 
+    // ==========================================
+    // HAMBURGER MENU
+    // ==========================================
+
+    const btnHamburger = document.getElementById('btn-hamburger');
+    const hamburgerDropdown = document.getElementById('hamburger-dropdown');
+
+    const setHamburgerOpen = (open) => {
+        if (!btnHamburger || !hamburgerDropdown) return;
+        btnHamburger.setAttribute('aria-expanded', String(open));
+        hamburgerDropdown.setAttribute('aria-hidden', String(!open));
+    };
+
+    const toggleHamburger = () => {
+        const isOpen = btnHamburger?.getAttribute('aria-expanded') === 'true';
+        setHamburgerOpen(!isOpen);
+    };
+
+    btnHamburger?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleHamburger();
+    });
+
+    // Close hamburger menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#hamburger-menu')) {
+            setHamburgerOpen(false);
+        }
+    });
+
+    // Close hamburger menu on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && btnHamburger?.getAttribute('aria-expanded') === 'true') {
+            setHamburgerOpen(false);
+        }
+    });
+
+    // Handle hamburger menu item clicks
+    hamburgerDropdown?.addEventListener('click', (e) => {
+        const item = e.target.closest('.hamburger-item');
+        if (!item) return;
+
+        const action = item.dataset.action;
+        setHamburgerOpen(false);
+
+        switch (action) {
+            case 'new':
+                els.btnNew?.click();
+                break;
+            case 'open':
+                els.btnOpen?.click();
+                break;
+            case 'save':
+                els.btnSave?.click();
+                break;
+            case 'save-as':
+                els.btnSaveAs?.click();
+                break;
+            case 'export':
+                els.btnExportBin?.click();
+                break;
+            case 'upload':
+                els.btnUpload?.click();
+                break;
+            case 'settings':
+                els.btnSettings?.click();
+                break;
+            case 'manual':
+                e.preventDefault();
+                setManualOpen(true);
+                break;
+        }
+    });
+
     // Wire timeline module to the application state/services (no bridge/proxy).
     initTimeline({
         stateManager,
@@ -313,9 +387,28 @@ window.addEventListener('DOMContentLoaded', async () => {
             updateSelectionUI();
         }
         // Ctrl+S / Cmd+S: Save
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && !e.shiftKey) {
             e.preventDefault();
             els.btnSave?.click();
+            return;
+        }
+        // Ctrl+Shift+S / Cmd+Shift+S: Save As
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && e.shiftKey) {
+            e.preventDefault();
+            els.btnSaveAs?.click();
+            return;
+        }
+        // Ctrl+N / Cmd+N: New Project
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            els.btnNew?.click();
+            return;
+        }
+        // Ctrl+O / Cmd+O: Open Project
+        if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+            e.preventDefault();
+            els.btnOpen?.click();
+            return;
         }
         // Delete: Delete selected
         if (e.key === 'Delete' || e.key === 'Backspace') {
