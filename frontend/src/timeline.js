@@ -81,6 +81,10 @@ export function populateInspector(clipId) {
     deps.inspectorRenderer?.render(clipId);
 }
 
+export function getPreviewRenderer() {
+    return deps.previewRenderer;
+}
+
 // ==========================================
 // UTILITIES
 // ==========================================

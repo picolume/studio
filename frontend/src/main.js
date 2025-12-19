@@ -18,7 +18,8 @@ import {
     updateGridBackground,
     updateSelectionUI,
     populateInspector,
-    updateAudioClipWaveform
+    updateAudioClipWaveform,
+    getPreviewRenderer
 } from './timeline.js';
 
 // Global references for legacy code compatibility
@@ -73,6 +74,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         paletteOpen: true,
         previewOpen: true,
         inspectorOpen: true,
+        previewHeight: null, // null = use default, otherwise custom height in px
     };
 
     const isTypingTarget = (el) => {
@@ -112,7 +114,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         const rootStyle = document.documentElement.style;
         rootStyle.setProperty('--palette-width', UI_LAYOUT.paletteOpen ? `${UI_DEFAULTS.paletteWidth}px` : '0px');
         rootStyle.setProperty('--inspector-width', UI_LAYOUT.inspectorOpen ? `${UI_DEFAULTS.inspectorWidth}px` : '0px');
-        rootStyle.setProperty('--preview-height', UI_LAYOUT.previewOpen ? `${UI_DEFAULTS.previewHeight}px` : '0px');
+
+        // Use custom preview height if set, otherwise use default
+        const previewHeight = UI_LAYOUT.previewHeight ?? UI_DEFAULTS.previewHeight;
+        rootStyle.setProperty('--preview-height', UI_LAYOUT.previewOpen ? `${previewHeight}px` : '0px');
 
         setPressed(btnTogglePalette, UI_LAYOUT.paletteOpen);
         setPressed(btnTogglePreview, UI_LAYOUT.previewOpen);
@@ -157,6 +162,185 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     loadUILayout();
     applyLayout();
+
+    // ==========================================
+    // PREVIEW MODE SELECTOR
+    // ==========================================
+
+    const previewModeSelector = document.getElementById('preview-mode-selector');
+    const previewCanvas = document.getElementById('preview-canvas');
+
+    const updatePreviewModeUI = () => {
+        const currentMode = stateManager.get('ui.previewMode') || 'track';
+        previewModeSelector?.querySelectorAll('.preview-mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === currentMode);
+        });
+    };
+
+    previewModeSelector?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.preview-mode-btn');
+        if (!btn) return;
+        const mode = btn.dataset.mode;
+        if (mode) {
+            stateManager.update(draft => {
+                draft.ui.previewMode = mode;
+            }, { skipHistory: true });
+            updatePreviewModeUI();
+            renderPreview();
+        }
+    });
+
+    // Initialize mode UI
+    updatePreviewModeUI();
+
+    // ==========================================
+    // CANVAS RESIZE OBSERVER
+    // ==========================================
+
+    const resizeCanvas = () => {
+        if (!previewCanvas || !panePreview) return;
+
+        const rect = panePreview.getBoundingClientRect();
+        const newWidth = Math.floor(rect.width);
+        const newHeight = Math.floor(rect.height);
+
+        // Only resize if dimensions actually changed
+        if (previewCanvas.width !== newWidth || previewCanvas.height !== newHeight) {
+            previewCanvas.width = newWidth;
+            previewCanvas.height = newHeight;
+            renderPreview();
+        }
+    };
+
+    // Use ResizeObserver to watch for container size changes
+    if (typeof ResizeObserver !== 'undefined' && panePreview) {
+        const previewResizeObserver = new ResizeObserver(() => {
+            resizeCanvas();
+        });
+        previewResizeObserver.observe(panePreview);
+    }
+
+    // Initial canvas sizing
+    resizeCanvas();
+
+    // ==========================================
+    // FIELD VIEW DRAG INTERACTION
+    // ==========================================
+
+    let fieldDragState = null; // { propId, startX, startY, origX, origY }
+
+    const getCanvasCoords = (e) => {
+        if (!previewCanvas) return { x: 0, y: 0 };
+        const rect = previewCanvas.getBoundingClientRect();
+        const scaleX = previewCanvas.width / rect.width;
+        const scaleY = previewCanvas.height / rect.height;
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    };
+
+    previewCanvas?.addEventListener('mousedown', (e) => {
+        if (stateManager.get('ui.previewMode') !== 'field') return;
+
+        const coords = getCanvasCoords(e);
+        const previewRenderer = getPreviewRenderer();
+        if (!previewRenderer) return;
+
+        const propId = previewRenderer.hitTestProp(coords.x, coords.y);
+        if (propId) {
+            const fieldLayout = stateManager.get('project.settings.fieldLayout') || {};
+            const usedProps = previewRenderer._getUsedProps(stateManager.get('project'));
+            const index = usedProps.indexOf(propId);
+            const pos = previewRenderer._getPropPosition(propId, index, fieldLayout, previewCanvas.width, previewCanvas.height, usedProps.length);
+
+            fieldDragState = {
+                propId,
+                startX: coords.x,
+                startY: coords.y,
+                origX: pos.x,
+                origY: pos.y
+            };
+            previewCanvas.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!fieldDragState || !previewCanvas) return;
+
+        const coords = getCanvasCoords(e);
+        const dx = coords.x - fieldDragState.startX;
+        const dy = coords.y - fieldDragState.startY;
+
+        const newX = Math.max(20, Math.min(previewCanvas.width - 20, fieldDragState.origX + dx));
+        const newY = Math.max(20, Math.min(previewCanvas.height - 20, fieldDragState.origY + dy));
+
+        // Update position in state (without adding to undo history during drag)
+        stateManager.update(draft => {
+            if (!draft.project.settings.fieldLayout) {
+                draft.project.settings.fieldLayout = {};
+            }
+            draft.project.settings.fieldLayout[fieldDragState.propId] = { x: newX, y: newY };
+        }, { skipHistory: true });
+
+        renderPreview();
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (fieldDragState) {
+            // Mark project as dirty since we moved a prop
+            stateManager.update(draft => {
+                draft.isDirty = true;
+            }, { skipHistory: true });
+            fieldDragState = null;
+            if (previewCanvas) previewCanvas.style.cursor = '';
+        }
+    });
+
+    // ==========================================
+    // PREVIEW RESIZE HANDLE
+    // ==========================================
+
+    const previewResizeHandle = document.getElementById('preview-resize-handle');
+    let previewResizeState = null; // { startY, startHeight }
+
+    const MIN_PREVIEW_HEIGHT = 80;
+    const MAX_PREVIEW_HEIGHT = 600;
+
+    previewResizeHandle?.addEventListener('mousedown', (e) => {
+        if (!panePreview || !UI_LAYOUT.previewOpen) return;
+
+        const currentHeight = UI_LAYOUT.previewHeight ?? UI_DEFAULTS.previewHeight;
+        previewResizeState = {
+            startY: e.clientY,
+            startHeight: currentHeight
+        };
+        previewResizeHandle.classList.add('dragging');
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!previewResizeState) return;
+
+        const deltaY = e.clientY - previewResizeState.startY;
+        const newHeight = Math.max(MIN_PREVIEW_HEIGHT, Math.min(MAX_PREVIEW_HEIGHT, previewResizeState.startHeight + deltaY));
+
+        UI_LAYOUT.previewHeight = newHeight;
+        document.documentElement.style.setProperty('--preview-height', `${newHeight}px`);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (previewResizeState) {
+            previewResizeHandle?.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            previewResizeState = null;
+            saveUILayout();
+        }
+    });
 
     // ==========================================
     // HAMBURGER MENU

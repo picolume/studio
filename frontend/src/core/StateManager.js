@@ -344,7 +344,8 @@ export function createInitialState() {
                 profiles: [
                     { id: 'p_default', name: 'Standard Prop', ledCount: 164, assignedIds: '1-164' }
                 ],
-                patch: {}
+                patch: {},
+                fieldLayout: {} // propId -> { x, y } positions for field preview
             },
             propGroups: [
                 { id: 'g_all', name: 'All Props', ids: '1-18' },
@@ -372,6 +373,7 @@ export function createInitialState() {
             zoom: 50,
             snapEnabled: true,
             gridSize: 1000,
+            previewMode: 'track', // 'track' | 'field' | 'off'
         },
         audio: {
             ctx: null,

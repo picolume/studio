@@ -1,8 +1,19 @@
-import { CONFIG, hslToRgb, hexToRgb, pseudoRandom } from '../utils.js';
+import { CONFIG, hslToRgb, hexToRgb, pseudoRandom, parseIdString } from '../utils.js';
+
+// Field view constants
+const FIELD_PROP_RADIUS = 16;        // Outer radius of the LED ring
+const FIELD_LED_COUNT = 12;          // Number of LEDs in each ring
+const FIELD_LED_RADIUS = 3;          // Radius of each individual LED dot
+const FIELD_INNER_RADIUS = 7;        // Inner dark circle radius (for label)
+const FIELD_GRID_COLS = 6;
+const FIELD_GRID_SPACING = 70;
+const FIELD_GRID_OFFSET = 50;
+const FIELD_BACKGROUND = '#0a0a0a';
 
 export class PreviewRenderer {
     constructor(deps) {
         this.deps = deps;
+        this._dragState = null; // { propId, offsetX, offsetY }
     }
 
     get stateManager() { return this.deps.stateManager; }
@@ -12,6 +23,35 @@ export class PreviewRenderer {
         const canvas = this.elements.previewCanvas || document.getElementById('preview-canvas');
         if (!canvas) return;
 
+        const mode = this.stateManager.get('ui.previewMode') || 'track';
+
+        switch (mode) {
+            case 'off':
+                this._renderOff(canvas);
+                break;
+            case 'field':
+                this._renderField(canvas);
+                break;
+            case 'track':
+            default:
+                this._renderTrack(canvas);
+                break;
+        }
+    }
+
+    _renderOff(canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Preview disabled', canvas.width / 2, canvas.height / 2);
+    }
+
+    _renderTrack(canvas) {
         const w = canvas.width;
         const h = canvas.height;
         const ctx = canvas.getContext('2d');
@@ -22,13 +62,24 @@ export class PreviewRenderer {
         const currentTime = this.stateManager.get('playback.currentTime') || 0;
         const ledTracks = project.tracks.filter(t => t.type === 'led');
 
-        if (ledTracks.length === 0) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h); return; }
-
-        const trackHeight = h / ledTracks.length;
-        const ledSpacing = w / CONFIG.ledsPerTrack;
-        const ledRadius = Math.min(ledSpacing / 2.5, trackHeight / 3);
-
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+
+        if (ledTracks.length === 0) return;
+
+        // Use 2/3 of width for the LED strip, centered
+        const stripWidth = w * 0.67;
+        const stripStartX = (w - stripWidth) / 2;
+
+        // Use a maximum track height so tracks stay compact
+        const maxTrackHeight = 50;
+        const trackHeight = Math.min(maxTrackHeight, h / ledTracks.length);
+
+        // Calculate total height of all tracks and center vertically
+        const totalTracksHeight = trackHeight * ledTracks.length;
+        const startY = (h - totalTracksHeight) / 2;
+
+        const ledSpacing = stripWidth / CONFIG.ledsPerTrack;
+        const ledRadius = Math.min(ledSpacing / 2.5, trackHeight / 3);
 
         ledTracks.forEach((track, tIndex) => {
             const activeClips = track.clips.filter(c => currentTime >= c.startTime && currentTime < (c.startTime + c.duration))
@@ -47,12 +98,248 @@ export class PreviewRenderer {
                         glow = result.glow;
                     }
                 }
-                const x = i * ledSpacing + (ledSpacing / 2);
-                const y = tIndex * trackHeight + (trackHeight / 2);
+                const x = stripStartX + i * ledSpacing + (ledSpacing / 2);
+                const y = startY + tIndex * trackHeight + (trackHeight / 2);
                 ctx.shadowBlur = glow ? 10 : 0; ctx.shadowColor = color;
                 ctx.beginPath(); ctx.arc(x, y, ledRadius, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
             }
         });
+    }
+
+    _renderField(canvas) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = FIELD_BACKGROUND;
+        ctx.fillRect(0, 0, w, h);
+
+        const project = this.stateManager.get('project');
+        if (!project?.tracks) return;
+
+        const usedProps = this._getUsedProps(project);
+        const currentTime = this.stateManager.get('playback.currentTime') || 0;
+        const fieldLayout = project.settings?.fieldLayout || {};
+
+        if (usedProps.length === 0) {
+            ctx.fillStyle = '#666';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Add tracks with prop groups to see props', w / 2, h / 2);
+            return;
+        }
+
+        // Draw each prop as an LED ring
+        const totalProps = usedProps.length;
+        usedProps.forEach((propId, index) => {
+            const pos = this._getPropPosition(propId, index, fieldLayout, w, h, totalProps);
+            const ledColors = this._getPropLedColors(propId, project, currentTime);
+
+            // Draw outer ring background (subtle)
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, FIELD_PROP_RADIUS + 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+
+            // Draw each LED in the ring
+            for (let i = 0; i < FIELD_LED_COUNT; i++) {
+                const angle = (i / FIELD_LED_COUNT) * Math.PI * 2 - Math.PI / 2; // Start from top
+                const ledX = pos.x + Math.cos(angle) * FIELD_PROP_RADIUS;
+                const ledY = pos.y + Math.sin(angle) * FIELD_PROP_RADIUS;
+                const ledColor = ledColors[i];
+
+                // LED glow
+                ctx.shadowBlur = ledColor.glow ? 8 : 0;
+                ctx.shadowColor = ledColor.color;
+
+                // Draw LED dot
+                ctx.beginPath();
+                ctx.arc(ledX, ledY, FIELD_LED_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = ledColor.color;
+                ctx.fill();
+            }
+
+            // Reset shadow
+            ctx.shadowBlur = 0;
+
+            // Draw inner dark circle (center)
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, FIELD_INNER_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = '#111';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Draw prop ID label in center
+            ctx.fillStyle = '#888';
+            ctx.font = 'bold 8px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(propId), pos.x, pos.y);
+        });
+    }
+
+    // Get colors for all LEDs in a prop's ring
+    _getPropLedColors(propId, project, currentTime) {
+        const colors = [];
+        const ledTracks = project.tracks.filter(t => t.type === 'led');
+
+        // Find the clip affecting this prop
+        let activeClip = null;
+        let localTime = 0;
+
+        for (const track of ledTracks) {
+            if (!track.groupId) continue;
+
+            const group = project.propGroups.find(g => g.id === track.groupId);
+            if (!group) continue;
+
+            const propIds = parseIdString(group.ids);
+            if (!propIds.includes(propId)) continue;
+
+            const activeClips = track.clips.filter(c =>
+                currentTime >= c.startTime && currentTime < (c.startTime + c.duration)
+            ).sort((a, b) => a.startTime - b.startTime);
+
+            if (activeClips.length > 0) {
+                activeClip = activeClips[activeClips.length - 1];
+                localTime = currentTime - activeClip.startTime;
+                break; // Use first matching track
+            }
+        }
+
+        // Generate color for each LED in the ring
+        for (let i = 0; i < FIELD_LED_COUNT; i++) {
+            if (activeClip) {
+                // Map ring LED index to strip LED index (scale to full strip)
+                const stripIndex = Math.floor((i / FIELD_LED_COUNT) * CONFIG.ledsPerTrack);
+                const result = this._getActiveColor(activeClip, localTime, stripIndex);
+                colors.push(result);
+            } else {
+                colors.push({ color: 'rgb(25,25,25)', glow: false });
+            }
+        }
+
+        return colors;
+    }
+
+    _getUsedProps(project) {
+        const usedProps = new Set();
+        const ledTracks = project.tracks.filter(t => t.type === 'led');
+
+        ledTracks.forEach(track => {
+            if (!track.groupId) return;
+
+            const group = project.propGroups.find(g => g.id === track.groupId);
+            if (!group) return;
+
+            const propIds = parseIdString(group.ids);
+            propIds.forEach(id => usedProps.add(id));
+        });
+
+        return Array.from(usedProps).sort((a, b) => a - b);
+    }
+
+    _getPropPosition(propId, index, fieldLayout, canvasWidth, canvasHeight, totalProps) {
+        // Check if we have a saved position
+        if (fieldLayout[propId]) {
+            return fieldLayout[propId];
+        }
+
+        // Auto-fit: calculate grid dimensions to fit all props
+        const padding = FIELD_PROP_RADIUS + 10; // Margin from edges
+        const availableWidth = canvasWidth - padding * 2;
+        const availableHeight = canvasHeight - padding * 2;
+
+        // Calculate optimal columns to fit the canvas aspect ratio
+        const aspectRatio = availableWidth / availableHeight;
+        let cols = Math.ceil(Math.sqrt(totalProps * aspectRatio));
+        let rows = Math.ceil(totalProps / cols);
+
+        // Ensure we have at least 1 column and row
+        cols = Math.max(1, cols);
+        rows = Math.max(1, rows);
+
+        // Calculate spacing (minimum spacing to prevent overlap)
+        const minSpacing = FIELD_PROP_RADIUS * 2 + 8;
+        const spacingX = Math.max(minSpacing, availableWidth / Math.max(1, cols));
+        const spacingY = Math.max(minSpacing, availableHeight / Math.max(1, rows));
+
+        // Calculate position
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+
+        // Center the grid
+        const gridWidth = (cols - 1) * spacingX;
+        const gridHeight = (rows - 1) * spacingY;
+        const startX = (canvasWidth - gridWidth) / 2;
+        const startY = (canvasHeight - gridHeight) / 2;
+
+        return {
+            x: startX + col * spacingX,
+            y: startY + row * spacingY
+        };
+    }
+
+    _getPropColorAtTime(propId, project, currentTime) {
+        const ledTracks = project.tracks.filter(t => t.type === 'led');
+        let resultColor = 'rgb(30,30,30)';
+        let resultGlow = false;
+
+        // Find tracks that affect this prop
+        for (const track of ledTracks) {
+            if (!track.groupId) continue;
+
+            const group = project.propGroups.find(g => g.id === track.groupId);
+            if (!group) continue;
+
+            const propIds = parseIdString(group.ids);
+            if (!propIds.includes(propId)) continue;
+
+            // Find active clips on this track
+            const activeClips = track.clips.filter(c =>
+                currentTime >= c.startTime && currentTime < (c.startTime + c.duration)
+            ).sort((a, b) => a.startTime - b.startTime);
+
+            if (activeClips.length > 0) {
+                const clip = activeClips[activeClips.length - 1];
+                const localTime = currentTime - clip.startTime;
+                // Use center LED position for color calculation
+                const result = this._getActiveColor(clip, localTime, Math.floor(CONFIG.ledsPerTrack / 2));
+                if (result) {
+                    resultColor = result.color;
+                    resultGlow = result.glow;
+                }
+            }
+        }
+
+        return { color: resultColor, glow: resultGlow };
+    }
+
+    // Hit test for field mode - returns propId if clicked on a prop, null otherwise
+    hitTestProp(x, y) {
+        const project = this.stateManager.get('project');
+        if (!project?.tracks) return null;
+
+        const usedProps = this._getUsedProps(project);
+        const fieldLayout = project.settings?.fieldLayout || {};
+        const canvas = this.elements.previewCanvas || document.getElementById('preview-canvas');
+        if (!canvas) return null;
+
+        const totalProps = usedProps.length;
+        for (let i = usedProps.length - 1; i >= 0; i--) {
+            const propId = usedProps[i];
+            const pos = this._getPropPosition(propId, i, fieldLayout, canvas.width, canvas.height, totalProps);
+            const dx = x - pos.x;
+            const dy = y - pos.y;
+            if (dx * dx + dy * dy <= FIELD_PROP_RADIUS * FIELD_PROP_RADIUS) {
+                return propId;
+            }
+        }
+
+        return null;
     }
 
     _getActiveColor(clip, localTime, ledIndex) {

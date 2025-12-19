@@ -152,9 +152,24 @@
 
         <div class="flex-1 flex flex-col min-w-0">
             <div id="pane-preview" class="bg-black relative led-preview-container flex items-center justify-center border-b border-gray-800 shrink-0 overflow-hidden" style="height: var(--preview-height);">
-                <canvas id="preview-canvas" width="800" height="200"></canvas>
-                <div class="absolute top-2 left-2 text-xs text-gray-500">Simulated Preview</div>
+                <canvas id="preview-canvas"></canvas>
+                <div class="absolute top-2 left-2 flex items-center gap-3">
+                    <span class="text-xs text-gray-500">Preview</span>
+                    <div class="flex bg-neutral-800/80 rounded p-0.5 gap-0.5" id="preview-mode-selector">
+                        <button data-mode="track" class="preview-mode-btn active" title="Track view">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <button data-mode="field" class="preview-mode-btn" title="Field view">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button data-mode="off" class="preview-mode-btn" title="Preview off">
+                            <i class="fas fa-eye-slash"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
+
+            <div id="preview-resize-handle" class="preview-resize-handle" title="Drag to resize preview"></div>
 
             <div class="h-8 bg-neutral-800 border-b border-gray-700 flex items-center px-2 justify-between shrink-0">
                 <div class="flex gap-2">
