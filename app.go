@@ -78,6 +78,9 @@ type Clip struct {
 
 type ClipProps struct {
 	Color      string `json:"color"`
+	Color2     string `json:"color2"`
+	ColorA     string `json:"colorA"`
+	ColorB     string `json:"colorB"`
 	ColorStart string `json:"colorStart"`
 }
 
@@ -213,11 +216,28 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 				colorHex = "#FFFFFF"
 			}
 
+			// Determine color2 based on effect type
+			color2Hex := clip.Props.Color2
+			if color2Hex == "" {
+				// For alternate effect, use colorB as color2
+				if clip.Type == "alternate" {
+					color2Hex = clip.Props.ColorB
+					// Also use colorA as primary color for alternate
+					if clip.Props.ColorA != "" {
+						colorHex = clip.Props.ColorA
+					}
+				}
+			}
+			if color2Hex == "" {
+				color2Hex = "#000000"
+			}
+
 			binary.Write(eventBuf, binary.LittleEndian, uint32(clip.StartTime))
 			binary.Write(eventBuf, binary.LittleEndian, uint32(clip.Duration))
 			binary.Write(eventBuf, binary.LittleEndian, uint8(getEffectCode(clip.Type)))
 			eventBuf.Write([]byte{0, 0, 0})
 			binary.Write(eventBuf, binary.LittleEndian, uint32(parseColor(colorHex)))
+			binary.Write(eventBuf, binary.LittleEndian, uint32(parseColor(color2Hex)))
 			for _, m := range mask {
 				binary.Write(eventBuf, binary.LittleEndian, m)
 			}

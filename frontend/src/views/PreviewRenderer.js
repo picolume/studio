@@ -2,8 +2,8 @@ import { CONFIG, hslToRgb, hexToRgb, pseudoRandom, parseIdString } from '../util
 
 // Field view constants
 const FIELD_PROP_RADIUS = 16;        // Outer radius of the LED ring
-const FIELD_LED_COUNT = 12;          // Number of LEDs in each ring
-const FIELD_LED_RADIUS = 3;          // Radius of each individual LED dot
+const FIELD_LED_COUNT = 20;          // Number of LEDs in each ring
+const FIELD_LED_RADIUS = 2;          // Radius of each individual LED dot
 const FIELD_INNER_RADIUS = 7;        // Inner dark circle radius (for label)
 const FIELD_GRID_COLS = 6;
 const FIELD_GRID_SPACING = 70;
@@ -387,7 +387,7 @@ export class PreviewRenderer {
                 const density = clip.props.density || 0.3; if (sRand > (1.0 - density)) { color = '#ffffff'; glow = true; } else { const spBase = hexToRgb(clip.props.color); color = `rgb(${spBase.r * 0.2}, ${spBase.g * 0.2}, ${spBase.b * 0.2})`; } break;
             case 'glitch':
                 const gTimeBlock = Math.floor(localTime / 50); const gRand = pseudoRandom(gTimeBlock); const amount = clip.props.amount || 0.2;
-                if (gRand > (1.0 - amount)) { color = (pseudoRandom(gTimeBlock + 1) > 0.5) ? clip.props.color2 : '#000000'; } else { color = clip.props.color; } glow = true; break;
+                if (gRand > (1.0 - amount)) { color = clip.props.color2; } else { color = clip.props.color; } glow = true; break;
             case 'breathe':
                 const bVal = (Math.sin(localTime / 1000 * clip.props.speed * Math.PI * 2) + 1) / 2; const bBase = hexToRgb(clip.props.color); color = `rgb(${bBase.r * bVal}, ${bBase.g * bVal}, ${bBase.b * bVal})`; glow = true; break;
             case 'heartbeat':

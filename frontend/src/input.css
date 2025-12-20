@@ -375,6 +375,70 @@ body {
     border-color: var(--accent);
 }
 
+/* Preview Mode Selector */
+.preview-mode-btn {
+    width: 22px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #6b7280;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.preview-mode-btn > i {
+    display: block;
+    line-height: 1;
+}
+
+.preview-mode-btn:hover {
+    background: #3a3a3a;
+    color: #9ca3af;
+}
+
+.preview-mode-btn.active {
+    background: rgba(0, 188, 212, 0.2);
+    color: var(--accent);
+}
+
+/* Preview Resize Handle */
+.preview-resize-handle {
+    height: 6px;
+    background: #1a1a1a;
+    cursor: ns-resize;
+    position: relative;
+    border-top: 1px solid #333;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+
+.preview-resize-handle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 2px;
+    background: #555;
+    border-radius: 1px;
+}
+
+.preview-resize-handle:hover {
+    background: #252525;
+}
+
+.preview-resize-handle:hover::after {
+    background: var(--accent);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     :root { --palette-width: 200px; --inspector-width: 240px; --header-width: 180px; }
