@@ -727,6 +727,7 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 | Save As... | `fa-file-export` | Ctrl+Shift+S | Save to new location |
 | Export Binary | `fa-download` | - | Export .bin file |
 | Upload to Device | `fa-microchip` | - | Upload to Pico |
+| Themes (submenu) | `fa-palette` | - | Select application theme |
 | Project Settings | `fa-cog` | - | Open settings in inspector |
 | User Manual | `fa-book` | - | Open manual modal |
 
@@ -735,11 +736,12 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 - Closes when clicking outside the menu
 - Closes when pressing Escape key
 - Closes after selecting a menu item
+- Themes opens a submenu on hover/focus and applies immediately
 - Animated slide-down transition (150ms)
 - Menu items highlight on hover with accent color on icons
 
 **Styling:**
-- Dark background (#1a1a1a) with subtle border
+- Theme-controlled background and borders
 - 220px minimum width
 - Rounded corners (8px)
 - Drop shadow for depth
@@ -787,8 +789,10 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 
 ### 6.4 Visual Theming
 
-- **Color Scheme**: Dark theme (neutral-900 background)
-- **Accent Color**: Cyan (#00bcd4) for highlights
+- **Theme System**: User-selectable themes (Standard/Aurora/Nord/Solarized/Gruvbox/High Contrast/Crimson)
+- **Default Theme**: Standard (when no preference is saved)
+- **Persistence**: Theme selection is remembered between launches
+- **Accent Color**: Theme-dependent highlight color (e.g., cyan in Standard)
 - **LED Track Color**: Cyan accents
 - **Audio Track Color**: Orange accents
 - **Font**: System sans-serif, monospace for time displays
