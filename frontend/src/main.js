@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const UI_THEME_KEY = 'picolume:theme';
     const DEFAULT_THEME = 'standard';
-    const THEMES = new Set(['standard', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite']);
+    const THEMES = new Set(['standard', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
 
     const setTheme = (theme) => {
         const resolved = THEMES.has(theme) ? theme : DEFAULT_THEME;

@@ -745,6 +745,98 @@
     --ui-palette-item-hover-border: #575a56;
 }
 
+:root[data-theme="forest"] {
+    /* Deep forest greens with earthy undertones - nature-inspired, calming aesthetic. */
+    --bg-dark: #0a120e;
+    --bg-panel: #0f1a14;
+    --border-color: #1e3a2c;
+    --accent: #10b981; /* emerald green */
+    --playhead-color: #f59e0b;
+    --fg: #e2e8e4;
+
+    --menu-sep-color: #1e3a2c;
+
+    --btn-bg: #0f1a14;
+    --btn-border: #1e3a2c;
+    --btn-text: #e2e8e4;
+    --btn-hover-bg: #162820;
+    --btn-hover-border: #2d5a44;
+
+    --btn-primary-bg: #0d2818;
+    --btn-primary-border: #10b981;
+    --btn-primary-text: #ecfdf5;
+    --btn-primary-hover-bg: #134e2a;
+
+    --btn-success-bg: #0d2818;
+    --btn-success-border: #22c55e;
+    --btn-success-text: #f0fdf4;
+    --btn-success-hover-bg: #166534;
+
+    --overlay-bg: rgba(0, 0, 0, 0.76);
+    --modal-bg: #0a120e;
+    --modal-border: #1e3a2c;
+    --modal-header-bg-from: #0f1a14;
+    --modal-header-bg-to: #0a120e;
+    --modal-frame-bg: #0f1a14;
+
+    --dropdown-bg: #0f1a14;
+    --dropdown-border: #1e3a2c;
+
+    --kbd-bg: #0a120e;
+    --kbd-text: #6ee7b7;
+    --kbd-border: #1e3a2c;
+
+    --scrollbar-thumb: #1e3a2c;
+    --scrollbar-thumb-hover: #2d5a44;
+    --scrollbar-button-hover: #162820;
+
+    --statusbar-bg: #0f1a14;
+    --statusbar-fg: #94a3a0;
+
+    --ui-header-from: #0f1a14;
+    --ui-header-to: #0a120e;
+
+    --ui-panel-bg: #0a120e;
+    --ui-panel-border: #1e3a2c;
+
+    --ui-toolbar-bg: #0f1a14;
+    --ui-toolbar-hover-bg: #162820;
+
+    --ui-border: #1e3a2c;
+    --ui-border-strong: #2d5a44;
+
+    --ui-text-strong: #f0fdf4;
+    --ui-text: #e2e8e4;
+    --ui-text-muted: #a7c4b8;
+    --ui-text-subtle: #6ee7b7;
+    --ui-text-faint: #4ade80;
+
+    --ui-select-bg: #071009;
+    --ui-select-border: #1e3a2c;
+
+    --ui-canvas-bg: #030806;
+    --ui-canvas-overlay: #0a120e;
+    --ui-canvas-grid: #1e3a2c;
+    --ui-canvas-label: #a7c4b8;
+    --ui-canvas-dim: #e2e8e4;
+
+    --ui-tick: #6ee7b7;
+    --ui-audio-track-bg: #071009;
+
+    --ui-timeline-bg: #071009;
+    --ui-track-headers-bg: #0a120e;
+    --ui-grid-line: #1e3a2c;
+    --ui-ruler-bg: #0f1a14;
+    --ui-ruler-border: #1e3a2c;
+    --ui-track-lane-border: #162820;
+    --ui-audio-lane-border: #132018;
+
+    --ui-palette-item-bg: #0f1a14;
+    --ui-palette-item-border: #1e3a2c;
+    --ui-palette-item-hover-bg: #162820;
+    --ui-palette-item-hover-border: #2d5a44;
+}
+
 body {
     background-color: var(--bg-dark);
     color: var(--fg);
