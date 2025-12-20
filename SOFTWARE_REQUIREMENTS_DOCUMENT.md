@@ -1,6 +1,6 @@
 # PicoLume Studio - Software Requirements Document
 
-**Version:** 0.1.1 (Alpha)
+**Version:** 0.1.6 (Alpha)
 **Last Updated:** December 2025
 **Author:** PicoLume Project
 **License:** GNU General Public License v3.0
@@ -747,6 +747,8 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 
 ### 6.3 Keyboard Shortcuts
 
+#### Global Shortcuts
+
 | Shortcut | Action |
 |----------|--------|
 | Space | Play/Pause |
@@ -763,7 +765,25 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 | Alt+1 | Toggle Palette |
 | Alt+2 | Toggle Preview |
 | Alt+3 | Toggle Inspector |
-| Escape | Close modal/menu (manual, hamburger) |
+| Escape | Close modal/menu, clear selection |
+
+#### Timeline Clip Navigation (Accessibility)
+
+| Shortcut | Action |
+|----------|--------|
+| Tab | Navigate to next clip |
+| Shift+Tab | Navigate to previous clip |
+| Arrow Up/Down | Navigate to clip in adjacent track |
+| Arrow Left/Right | Nudge selected clips earlier/later |
+| Shift+Arrow Left | Shrink clip duration |
+| Shift+Arrow Right | Grow clip duration |
+| Enter/Space (on clip) | Select/toggle clip |
+| Ctrl+Enter (on clip) | Add clip to multi-selection |
+
+**Notes:**
+- Clips are focusable with `tabindex="0"` and include ARIA attributes
+- Arrow key nudge respects snap grid when enabled
+- Focus indicators use cyan accent color with glow effect
 
 ### 6.4 Visual Theming
 
@@ -806,6 +826,30 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 - Graceful handling of audio decode failures
 - Toast notifications for user feedback
 
+#### 7.3.1 Async Operation Handling
+
+All async operations in the audio service include timeout and retry logic to prevent hangs and improve reliability:
+
+| Timeout | Value | Description |
+|---------|-------|-------------|
+| **CONTEXT_RESUME** | 5,000 ms | Audio context resume |
+| **FILE_READ** | 30,000 ms | Reading file to array buffer |
+| **AUDIO_DECODE** | 60,000 ms | Decoding audio data |
+| **FETCH** | 30,000 ms | Fetch operations |
+| **BLOB_READ** | 30,000 ms | Blob to data URL conversion |
+
+**Retry Logic** (exponential backoff with jitter):
+- `loadAudioFile()`: Up to 2 retries for audio decode (not for format errors)
+- `loadAudioFromDataURL()`: Up to 3 retries for fetch, 2 retries for decode
+- Retry only on transient failures (timeouts, network errors), not on invalid data
+
+**Implementation** (`AudioService.js`):
+```javascript
+// Utility functions
+withTimeout(promise, timeoutMs, errorMessage)  // Wraps promise with timeout
+withRetry(fn, { maxRetries, baseDelayMs, maxDelayMs, shouldRetry })  // Retry with backoff
+```
+
 ### 7.4 Usability
 
 - Responsive layout with collapsible panels
@@ -813,6 +857,68 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 - Real-time visual feedback during operations
 - Keyboard shortcuts for power users
 - In-app user manual
+
+### 7.5 Security
+
+#### 7.5.1 Path Validation
+
+All file write operations validate paths to prevent directory traversal attacks:
+
+| Validation | Description |
+|------------|-------------|
+| **Path Cleaning** | `filepath.Clean()` normalizes paths, resolving `.` and `..` components |
+| **Absolute Paths** | Only absolute paths are accepted for write operations |
+| **Extension Validation** | File extensions are validated against allowed lists (`.lum` for projects) |
+| **Traversal Detection** | Paths containing `..` after cleaning are rejected |
+
+**Implementation** (`app.go`):
+
+```go
+func validateSavePath(path string, allowedExtensions []string) (string, error)
+```
+
+**Protected Functions**:
+- `SaveProjectToPath()` - Validates path has `.lum` extension
+- `SaveBinary()` - Uses native file dialog (user-controlled)
+- `UploadToPico()` - Constructs paths internally (no user input)
+
+#### 7.5.2 Input Validation
+
+Frontend validation (`validators.js`) enforces:
+- Hex color format validation
+- Time value bounds checking
+- LED count limits (1-1000)
+- Brightness range (0-255)
+- ID string format validation
+- Clip and track structure validation
+
+Backend validation (`app.go`) during binary generation:
+- **Color parsing**: Invalid hex colors logged and default to black (0x000000)
+- **Prop ID parsing**: Invalid IDs logged and skipped
+- **Range validation**: Malformed ranges (missing parts, non-numeric, start > end) logged and skipped
+- **Bounds checking**: Prop IDs outside valid range (1-224) are silently ignored
+
+All parse errors are logged with `fmt.Printf("Warning: ...")` for debugging.
+
+#### 7.5.3 File Size Limits
+
+All file loading operations enforce size limits to prevent denial-of-service attacks:
+
+| Limit | Value | Description |
+|-------|-------|-------------|
+| **MaxZipFileSize** | 500 MB | Maximum size of a `.lum` project file |
+| **MaxProjectJsonSize** | 10 MB | Maximum size of `project.json` within archive |
+| **MaxAudioFileSize** | 200 MB | Maximum size of a single audio file |
+| **MaxTotalExtractedSize** | 1 GB | Maximum total size of all extracted files |
+| **MaxFilesInZip** | 100 | Maximum number of files in archive |
+
+**Implementation** (`app.go`):
+- Zip file size checked before opening
+- File count validated to prevent zip bombs
+- Individual file sizes checked against `UncompressedSize64` before extraction
+- `io.LimitReader` used during extraction as defense-in-depth
+- Total extracted size tracked and enforced
+- Only known file types (`project.json`, `audio/*`) are processed
 
 ---
 
@@ -1327,6 +1433,11 @@ picolume/studio/
 |---------|------|---------|
 | 0.1.0 | Dec 2025 | Initial alpha release |
 | 0.1.1 | Dec 2025 | Added hamburger menu for consolidated action access |
+| 0.1.2 | Dec 2025 | Added Section 7.5 Security: Path validation to prevent directory traversal attacks |
+| 0.1.3 | Dec 2025 | Added file size limits on zip loading to prevent DoS attacks |
+| 0.1.4 | Dec 2025 | Replaced silent error ignoring with proper error handling in binary generation |
+| 0.1.5 | Dec 2025 | Added keyboard navigation for timeline clips (Tab, Arrow keys, Enter/Space) |
+| 0.1.6 | Dec 2025 | Added retry/timeout logic for async audio operations (AudioService.js) |
 
 ---
 

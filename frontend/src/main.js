@@ -637,6 +637,260 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ==========================================
+    // KEYBOARD NAVIGATION FOR TIMELINE (Accessibility)
+    // ==========================================
+
+    // Helper: Get all clip elements in DOM order
+    const getAllClipElements = () => {
+        return Array.from(document.querySelectorAll('.clip[data-clip-id]'));
+    };
+
+    // Helper: Get clip data by ID
+    const getClipById = (clipId) => {
+        const tracks = stateManager.get('project.tracks') || [];
+        for (const track of tracks) {
+            const clip = (track.clips || []).find(c => c.id === clipId);
+            if (clip) return { clip, track };
+        }
+        return null;
+    };
+
+    // Helper: Find adjacent clip for navigation
+    const findAdjacentClip = (currentClipId, direction) => {
+        const clips = getAllClipElements();
+        const currentIndex = clips.findIndex(el => el.dataset.clipId === currentClipId);
+        if (currentIndex === -1) return null;
+
+        if (direction === 'next' && currentIndex < clips.length - 1) {
+            return clips[currentIndex + 1].dataset.clipId;
+        }
+        if (direction === 'prev' && currentIndex > 0) {
+            return clips[currentIndex - 1].dataset.clipId;
+        }
+        return null;
+    };
+
+    // Helper: Find clip in adjacent track (up/down navigation)
+    const findClipInAdjacentTrack = (currentClipId, direction) => {
+        const tracks = stateManager.get('project.tracks') || [];
+        let currentTrackIndex = -1;
+        let currentClip = null;
+
+        for (let i = 0; i < tracks.length; i++) {
+            const clip = tracks[i].clips.find(c => c.id === currentClipId);
+            if (clip) {
+                currentTrackIndex = i;
+                currentClip = clip;
+                break;
+            }
+        }
+
+        if (currentTrackIndex === -1 || !currentClip) return null;
+
+        const targetTrackIndex = direction === 'up' ? currentTrackIndex - 1 : currentTrackIndex + 1;
+        if (targetTrackIndex < 0 || targetTrackIndex >= tracks.length) return null;
+
+        const targetTrack = tracks[targetTrackIndex];
+        if (!targetTrack.clips || targetTrack.clips.length === 0) return null;
+
+        // Find clip closest to current clip's start time
+        let closest = targetTrack.clips[0];
+        let closestDist = Math.abs(closest.startTime - currentClip.startTime);
+
+        for (const clip of targetTrack.clips) {
+            const dist = Math.abs(clip.startTime - currentClip.startTime);
+            if (dist < closestDist) {
+                closest = clip;
+                closestDist = dist;
+            }
+        }
+
+        return closest.id;
+    };
+
+    // Helper: Nudge selected clips by time amount
+    // Returns the clipId that should be refocused (for keyboard navigation)
+    const nudgeSelectedClips = (deltaMs, focusClipId = null) => {
+        const selection = stateManager.get('selection') || [];
+        if (selection.length === 0) return;
+
+        const gridSize = stateManager.get('ui.gridSize') || 1000;
+        const snapEnabled = stateManager.get('ui.snapEnabled');
+        // Preserve direction (sign) when using grid size
+        const nudgeAmount = snapEnabled ? Math.sign(deltaMs) * gridSize : deltaMs;
+
+        stateManager.update(draft => {
+            const tracks = draft.project.tracks || [];
+            for (const track of tracks) {
+                for (const clip of track.clips || []) {
+                    if (selection.includes(clip.id)) {
+                        const newTime = Math.max(0, clip.startTime + nudgeAmount);
+                        clip.startTime = newTime;
+                    }
+                }
+            }
+            draft.isDirty = true;
+        });
+
+        buildTimeline();
+        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+
+        // Restore focus to the clip after DOM rebuild
+        if (focusClipId) {
+            requestAnimationFrame(() => {
+                const el = document.getElementById(`clip-${focusClipId}`);
+                if (el) el.focus();
+            });
+        }
+    };
+
+    // Helper: Resize selected clips
+    const resizeSelectedClips = (deltaMs, focusClipId = null) => {
+        const selection = stateManager.get('selection') || [];
+        if (selection.length === 0) return;
+
+        const gridSize = stateManager.get('ui.gridSize') || 1000;
+        const snapEnabled = stateManager.get('ui.snapEnabled');
+        // Preserve direction (sign) when using grid size
+        const resizeAmount = snapEnabled ? Math.sign(deltaMs) * gridSize : deltaMs;
+        const minDuration = 100; // Minimum clip duration
+
+        stateManager.update(draft => {
+            const tracks = draft.project.tracks || [];
+            for (const track of tracks) {
+                for (const clip of track.clips || []) {
+                    if (selection.includes(clip.id)) {
+                        const newDuration = Math.max(minDuration, clip.duration + resizeAmount);
+                        clip.duration = newDuration;
+                    }
+                }
+            }
+            draft.isDirty = true;
+        });
+
+        buildTimeline();
+        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+
+        // Restore focus to the clip after DOM rebuild
+        if (focusClipId) {
+            requestAnimationFrame(() => {
+                const el = document.getElementById(`clip-${focusClipId}`);
+                if (el) el.focus();
+            });
+        }
+    };
+
+    // Handle keyboard events on focused clips
+    window.addEventListener('app:clip-keydown', (e) => {
+        const { event, clipId } = e.detail;
+        const key = event.key;
+
+        // Enter or Space: Toggle selection
+        if (key === 'Enter' || key === ' ') {
+            event.preventDefault();
+            event.stopPropagation();
+            const selection = stateManager.get('selection') || [];
+            if (event.ctrlKey || event.metaKey) {
+                // Toggle in multi-select
+                timelineController.selectClips(clipId, true);
+            } else {
+                // Replace selection
+                timelineController.selectClips(clipId);
+            }
+            updateSelectionUI();
+            updateClipboardUI();
+            return;
+        }
+
+        // Tab: Navigate to next clip
+        if (key === 'Tab') {
+            event.preventDefault();
+            const nextClipId = findAdjacentClip(clipId, event.shiftKey ? 'prev' : 'next');
+            if (nextClipId) {
+                const nextEl = document.getElementById(`clip-${nextClipId}`);
+                if (nextEl) {
+                    nextEl.focus();
+                    // Select on navigation
+                    timelineController.selectClips(nextClipId);
+                    updateSelectionUI();
+                }
+            }
+            return;
+        }
+
+        // Arrow keys
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) {
+            event.preventDefault();
+
+            // Shift+Arrow: Resize selected clips
+            if (event.shiftKey) {
+                if (key === 'ArrowLeft') {
+                    resizeSelectedClips(-250, clipId); // Shrink, maintain focus
+                } else if (key === 'ArrowRight') {
+                    resizeSelectedClips(250, clipId); // Grow, maintain focus
+                }
+                return;
+            }
+
+            // Alt+Arrow or plain Arrow: Nudge selected clips (move in time)
+            if (event.altKey || (!event.ctrlKey && !event.metaKey)) {
+                const selection = stateManager.get('selection') || [];
+
+                // Left/Right: Nudge in time
+                if (key === 'ArrowLeft') {
+                    if (selection.includes(clipId)) {
+                        nudgeSelectedClips(-250, clipId); // Maintain focus
+                    }
+                    return;
+                }
+                if (key === 'ArrowRight') {
+                    if (selection.includes(clipId)) {
+                        nudgeSelectedClips(250, clipId); // Maintain focus
+                    }
+                    return;
+                }
+
+                // Up/Down: Navigate to clip in adjacent track
+                if (key === 'ArrowUp' || key === 'ArrowDown') {
+                    const targetClipId = findClipInAdjacentTrack(clipId, key === 'ArrowUp' ? 'up' : 'down');
+                    if (targetClipId) {
+                        const targetEl = document.getElementById(`clip-${targetClipId}`);
+                        if (targetEl) {
+                            targetEl.focus();
+                            timelineController.selectClips(targetClipId);
+                            updateSelectionUI();
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Delete/Backspace: Delete selected clips
+        if (key === 'Delete' || key === 'Backspace') {
+            event.preventDefault();
+            timelineController.deleteSelected();
+            buildTimeline();
+            updateSelectionUI();
+            // Focus first remaining clip
+            const clips = getAllClipElements();
+            if (clips.length > 0) {
+                clips[0].focus();
+            }
+            return;
+        }
+
+        // Escape: Clear selection and blur
+        if (key === 'Escape') {
+            event.preventDefault();
+            timelineController.clearSelection();
+            updateSelectionUI();
+            document.activeElement.blur();
+            return;
+        }
+    });
+
+    // ==========================================
     // CLIPBOARD OPERATIONS
     // ==========================================
 

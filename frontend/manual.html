@@ -541,7 +541,8 @@
                 <a href="#intro" class="nav-link active">Introduction</a>
                 <a href="#interface" class="nav-link">Interface</a>
                 <a href="#preview" class="nav-link">Preview Modes</a>
-                <a href="#layout" class="nav-link">Layout &amp; Shortcuts</a>
+                <a href="#layout" class="nav-link">Layout</a>
+                <a href="#shortcuts" class="nav-link">Keyboard Shortcuts</a>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Configuration</div>
@@ -560,7 +561,7 @@
             </div>
         </div>
         <div class="nav-footer">
-            v2.0 · Firmware v16.0+
+            v0.1.6 · Firmware v16.0+
         </div>
     </nav>
 
@@ -640,7 +641,7 @@
         </section>
 
         <section id="layout">
-            <h2>Layout &amp; Shortcuts</h2>
+            <h2>Layout</h2>
             <p>You can show/hide major panes to maximize workspace. The layout buttons are in the header (right side) and the app remembers your choices.</p>
             <ul>
                 <li><strong>Toggle Palette:</strong> <kbd>Alt</kbd>+<kbd>1</kbd></li>
@@ -729,6 +730,8 @@
 
         <section id="shortcuts">
             <h2>Keyboard Shortcuts</h2>
+
+            <h3>Global Shortcuts</h3>
             <ul>
                 <li><strong>Play/Pause:</strong> <kbd>Space</kbd></li>
                 <li><strong>Undo:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Z</kbd></li>
@@ -738,7 +741,29 @@
                 <li><strong>Duplicate:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>D</kbd></li>
                 <li><strong>Delete Selected:</strong> <kbd>Delete</kbd> (or <kbd>Backspace</kbd>)</li>
                 <li><strong>Confirm Input:</strong> <kbd>Enter</kbd> (applies the value in text fields)</li>
+                <li><strong>Clear Selection / Close Modal:</strong> <kbd>Esc</kbd></li>
             </ul>
+
+            <h3>Timeline Clip Navigation</h3>
+            <p>Clips on the timeline are fully keyboard-accessible. Click a clip to focus it, then use these shortcuts:</p>
+            <ul>
+                <li><strong>Next Clip:</strong> <kbd>Tab</kbd></li>
+                <li><strong>Previous Clip:</strong> <kbd>Shift</kbd>+<kbd>Tab</kbd></li>
+                <li><strong>Clip in Track Above:</strong> <kbd>↑</kbd> (Arrow Up)</li>
+                <li><strong>Clip in Track Below:</strong> <kbd>↓</kbd> (Arrow Down)</li>
+                <li><strong>Nudge Earlier:</strong> <kbd>←</kbd> (Arrow Left) — moves selected clips left by grid size</li>
+                <li><strong>Nudge Later:</strong> <kbd>→</kbd> (Arrow Right) — moves selected clips right by grid size</li>
+                <li><strong>Shrink Duration:</strong> <kbd>Shift</kbd>+<kbd>←</kbd> (Shift + Arrow Left)</li>
+                <li><strong>Grow Duration:</strong> <kbd>Shift</kbd>+<kbd>→</kbd> (Shift + Arrow Right)</li>
+                <li><strong>Select/Toggle Clip:</strong> <kbd>Enter</kbd> or <kbd>Space</kbd></li>
+                <li><strong>Add to Multi-Selection:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd></li>
+                <li><strong>Delete Focused Clip:</strong> <kbd>Delete</kbd> or <kbd>Backspace</kbd></li>
+            </ul>
+
+            <div class="callout">
+                <h4>Accessibility</h4>
+                <p>All timeline clips include ARIA attributes for screen reader compatibility. Focused clips display a cyan glow indicator. Arrow key nudging respects the snap grid setting when enabled.</p>
+            </div>
 
             <div class="callout">
                 <h4>Undo/Redo History</h4>
@@ -908,7 +933,7 @@
         </section>
 
         <footer>
-            PicoLume Studio v2.0 · Compatible with Firmware v16.0+
+            PicoLume Studio v0.1.6 · Compatible with Firmware v16.0+
         </footer>
     </main>
 

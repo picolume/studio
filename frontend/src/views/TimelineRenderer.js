@@ -196,6 +196,12 @@ export class TimelineRenderer {
         el.className = `clip ${clip.type === 'audio' ? 'audio-clip bg-orange-900' : 'bg-' + clip.type} ${isSelected ? 'selected' : ''}`;
         el.innerHTML = `<div class="clip-handle left"></div><div class="clip-handle right"></div>`;
 
+        // Accessibility: Make clip focusable and add ARIA attributes
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-label', `${clip.type} clip at ${Math.floor(clip.startTime / 1000)} seconds, duration ${Math.floor(clip.duration / 1000)} seconds${isSelected ? ', selected' : ''}`);
+        el.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+
         if (clip.type === 'audio') {
             const lbl = document.createElement('div'); lbl.className = "clip-label"; lbl.innerHTML = `<i class="fas fa-music"></i> ${clip.props.name}`;
             el.appendChild(lbl);
@@ -215,6 +221,15 @@ export class TimelineRenderer {
             e.stopPropagation();
             window.dispatchEvent(new CustomEvent('app:clip-mousedown', { detail: { event: e, clipId: clip.id } }));
         };
+
+        // Keyboard handler for clip-level actions
+        el.onkeydown = (e) => {
+            // Dispatch keyboard event for centralized handling in main.js
+            window.dispatchEvent(new CustomEvent('app:clip-keydown', {
+                detail: { event: e, clipId: clip.id }
+            }));
+        };
+
         return el;
     }
 

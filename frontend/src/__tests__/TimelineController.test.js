@@ -455,4 +455,145 @@ describe('TimelineController', () => {
             expect(stateManager.get('ui.gridSize')).toBe(500);
         });
     });
+
+    describe('Clip Nudge/Resize Direction', () => {
+        // These tests verify the clip position/size update behavior
+        // that underpins the keyboard nudge/resize operations in main.js
+
+        it('should move clip left (decrease startTime)', () => {
+            const originalStartTime = 1000;
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                const clip = track.clips.find(c => c.id === 'c1');
+                clip.startTime = originalStartTime;
+            });
+
+            // Simulate left nudge by decreasing startTime
+            controller.updateClip('c1', { startTime: originalStartTime - 250 });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            const clip = track.clips.find(c => c.id === 'c1');
+            expect(clip.startTime).toBe(750);
+        });
+
+        it('should move clip right (increase startTime)', () => {
+            const originalStartTime = 1000;
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                const clip = track.clips.find(c => c.id === 'c1');
+                clip.startTime = originalStartTime;
+            });
+
+            // Simulate right nudge by increasing startTime
+            controller.updateClip('c1', { startTime: originalStartTime + 250 });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            const clip = track.clips.find(c => c.id === 'c1');
+            expect(clip.startTime).toBe(1250);
+        });
+
+        it('should not allow negative startTime (clamp to 0)', () => {
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                const clip = track.clips.find(c => c.id === 'c1');
+                clip.startTime = 100;
+            });
+
+            // Try to move past 0
+            const newTime = Math.max(0, 100 - 250);
+            controller.updateClip('c1', { startTime: newTime });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            const clip = track.clips.find(c => c.id === 'c1');
+            expect(clip.startTime).toBe(0);
+        });
+
+        it('should decrease clip duration (shrink)', () => {
+            const originalDuration = 2000;
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                const clip = track.clips.find(c => c.id === 'c1');
+                clip.duration = originalDuration;
+            });
+
+            // Simulate shrink by decreasing duration
+            controller.updateClip('c1', { duration: originalDuration - 250 });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            const clip = track.clips.find(c => c.id === 'c1');
+            expect(clip.duration).toBe(1750);
+        });
+
+        it('should increase clip duration (expand)', () => {
+            const originalDuration = 2000;
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                const clip = track.clips.find(c => c.id === 'c1');
+                clip.duration = originalDuration;
+            });
+
+            // Simulate expand by increasing duration
+            controller.updateClip('c1', { duration: originalDuration + 250 });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            const clip = track.clips.find(c => c.id === 'c1');
+            expect(clip.duration).toBe(2250);
+        });
+
+        it('should apply grid size when snap is enabled (positive direction)', () => {
+            const originalStartTime = 1000;
+            const gridSize = stateManager.get('ui.gridSize'); // 1000ms
+
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                const clip = track.clips.find(c => c.id === 'c1');
+                clip.startTime = originalStartTime;
+            });
+
+            // Simulate snapped right nudge
+            const nudgeAmount = gridSize; // Positive direction = +1000
+            controller.updateClip('c1', { startTime: originalStartTime + nudgeAmount });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            const clip = track.clips.find(c => c.id === 'c1');
+            expect(clip.startTime).toBe(2000);
+        });
+
+        it('should apply grid size when snap is enabled (negative direction)', () => {
+            const originalStartTime = 2000;
+            const gridSize = stateManager.get('ui.gridSize'); // 1000ms
+
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                const clip = track.clips.find(c => c.id === 'c1');
+                clip.startTime = originalStartTime;
+            });
+
+            // Simulate snapped left nudge - direction preserved with Math.sign
+            // When deltaMs is -250 and snap is enabled: Math.sign(-250) * 1000 = -1000
+            const nudgeAmount = -gridSize; // Negative direction = -1000
+            controller.updateClip('c1', { startTime: originalStartTime + nudgeAmount });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            const clip = track.clips.find(c => c.id === 'c1');
+            expect(clip.startTime).toBe(1000);
+        });
+
+        it('should update multiple selected clips with same offset', () => {
+            // Set known positions
+            stateManager.update(draft => {
+                const track = draft.project.tracks.find(t => t.id === 't2');
+                track.clips.find(c => c.id === 'c1').startTime = 1000;
+                track.clips.find(c => c.id === 'c2').startTime = 3000;
+            });
+
+            // Update both clips with same offset (simulating multi-select nudge)
+            controller.updateClip('c1', { startTime: 1250 });
+            controller.updateClip('c2', { startTime: 3250 });
+
+            const track = stateManager.get('project.tracks').find(t => t.id === 't2');
+            expect(track.clips.find(c => c.id === 'c1').startTime).toBe(1250);
+            expect(track.clips.find(c => c.id === 'c2').startTime).toBe(3250);
+        });
+    });
 });

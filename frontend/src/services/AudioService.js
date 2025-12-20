@@ -9,6 +9,88 @@
  * - Handle volume
  */
 
+// ==================== Async Utilities ====================
+
+/**
+ * Wrap a promise with a timeout
+ * @param {Promise} promise - The promise to wrap
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @param {string} [errorMessage] - Custom error message
+ * @returns {Promise}
+ */
+function withTimeout(promise, timeoutMs, errorMessage = 'Operation timed out') {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error(`${errorMessage} (after ${timeoutMs}ms)`));
+        }, timeoutMs);
+
+        promise
+            .then(result => {
+                clearTimeout(timer);
+                resolve(result);
+            })
+            .catch(error => {
+                clearTimeout(timer);
+                reject(error);
+            });
+    });
+}
+
+/**
+ * Retry an async function with exponential backoff
+ * @param {Function} fn - Async function to retry
+ * @param {Object} options - Retry options
+ * @param {number} [options.maxRetries=3] - Maximum retry attempts
+ * @param {number} [options.baseDelayMs=100] - Base delay between retries
+ * @param {number} [options.maxDelayMs=2000] - Maximum delay between retries
+ * @param {Function} [options.shouldRetry] - Function to determine if error is retryable
+ * @returns {Promise}
+ */
+async function withRetry(fn, options = {}) {
+    const {
+        maxRetries = 3,
+        baseDelayMs = 100,
+        maxDelayMs = 2000,
+        shouldRetry = () => true
+    } = options;
+
+    let lastError;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+
+            if (attempt === maxRetries || !shouldRetry(error)) {
+                throw error;
+            }
+
+            // Exponential backoff with jitter
+            const delay = Math.min(
+                baseDelayMs * Math.pow(2, attempt) + Math.random() * 100,
+                maxDelayMs
+            );
+            console.warn(`Retry attempt ${attempt + 1}/${maxRetries} after ${Math.round(delay)}ms:`, error.message);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+
+    throw lastError;
+}
+
+// Export utilities for testing
+export { withTimeout, withRetry };
+
+// Timeout constants (in milliseconds)
+const TIMEOUT = {
+    CONTEXT_RESUME: 5000,      // Audio context resume
+    FILE_READ: 30000,          // Reading file to array buffer
+    AUDIO_DECODE: 60000,       // Decoding audio data
+    FETCH: 30000,              // Fetch operations
+    BLOB_READ: 30000           // Blob to data URL conversion
+};
+
 export class AudioService {
     constructor(stateManager) {
         this.stateManager = stateManager;
@@ -52,9 +134,14 @@ export class AudioService {
         }
         if (this.ctx.state === 'suspended') {
             try {
-                await this.ctx.resume();
+                await withTimeout(
+                    this.ctx.resume(),
+                    TIMEOUT.CONTEXT_RESUME,
+                    'Audio context resume timed out'
+                );
             } catch (error) {
                 console.error('Failed to resume audio context:', error);
+                throw new Error(`Failed to initialize audio playback: ${error.message}`);
             }
         }
     }
@@ -69,15 +156,35 @@ export class AudioService {
         await this.ensureInit();
 
         try {
-            const arrayBuffer = await file.arrayBuffer();
+            // Read file with timeout
+            const arrayBuffer = await withTimeout(
+                file.arrayBuffer(),
+                TIMEOUT.FILE_READ,
+                `Reading file "${file.name}" timed out`
+            );
 
             // IMPORTANT: Create the blob/dataURL BEFORE decodeAudioData, because
             // decodeAudioData can "detach" the ArrayBuffer making it unusable
             const blob = new Blob([arrayBuffer], { type: file.type });
             const dataURL = await this._blobToDataURL(blob);
 
-            // Now decode the audio (this may detach the original arrayBuffer)
-            const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+            // Decode audio with retry (some formats may need multiple attempts)
+            const audioBuffer = await withRetry(
+                () => withTimeout(
+                    this.ctx.decodeAudioData(arrayBuffer.slice(0)), // slice() creates a copy since original may be detached
+                    TIMEOUT.AUDIO_DECODE,
+                    `Decoding audio "${file.name}" timed out`
+                ),
+                {
+                    maxRetries: 2,
+                    baseDelayMs: 200,
+                    shouldRetry: (error) => {
+                        // Don't retry on format errors, only on transient failures
+                        return !error.message.includes('Unable to decode') &&
+                               !error.message.includes('invalid');
+                    }
+                }
+            );
 
             // Store both the buffer and data URL in a single update
             this.stateManager.update(draft => {
@@ -102,9 +209,48 @@ export class AudioService {
         await this.ensureInit();
 
         try {
-            const response = await fetch(dataURL);
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+            // Fetch with timeout and retry for transient network issues
+            const response = await withRetry(
+                () => withTimeout(
+                    fetch(dataURL),
+                    TIMEOUT.FETCH,
+                    'Fetching audio data timed out'
+                ),
+                {
+                    maxRetries: 3,
+                    baseDelayMs: 100,
+                    shouldRetry: (error) => {
+                        // Retry on network errors, not on invalid data URLs
+                        return error.message.includes('timed out') ||
+                               error.message.includes('network') ||
+                               error.message.includes('Network');
+                    }
+                }
+            );
+
+            // Read response body with timeout
+            const arrayBuffer = await withTimeout(
+                response.arrayBuffer(),
+                TIMEOUT.FILE_READ,
+                'Reading audio data timed out'
+            );
+
+            // Decode with retry
+            const audioBuffer = await withRetry(
+                () => withTimeout(
+                    this.ctx.decodeAudioData(arrayBuffer.slice(0)), // slice() creates copy
+                    TIMEOUT.AUDIO_DECODE,
+                    'Decoding audio timed out'
+                ),
+                {
+                    maxRetries: 2,
+                    baseDelayMs: 200,
+                    shouldRetry: (error) => {
+                        return !error.message.includes('Unable to decode') &&
+                               !error.message.includes('invalid');
+                    }
+                }
+            );
 
             // Store both buffer and data URL
             this.stateManager.update(draft => {
@@ -319,15 +465,22 @@ export class AudioService {
     // ==================== Private Methods ====================
 
     /**
-     * Convert Blob to Data URL
+     * Convert Blob to Data URL with timeout
      * @private
      */
     _blobToDataURL(blob) {
-        return new Promise((resolve, reject) => {
+        const readPromise = new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = e => resolve(e.target.result);
-            reader.onerror = reject;
+            reader.onerror = () => reject(new Error('Failed to read blob'));
+            reader.onabort = () => reject(new Error('Blob read was aborted'));
             reader.readAsDataURL(blob);
         });
+
+        return withTimeout(
+            readPromise,
+            TIMEOUT.BLOB_READ,
+            'Converting audio to data URL timed out'
+        );
     }
 }

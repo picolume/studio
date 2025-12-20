@@ -25,8 +25,12 @@ yarn-error.log*
 /frontend/src/style.css
 
 # Development tools
-.claude/
 .vite/
+
+# LLM/AI assistant files
+.claude/
+AGENTS.md
+CLAUDE.md
 
 # System & IDE
 .DS_Store

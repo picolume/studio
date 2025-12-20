@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,6 +20,78 @@ import (
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 )
+
+// ==========================================================
+// PATH VALIDATION (Security)
+// ==========================================================
+
+var (
+	ErrEmptyPath        = errors.New("path cannot be empty")
+	ErrInvalidExtension = errors.New("invalid file extension")
+	ErrPathTraversal    = errors.New("path contains invalid traversal sequences")
+	ErrPathNotAbsolute  = errors.New("path must be absolute")
+)
+
+// ==========================================================
+// FILE SIZE LIMITS (Security - DoS Prevention)
+// ==========================================================
+
+const (
+	// MaxZipFileSize is the maximum allowed size for a .lum project file (500MB)
+	MaxZipFileSize = 500 * 1024 * 1024
+
+	// MaxProjectJsonSize is the maximum allowed size for project.json (10MB)
+	MaxProjectJsonSize = 10 * 1024 * 1024
+
+	// MaxAudioFileSize is the maximum allowed size for a single audio file (200MB)
+	MaxAudioFileSize = 200 * 1024 * 1024
+
+	// MaxTotalExtractedSize is the maximum total size of all extracted files (1GB)
+	MaxTotalExtractedSize = 1024 * 1024 * 1024
+
+	// MaxFilesInZip is the maximum number of files allowed in a zip archive
+	MaxFilesInZip = 100
+)
+
+// validateSavePath validates a file path for safe write operations.
+// It ensures the path is absolute, has the expected extension, and
+// doesn't contain directory traversal sequences.
+func validateSavePath(path string, allowedExtensions []string) (string, error) {
+	if path == "" {
+		return "", ErrEmptyPath
+	}
+
+	// Clean the path to resolve any . or .. components
+	cleanPath := filepath.Clean(path)
+
+	// Ensure path is absolute
+	if !filepath.IsAbs(cleanPath) {
+		return "", ErrPathNotAbsolute
+	}
+
+	// Check for traversal sequences that survived cleaning
+	// (shouldn't happen after Clean, but defense in depth)
+	if strings.Contains(cleanPath, "..") {
+		return "", ErrPathTraversal
+	}
+
+	// Validate extension if restrictions provided
+	if len(allowedExtensions) > 0 {
+		ext := strings.ToLower(filepath.Ext(cleanPath))
+		valid := false
+		for _, allowed := range allowedExtensions {
+			if ext == strings.ToLower(allowed) {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return "", ErrInvalidExtension
+		}
+	}
+
+	return cleanPath, nil
+}
 
 // App struct
 type App struct {
@@ -133,7 +206,12 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 			return 0
 		}
 		hex = strings.TrimPrefix(hex, "#")
-		val, _ := strconv.ParseUint(hex, 16, 32)
+		val, err := strconv.ParseUint(hex, 16, 32)
+		if err != nil {
+			// Invalid hex color - log and default to black
+			fmt.Printf("Warning: Invalid color hex '%s': %v\n", hex, err)
+			return 0
+		}
 		return uint32(val)
 	}
 
@@ -159,8 +237,26 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 			}
 			if strings.Contains(part, "-") {
 				ranges := strings.Split(part, "-")
-				start, _ := strconv.Atoi(strings.TrimSpace(ranges[0]))
-				end, _ := strconv.Atoi(strings.TrimSpace(ranges[1]))
+				// Validate range format (must have exactly 2 parts)
+				if len(ranges) != 2 {
+					fmt.Printf("Warning: Invalid ID range format '%s' - expected 'start-end'\n", part)
+					continue
+				}
+				start, err := strconv.Atoi(strings.TrimSpace(ranges[0]))
+				if err != nil {
+					fmt.Printf("Warning: Invalid range start '%s': %v\n", ranges[0], err)
+					continue
+				}
+				end, err := strconv.Atoi(strings.TrimSpace(ranges[1]))
+				if err != nil {
+					fmt.Printf("Warning: Invalid range end '%s': %v\n", ranges[1], err)
+					continue
+				}
+				// Validate range bounds
+				if start > end {
+					fmt.Printf("Warning: Invalid range '%s' - start > end\n", part)
+					continue
+				}
 				for i := start; i <= end; i++ {
 					if i >= 1 && i <= TOTAL_PROPS {
 						idx := i - 1
@@ -168,7 +264,11 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 					}
 				}
 			} else {
-				i, _ := strconv.Atoi(part)
+				i, err := strconv.Atoi(part)
+				if err != nil {
+					fmt.Printf("Warning: Invalid prop ID '%s': %v\n", part, err)
+					continue
+				}
 				if i >= 1 && i <= TOTAL_PROPS {
 					idx := i - 1
 					masks[idx/32] |= (1 << (idx % 32))
@@ -298,11 +398,13 @@ func (a *App) RequestSavePath() string {
 }
 
 func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[string]string) string {
-	if path == "" {
-		return "Error: No path specified"
+	// Validate and sanitize path to prevent directory traversal
+	safePath, err := validateSavePath(path, []string{".lum"})
+	if err != nil {
+		return "Error: Invalid path - " + err.Error()
 	}
 
-	outFile, err := os.Create(path)
+	outFile, err := os.Create(safePath)
 	if err != nil {
 		return "Error creating file: " + err.Error()
 	}
@@ -493,32 +595,101 @@ func (a *App) LoadProject() LoadResponse {
 		return LoadResponse{Error: "Cancelled"}
 	}
 
+	// Security: Check zip file size before opening
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		return LoadResponse{Error: "Failed to stat file: " + err.Error()}
+	}
+	if fileInfo.Size() > MaxZipFileSize {
+		return LoadResponse{Error: fmt.Sprintf("Project file too large (max %dMB)", MaxZipFileSize/(1024*1024))}
+	}
+
 	r, err := zip.OpenReader(filename)
 	if err != nil {
 		return LoadResponse{Error: "Failed to open zip: " + err.Error()}
 	}
 	defer r.Close()
 
+	// Security: Check file count to prevent zip bombs
+	if len(r.File) > MaxFilesInZip {
+		return LoadResponse{Error: fmt.Sprintf("Too many files in archive (max %d)", MaxFilesInZip)}
+	}
+
 	response := LoadResponse{
 		AudioFiles: make(map[string]string),
 		FilePath:   filename,
 	}
 
+	var totalExtracted uint64 = 0
+
 	for _, f := range r.File {
+		// Security: Skip directories
+		if f.FileInfo().IsDir() {
+			continue
+		}
+
+		// Security: Check uncompressed size before reading
+		uncompressedSize := f.UncompressedSize64
+		isProjectJson := f.Name == "project.json"
+		isAudioFile := strings.HasPrefix(f.Name, "audio/")
+
+		// Apply appropriate size limits based on file type
+		if isProjectJson && uncompressedSize > MaxProjectJsonSize {
+			return LoadResponse{Error: fmt.Sprintf("project.json too large (max %dMB)", MaxProjectJsonSize/(1024*1024))}
+		}
+		if isAudioFile && uncompressedSize > MaxAudioFileSize {
+			return LoadResponse{Error: fmt.Sprintf("Audio file too large (max %dMB)", MaxAudioFileSize/(1024*1024))}
+		}
+
+		// Security: Check total extracted size
+		if totalExtracted+uncompressedSize > MaxTotalExtractedSize {
+			return LoadResponse{Error: fmt.Sprintf("Total extracted size exceeds limit (max %dMB)", MaxTotalExtractedSize/(1024*1024))}
+		}
+
+		// Only process known file types
+		if !isProjectJson && !isAudioFile {
+			continue
+		}
+
 		rc, err := f.Open()
 		if err != nil {
 			continue
 		}
-		content, _ := io.ReadAll(rc)
+
+		// Security: Use LimitReader to enforce size limit during read
+		var maxSize int64
+		if isProjectJson {
+			maxSize = MaxProjectJsonSize
+		} else {
+			maxSize = MaxAudioFileSize
+		}
+		limitedReader := io.LimitReader(rc, maxSize+1) // +1 to detect overflow
+
+		content, err := io.ReadAll(limitedReader)
 		rc.Close()
 
-		if f.Name == "project.json" {
+		if err != nil {
+			continue
+		}
+
+		// Security: Verify we didn't exceed the limit
+		if int64(len(content)) > maxSize {
+			return LoadResponse{Error: "File exceeded size limit during extraction"}
+		}
+
+		totalExtracted += uint64(len(content))
+
+		if isProjectJson {
 			response.ProjectJson = string(content)
-		} else if strings.HasPrefix(f.Name, "audio/") {
+		} else if isAudioFile {
 			nameParts := strings.Split(f.Name, "/")
 			fileName := nameParts[len(nameParts)-1]
-			id := strings.Split(fileName, ".")[0]
-			ext := strings.Split(fileName, ".")[1]
+			fileParts := strings.Split(fileName, ".")
+			if len(fileParts) < 2 {
+				continue // Skip malformed filenames
+			}
+			id := fileParts[0]
+			ext := fileParts[len(fileParts)-1]
 
 			mime := "audio/mpeg"
 			if ext == "wav" {
