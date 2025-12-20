@@ -54,7 +54,7 @@ export class TimelineRenderer {
         h.className = 'track-header group cursor-move relative';
         h.draggable = true;
         h.dataset.index = index;
-        if (track.type === 'audio') h.style.background = '#151515';
+        if (track.type === 'audio') h.style.background = 'var(--ui-audio-track-bg)';
 
         h.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', index);
@@ -65,7 +65,7 @@ export class TimelineRenderer {
             h.style.opacity = '1';
             document.querySelectorAll('.track-header').forEach(el => el.style.borderTop = '');
         });
-        h.addEventListener('dragover', (e) => { e.preventDefault(); h.style.borderTop = '2px solid #00bcd4'; });
+        h.addEventListener('dragover', (e) => { e.preventDefault(); h.style.borderTop = '2px solid var(--accent)'; });
         h.addEventListener('dragleave', () => { h.style.borderTop = ''; });
         h.addEventListener('drop', (e) => {
             e.preventDefault();
@@ -91,7 +91,7 @@ export class TimelineRenderer {
         label.ondblclick = (e) => {
             e.stopPropagation();
             const inp = document.createElement('input'); inp.value = track.label;
-            inp.className = "bg-neutral-800 text-white px-1 py-0.5 rounded text-xs w-full";
+            inp.className = "bg-[var(--ui-toolbar-bg)] text-white px-1 py-0.5 rounded text-xs w-full";
             const trackId = track.id;
             const save = () => {
                 const next = inp.value.trim();
@@ -113,7 +113,7 @@ export class TimelineRenderer {
         if (track.type === 'audio') {
             const upBtn = document.createElement('button');
             upBtn.innerHTML = '<i class="fas fa-file-upload"></i>';
-            upBtn.className = "text-gray-400 hover:text-orange-400 p-1 mr-1 text-[10px]";
+            upBtn.className = "text-[var(--ui-text-muted)] hover:text-orange-400 p-1 mr-1 text-[10px]";
             upBtn.onclick = (e) => {
                 e.stopPropagation();
                 const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'audio/*';
@@ -129,7 +129,7 @@ export class TimelineRenderer {
 
         const delBtn = document.createElement('button');
         delBtn.innerHTML = '<i class="fas fa-trash"></i>';
-        delBtn.className = "text-gray-600 hover:text-red-500 p-1 text-[10px]";
+        delBtn.className = "text-[var(--ui-text-faint)] hover:text-red-500 p-1 text-[10px]";
         delBtn.onclick = (e) => {
             e.stopPropagation();
             if (!confirm('Delete?')) return;
@@ -142,7 +142,7 @@ export class TimelineRenderer {
 
         if (track.type === 'led') {
             const row2 = document.createElement('div'); row2.className = "w-full mt-1";
-            const sel = document.createElement('select'); sel.className = "w-full bg-neutral-800 text-[10px] text-gray-300 border border-gray-700 rounded px-1 py-0.5";
+            const sel = document.createElement('select'); sel.className = "w-full bg-[var(--ui-toolbar-bg)] text-[10px] text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-1 py-0.5";
             const propGroups = this.stateManager.get('project.propGroups') || [];
             propGroups.forEach(grp => {
                 const opt = document.createElement('option'); opt.value = grp.id; opt.innerText = grp.name;
@@ -250,8 +250,9 @@ export class TimelineRenderer {
 
         for (let i = 0; i <= durSecs; i++) {
             const tick = document.createElement('div');
-            tick.style.cssText = `position:absolute;left:${i * zoom}px;bottom:0;height:${i % 5 === 0 ? '15px' : '8px'};border-left:1px solid #777;`;
-            if (i % 5 === 0) { tick.innerText = `${i}s`; tick.style.fontSize = '10px'; tick.style.color = '#777'; tick.style.paddingLeft = '3px'; }
+            tick.style.cssText = `position:absolute;left:${i * zoom}px;bottom:0;height:${i % 5 === 0 ? '15px' : '8px'};`;
+            tick.style.borderLeft = '1px solid var(--ui-tick)';
+            if (i % 5 === 0) { tick.innerText = `${i}s`; tick.style.fontSize = '10px'; tick.style.color = 'var(--ui-tick)'; tick.style.paddingLeft = '3px'; }
             ruler.appendChild(tick);
         }
     }

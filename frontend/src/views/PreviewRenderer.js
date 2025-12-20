@@ -1,4 +1,4 @@
-import { CONFIG, hslToRgb, hexToRgb, pseudoRandom, parseIdString } from '../utils.js';
+import { CONFIG, hslToRgb, hexToRgb, pseudoRandom, parseIdString, getCssVar } from '../utils.js';
 
 // Field view constants
 const FIELD_PROP_RADIUS = 16;        // Outer radius of the LED ring
@@ -8,8 +8,6 @@ const FIELD_INNER_RADIUS = 7;        // Inner dark circle radius (for label)
 const FIELD_GRID_COLS = 6;
 const FIELD_GRID_SPACING = 70;
 const FIELD_GRID_OFFSET = 50;
-const FIELD_BACKGROUND = '#0a0a0a';
-
 export class PreviewRenderer {
     constructor(deps) {
         this.deps = deps;
@@ -39,12 +37,23 @@ export class PreviewRenderer {
         }
     }
 
+    _getThemeColors() {
+        return {
+            bg: getCssVar('--ui-canvas-bg', '#000000'),
+            overlay: getCssVar('--ui-canvas-overlay', '#1a1a1a'),
+            grid: getCssVar('--ui-canvas-grid', '#333333'),
+            label: getCssVar('--ui-canvas-label', '#666666'),
+            dim: getCssVar('--ui-canvas-dim', '#888888'),
+        };
+    }
+
     _renderOff(canvas) {
+        const colors = this._getThemeColors();
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = colors.overlay;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = colors.label;
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -52,6 +61,7 @@ export class PreviewRenderer {
     }
 
     _renderTrack(canvas) {
+        const colors = this._getThemeColors();
         const w = canvas.width;
         const h = canvas.height;
         const ctx = canvas.getContext('2d');
@@ -62,7 +72,7 @@ export class PreviewRenderer {
         const currentTime = this.stateManager.get('playback.currentTime') || 0;
         const ledTracks = project.tracks.filter(t => t.type === 'led');
 
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, w, h);
 
         if (ledTracks.length === 0) return;
 
@@ -107,11 +117,12 @@ export class PreviewRenderer {
     }
 
     _renderField(canvas) {
+        const colors = this._getThemeColors();
         const w = canvas.width;
         const h = canvas.height;
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = FIELD_BACKGROUND;
+        ctx.fillStyle = colors.bg;
         ctx.fillRect(0, 0, w, h);
 
         const project = this.stateManager.get('project');
@@ -122,7 +133,7 @@ export class PreviewRenderer {
         const fieldLayout = project.settings?.fieldLayout || {};
 
         if (usedProps.length === 0) {
-            ctx.fillStyle = '#666';
+            ctx.fillStyle = colors.label;
             ctx.font = '14px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -139,7 +150,7 @@ export class PreviewRenderer {
             // Draw outer ring background (subtle)
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, FIELD_PROP_RADIUS + 2, 0, Math.PI * 2);
-            ctx.fillStyle = '#1a1a1a';
+            ctx.fillStyle = colors.overlay;
             ctx.fill();
 
             // Draw each LED in the ring
@@ -166,14 +177,14 @@ export class PreviewRenderer {
             // Draw inner dark circle (center)
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, FIELD_INNER_RADIUS, 0, Math.PI * 2);
-            ctx.fillStyle = '#111';
+            ctx.fillStyle = colors.overlay;
             ctx.fill();
-            ctx.strokeStyle = '#333';
+            ctx.strokeStyle = colors.grid;
             ctx.lineWidth = 1;
             ctx.stroke();
 
             // Draw prop ID label in center
-            ctx.fillStyle = '#888';
+            ctx.fillStyle = colors.dim;
             ctx.font = 'bold 8px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';

@@ -136,3 +136,11 @@ export function parseTime(input) {
 export function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
 }
+
+export function getCssVar(name, fallback = '') {
+    if (typeof document === 'undefined') return fallback;
+
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
+    const value = raw.trim();
+    return value || fallback;
+}

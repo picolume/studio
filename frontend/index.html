@@ -17,30 +17,30 @@
     <a href="#timeline-container" class="skip-link">Skip to Timeline</a>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <header class="h-14 bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-gray-800 flex items-center justify-between px-4 shrink-0" role="banner">
+    <header class="h-14 bg-gradient-to-b from-[var(--ui-header-from)] to-[var(--ui-header-to)] border-b border-[var(--ui-panel-border)] flex items-center justify-between px-4 shrink-0" role="banner">
         <div class="flex items-center gap-3">
             <i class="fas fa-bolt text-cyan-400 text-xl" aria-hidden="true"></i>
-            <h1 class="font-bold text-lg tracking-wide text-gray-200">PICOLUME STUDIO</h1>
+            <h1 class="font-bold text-lg tracking-wide text-[var(--ui-text-strong)]">PICOLUME STUDIO</h1>
         </div>
 
         <div class="flex items-center gap-4">
-            <div class="flex bg-neutral-800 rounded p-1" role="group">
-                <button id="btn-undo" class="w-8 h-7 hover:bg-neutral-700 rounded text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-undo"></i></button>
-                <button id="btn-redo" class="w-8 h-7 hover:bg-neutral-700 rounded text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-redo"></i></button>
+            <div class="flex bg-[var(--ui-toolbar-bg)] rounded p-1" role="group">
+                <button id="btn-undo" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)] disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-undo"></i></button>
+                <button id="btn-redo" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)] disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-redo"></i></button>
             </div>
 
-            <div class="flex bg-neutral-800 rounded p-1" role="group">
-                <button id="btn-to-start" class="w-8 h-7 hover:bg-neutral-700 rounded text-gray-400"><i class="fas fa-step-backward"></i></button>
-                <button id="btn-play" class="w-10 h-7 hover:bg-neutral-700 rounded text-white"><i class="fas fa-play"></i></button>
-                <button id="btn-stop" class="w-8 h-7 hover:bg-neutral-700 rounded text-gray-400"><i class="fas fa-stop"></i></button>
+            <div class="flex bg-[var(--ui-toolbar-bg)] rounded p-1" role="group">
+                <button id="btn-to-start" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)]"><i class="fas fa-step-backward"></i></button>
+                <button id="btn-play" class="w-10 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-white"><i class="fas fa-play"></i></button>
+                <button id="btn-stop" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)]"><i class="fas fa-stop"></i></button>
             </div>
 
             <div class="flex items-center gap-2 ml-2 mr-2 group">
-                <i id="vol-icon" class="fas fa-volume-up text-gray-500 text-xs group-hover:text-gray-300 w-5 text-center"></i>
-                <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="1" class="w-20 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500">
+                <i id="vol-icon" class="fas fa-volume-up text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center"></i>
+                <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="1" class="w-20 h-1 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-green-500">
             </div>
 
-            <div class="h-8 border-l border-gray-700 mx-2"></div>
+            <div class="h-8 border-l border-[var(--ui-border)] mx-2"></div>
             <span id="time-display" class="font-mono text-cyan-400 text-lg w-24 text-center">00:00.00</span>
         </div>
 
@@ -114,6 +114,37 @@
                         <i class="fas fa-microchip"></i><span>Upload to Device</span>
                     </button>
                     <div class="hamburger-divider" role="separator"></div>
+
+                    <div class="hamburger-submenu" role="none">
+                        <div class="hamburger-item hamburger-submenu-trigger" role="menuitem" tabindex="0" data-action="themes" data-keep-open="true" aria-haspopup="true">
+                            <i class="fas fa-palette"></i><span>Themes</span><i class="fas fa-chevron-right hamburger-submenu-caret" aria-hidden="true"></i>
+                        </div>
+                        <div class="hamburger-submenu-panel" role="menu" aria-label="Themes">
+                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="standard" aria-checked="true">
+                                <i class="fas fa-check"></i><span>Standard</span>
+                            </button>
+                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="aurora" aria-checked="false">
+                                <i class="fas fa-check"></i><span>Aurora</span>
+                            </button>
+                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="nord" aria-checked="false">
+                                <i class="fas fa-check"></i><span>Nord</span>
+                            </button>
+                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="solarized" aria-checked="false">
+                                <i class="fas fa-check"></i><span>Solarized</span>
+                            </button>
+                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="gruvbox" aria-checked="false">
+                                <i class="fas fa-check"></i><span>Gruvbox</span>
+                            </button>
+                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="hc-dark" aria-checked="false">
+                                <i class="fas fa-check"></i><span>High Contrast</span>
+                            </button>
+                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="crimson" aria-checked="false">
+                                <i class="fas fa-check"></i><span>Crimson</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hamburger-divider" role="separator"></div>
                     <button class="hamburger-item" role="menuitem" data-action="settings">
                         <i class="fas fa-cog"></i><span>Project Settings</span>
                     </button>
@@ -126,36 +157,36 @@
     </header>
 
     <div class="flex-1 flex overflow-hidden">
-        <div id="pane-palette" class="sidebar-palette bg-neutral-900 border-r border-gray-800 flex flex-col shrink-0 overflow-hidden" style="width: var(--palette-width);">
-            <div class="p-3 border-b border-gray-800 text-xs font-bold uppercase tracking-wider text-gray-500">Effect Palette</div>
+        <div id="pane-palette" class="sidebar-palette bg-[var(--ui-panel-bg)] border-r border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--palette-width);">
+            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)]">Effect Palette</div>
             <div class="p-3 overflow-y-auto flex-1" id="palette-container">
-                <div class="text-xs text-gray-600 mb-2 italic">Drag to LED Tracks</div>
+                <div class="text-xs text-[var(--ui-text-faint)] mb-2 italic">Drag to LED Tracks</div>
 
-                <div class="palette-item" draggable="true" data-type="solid"><div class="w-6 h-6 rounded bg-solid"></div><div><div class="text-sm font-medium">Solid Color</div><div class="text-xs text-gray-500">Static color</div></div></div>
-                <div class="palette-item" draggable="true" data-type="flash"><div class="w-6 h-6 rounded bg-flash"></div><div><div class="text-sm font-medium">Camera Flash</div><div class="text-xs text-gray-500">Quick White Bursts</div></div></div>
-                <div class="palette-item" draggable="true" data-type="strobe"><div class="w-6 h-6 rounded bg-strobe"></div><div><div class="text-sm font-medium">Strobe</div><div class="text-xs text-gray-500">Rapid flashing</div></div></div>
-                <div class="palette-item" draggable="true" data-type="wipe"><div class="w-6 h-6 rounded bg-wipe"></div><div><div class="text-sm font-medium">Wipe</div><div class="text-xs text-gray-500">Linear fill</div></div></div>
-                <div class="palette-item" draggable="true" data-type="chase"><div class="w-6 h-6 rounded bg-chase"></div><div><div class="text-sm font-medium">Chase</div><div class="text-xs text-gray-500">Moving segment</div></div></div>
-                <div class="palette-item" draggable="true" data-type="rainbow"><div class="w-6 h-6 rounded bg-rainbow"></div><div><div class="text-sm font-medium">Rainbow</div><div class="text-xs text-gray-500">Moving hue shift</div></div></div>
-                <div class="palette-item" draggable="true" data-type="scanner"><div class="w-6 h-6 rounded bg-scanner"></div><div><div class="text-sm font-medium">Scanner</div><div class="text-xs text-gray-500">Bouncing eye</div></div></div>
-                <div class="palette-item" draggable="true" data-type="meteor"><div class="w-6 h-6 rounded bg-meteor"></div><div><div class="text-sm font-medium">Meteor</div><div class="text-xs text-gray-500">Trail projectile</div></div></div>
-                <div class="palette-item" draggable="true" data-type="fire"><div class="w-6 h-6 rounded bg-fire"></div><div><div class="text-sm font-medium">Fire</div><div class="text-xs text-gray-500">Heat flicker</div></div></div>
-                <div class="palette-item" draggable="true" data-type="breathe"><div class="w-6 h-6 rounded bg-breathe"></div><div><div class="text-sm font-medium">Breathe</div><div class="text-xs text-gray-500">Pulse in/out</div></div></div>
-                <div class="palette-item" draggable="true" data-type="heartbeat"><div class="w-6 h-6 rounded bg-heartbeat"></div><div><div class="text-sm font-medium">Heartbeat</div><div class="text-xs text-gray-500">Double pulse rhythm</div></div></div>
-                <div class="palette-item" draggable="true" data-type="sparkle"><div class="w-6 h-6 rounded bg-sparkle"></div><div><div class="text-sm font-medium">Sparkle</div><div class="text-xs text-gray-500">Random glitters</div></div></div>
-                <div class="palette-item" draggable="true" data-type="glitch"><div class="w-6 h-6 rounded bg-glitch"></div><div><div class="text-sm font-medium">Glitch</div><div class="text-xs text-gray-500">Digital noise</div></div></div>
-                <div class="palette-item" draggable="true" data-type="energy"><div class="w-6 h-6 rounded bg-energy"></div><div><div class="text-sm font-medium">Energy</div><div class="text-xs text-gray-500">Flowing plasma</div></div></div>
-                <div class="palette-item" draggable="true" data-type="alternate"><div class="w-6 h-6 rounded bg-alternate"></div><div><div class="text-sm font-medium">Alternate</div><div class="text-xs text-gray-500">ABAB Pattern</div></div></div>
-                <div class="palette-item" draggable="true" data-type="rainbowHold" role="listitem" tabindex="0"><div class="w-6 h-6 rounded bg-rainbow" style="opacity: 0.5;"></div><div><div class="text-sm font-medium">Rainbow Hold</div><div class="text-xs text-gray-500">Static rainbow</div></div></div>
+                <div class="palette-item" draggable="true" data-type="solid"><div class="w-6 h-6 rounded bg-solid"></div><div><div class="text-sm font-medium">Solid Color</div><div class="text-xs text-[var(--ui-text-subtle)]">Static color</div></div></div>
+                <div class="palette-item" draggable="true" data-type="flash"><div class="w-6 h-6 rounded bg-flash"></div><div><div class="text-sm font-medium">Camera Flash</div><div class="text-xs text-[var(--ui-text-subtle)]">Quick White Bursts</div></div></div>
+                <div class="palette-item" draggable="true" data-type="strobe"><div class="w-6 h-6 rounded bg-strobe"></div><div><div class="text-sm font-medium">Strobe</div><div class="text-xs text-[var(--ui-text-subtle)]">Rapid flashing</div></div></div>
+                <div class="palette-item" draggable="true" data-type="wipe"><div class="w-6 h-6 rounded bg-wipe"></div><div><div class="text-sm font-medium">Wipe</div><div class="text-xs text-[var(--ui-text-subtle)]">Linear fill</div></div></div>
+                <div class="palette-item" draggable="true" data-type="chase"><div class="w-6 h-6 rounded bg-chase"></div><div><div class="text-sm font-medium">Chase</div><div class="text-xs text-[var(--ui-text-subtle)]">Moving segment</div></div></div>
+                <div class="palette-item" draggable="true" data-type="rainbow"><div class="w-6 h-6 rounded bg-rainbow"></div><div><div class="text-sm font-medium">Rainbow</div><div class="text-xs text-[var(--ui-text-subtle)]">Moving hue shift</div></div></div>
+                <div class="palette-item" draggable="true" data-type="scanner"><div class="w-6 h-6 rounded bg-scanner"></div><div><div class="text-sm font-medium">Scanner</div><div class="text-xs text-[var(--ui-text-subtle)]">Bouncing eye</div></div></div>
+                <div class="palette-item" draggable="true" data-type="meteor"><div class="w-6 h-6 rounded bg-meteor"></div><div><div class="text-sm font-medium">Meteor</div><div class="text-xs text-[var(--ui-text-subtle)]">Trail projectile</div></div></div>
+                <div class="palette-item" draggable="true" data-type="fire"><div class="w-6 h-6 rounded bg-fire"></div><div><div class="text-sm font-medium">Fire</div><div class="text-xs text-[var(--ui-text-subtle)]">Heat flicker</div></div></div>
+                <div class="palette-item" draggable="true" data-type="breathe"><div class="w-6 h-6 rounded bg-breathe"></div><div><div class="text-sm font-medium">Breathe</div><div class="text-xs text-[var(--ui-text-subtle)]">Pulse in/out</div></div></div>
+                <div class="palette-item" draggable="true" data-type="heartbeat"><div class="w-6 h-6 rounded bg-heartbeat"></div><div><div class="text-sm font-medium">Heartbeat</div><div class="text-xs text-[var(--ui-text-subtle)]">Double pulse rhythm</div></div></div>
+                <div class="palette-item" draggable="true" data-type="sparkle"><div class="w-6 h-6 rounded bg-sparkle"></div><div><div class="text-sm font-medium">Sparkle</div><div class="text-xs text-[var(--ui-text-subtle)]">Random glitters</div></div></div>
+                <div class="palette-item" draggable="true" data-type="glitch"><div class="w-6 h-6 rounded bg-glitch"></div><div><div class="text-sm font-medium">Glitch</div><div class="text-xs text-[var(--ui-text-subtle)]">Digital noise</div></div></div>
+                <div class="palette-item" draggable="true" data-type="energy"><div class="w-6 h-6 rounded bg-energy"></div><div><div class="text-sm font-medium">Energy</div><div class="text-xs text-[var(--ui-text-subtle)]">Flowing plasma</div></div></div>
+                <div class="palette-item" draggable="true" data-type="alternate"><div class="w-6 h-6 rounded bg-alternate"></div><div><div class="text-sm font-medium">Alternate</div><div class="text-xs text-[var(--ui-text-subtle)]">ABAB Pattern</div></div></div>
+                <div class="palette-item" draggable="true" data-type="rainbowHold" role="listitem" tabindex="0"><div class="w-6 h-6 rounded bg-rainbow" style="opacity: 0.5;"></div><div><div class="text-sm font-medium">Rainbow Hold</div><div class="text-xs text-[var(--ui-text-subtle)]">Static rainbow</div></div></div>
             </div>
         </div>
 
         <div class="flex-1 flex flex-col min-w-0">
-            <div id="pane-preview" class="bg-black relative led-preview-container flex items-center justify-center border-b border-gray-800 shrink-0 overflow-hidden" style="height: var(--preview-height);">
+            <div id="pane-preview" class="bg-black relative led-preview-container flex items-center justify-center border-b border-[var(--ui-panel-border)] shrink-0 overflow-hidden" style="height: var(--preview-height);">
                 <canvas id="preview-canvas"></canvas>
                 <div class="absolute top-2 left-2 flex items-center gap-3">
-                    <span class="text-xs text-gray-500">Preview</span>
-                    <div class="flex bg-neutral-800/80 rounded p-0.5 gap-0.5" id="preview-mode-selector">
+                    <span class="text-xs text-[var(--ui-text-subtle)]">Preview</span>
+                    <div class="flex bg-[var(--ui-toolbar-bg)] rounded p-0.5 gap-0.5 opacity-90" id="preview-mode-selector">
                         <button data-mode="track" class="preview-mode-btn active" title="Track view">
                             <i class="fas fa-bars"></i>
                         </button>
@@ -171,29 +202,29 @@
 
             <div id="preview-resize-handle" class="preview-resize-handle" title="Drag to resize preview"></div>
 
-            <div class="h-8 bg-neutral-800 border-b border-gray-700 flex items-center px-2 justify-between shrink-0">
+            <div class="h-8 bg-[var(--ui-toolbar-bg)] border-b border-[var(--ui-border)] flex items-center px-2 justify-between shrink-0">
                 <div class="flex gap-2">
                     <button id="btn-add-track-led" class="text-xs bg-cyan-900/50 hover:bg-cyan-800 px-2 py-1 rounded text-cyan-200 border border-cyan-900"><i class="fas fa-plus mr-1"></i> LED Track</button>
                     <button id="btn-add-track-audio" class="text-xs bg-orange-900/50 hover:bg-orange-800 px-2 py-1 rounded text-orange-200 border border-orange-900"><i class="fas fa-music mr-1"></i> Audio Track</button>
-                    <div class="border-l border-gray-700 pl-2 ml-1 flex gap-1">
-                        <button id="btn-copy" class="text-xs bg-neutral-700/50 hover:bg-neutral-600 px-2 py-1 rounded text-gray-300 disabled:opacity-30" disabled><i class="fas fa-copy"></i></button>
-                        <button id="btn-paste" class="text-xs bg-neutral-700/50 hover:bg-neutral-600 px-2 py-1 rounded text-gray-300 disabled:opacity-30" disabled><i class="fas fa-paste"></i></button>
-                        <button id="btn-duplicate" class="text-xs bg-neutral-700/50 hover:bg-neutral-600 px-2 py-1 rounded text-gray-300 disabled:opacity-30" disabled><i class="fas fa-clone"></i></button>
+                    <div class="border-l border-[var(--ui-border)] pl-2 ml-1 flex gap-1">
+                        <button id="btn-copy" class="text-xs bg-[var(--ui-toolbar-hover-bg)] hover:bg-[var(--ui-border)] px-2 py-1 rounded text-[var(--ui-text)] disabled:opacity-30" disabled><i class="fas fa-copy"></i></button>
+                        <button id="btn-paste" class="text-xs bg-[var(--ui-toolbar-hover-bg)] hover:bg-[var(--ui-border)] px-2 py-1 rounded text-[var(--ui-text)] disabled:opacity-30" disabled><i class="fas fa-paste"></i></button>
+                        <button id="btn-duplicate" class="text-xs bg-[var(--ui-toolbar-hover-bg)] hover:bg-[var(--ui-border)] px-2 py-1 rounded text-[var(--ui-text)] disabled:opacity-30" disabled><i class="fas fa-clone"></i></button>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <div class="flex items-center gap-3 border-r border-gray-700 pr-3 mr-2">
-                        <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer hover:text-white select-none">
+                    <div class="flex items-center gap-3 border-r border-[var(--ui-border)] pr-3 mr-2">
+                        <label class="flex items-center gap-2 text-xs text-[var(--ui-text-muted)] cursor-pointer hover:text-white select-none">
                             <input type="checkbox" id="chk-snap" class="accent-cyan-500" checked> <i class="fas fa-magnet"></i> Snap
                         </label>
-                        <select id="sel-grid" class="bg-neutral-900 text-xs text-gray-300 border border-gray-700 rounded px-1 outline-none py-0.5">
+                        <select id="sel-grid" class="bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] border border-[var(--ui-select-border)] rounded px-1 outline-none py-0.5">
                             <option value="1000">1s</option><option value="500">1/2s</option><option value="250">1/4s</option><option value="125">1/8s</option>
                         </select>
                     </div>
                     <div class="flex items-center gap-2">
                         <input type="range" id="zoom-slider" min="10" max="200" value="50" class="w-24 accent-cyan-500">
-                        <span id="zoom-display" class="text-xs text-gray-500 w-12">50px/s</span>
+                        <span id="zoom-display" class="text-xs text-[var(--ui-text-subtle)] w-12">50px/s</span>
                     </div>
                 </div>
             </div>
@@ -210,8 +241,8 @@
             </div>
         </div>
 
-        <div id="pane-inspector" class="sidebar-inspector bg-neutral-900 border-l border-gray-800 flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);">
-            <div class="p-3 border-b border-gray-800 text-xs font-bold uppercase tracking-wider text-gray-500">Inspector</div>
+        <div id="pane-inspector" class="sidebar-inspector bg-[var(--ui-panel-bg)] border-l border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);">
+            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)]">Inspector</div>
             <div id="inspector-content" class="p-4 flex-1 overflow-y-auto"></div>
         </div>
     </div>

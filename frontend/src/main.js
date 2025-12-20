@@ -43,6 +43,42 @@ window.addEventListener('DOMContentLoaded', async () => {
     const els = app.elements;
 
     // ==========================================
+    // THEME (Standard / Aurora)
+    // ==========================================
+
+    const UI_THEME_KEY = 'picolume:theme';
+    const DEFAULT_THEME = 'standard';
+    const THEMES = new Set(['standard', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson']);
+
+    const setTheme = (theme) => {
+        const resolved = THEMES.has(theme) ? theme : DEFAULT_THEME;
+        document.documentElement.dataset.theme = resolved;
+
+        try {
+            localStorage.setItem(UI_THEME_KEY, resolved);
+        } catch { }
+
+        document.querySelectorAll('.hamburger-theme-item[data-action="theme"]').forEach(btn => {
+            const isActive = btn.dataset.theme === resolved;
+            btn.setAttribute('aria-checked', String(isActive));
+            btn.classList.toggle('is-active', isActive);
+        });
+
+        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        try { renderPreview(); } catch { }
+    };
+
+    const loadTheme = () => {
+        try {
+            const raw = localStorage.getItem(UI_THEME_KEY);
+            if (raw) return raw;
+        } catch { }
+        return DEFAULT_THEME;
+    };
+
+    setTheme(loadTheme());
+
+    // ==========================================
     // LAYOUT TOGGLES (Palette / Preview / Inspector)
     // ==========================================
 
@@ -385,6 +421,11 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (!item) return;
 
         const action = item.dataset.action;
+
+        if (item.dataset.keepOpen === 'true') {
+            return;
+        }
+
         setHamburgerOpen(false);
 
         switch (action) {
@@ -412,6 +453,9 @@ window.addEventListener('DOMContentLoaded', async () => {
             case 'manual':
                 e.preventDefault();
                 setManualOpen(true);
+                break;
+            case 'theme':
+                setTheme(item.dataset.theme);
                 break;
         }
     });
@@ -1469,11 +1513,11 @@ window.addEventListener('DOMContentLoaded', async () => {
             const icon = document.getElementById('vol-icon');
             if (icon) {
                 if (volume === 0) {
-                    icon.className = "fas fa-volume-mute text-gray-500 text-xs group-hover:text-gray-300 w-5 text-center";
+                    icon.className = "fas fa-volume-mute text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center";
                 } else if (volume < 0.5) {
-                    icon.className = "fas fa-volume-down text-gray-500 text-xs group-hover:text-gray-300 w-5 text-center";
+                    icon.className = "fas fa-volume-down text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center";
                 } else {
-                    icon.className = "fas fa-volume-up text-gray-500 text-xs group-hover:text-gray-300 w-5 text-center";
+                    icon.className = "fas fa-volume-up text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center";
                 }
             }
         });
