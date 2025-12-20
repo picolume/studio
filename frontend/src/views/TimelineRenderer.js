@@ -1,4 +1,4 @@
-import { getSnappedTime, formatTime } from '../utils.js';
+import { getSnappedTime, formatTime, showConfirm } from '../utils.js';
 
 export class TimelineRenderer {
     constructor(deps) {
@@ -130,9 +130,10 @@ export class TimelineRenderer {
         const delBtn = document.createElement('button');
         delBtn.innerHTML = '<i class="fas fa-trash"></i>';
         delBtn.className = "text-[var(--ui-text-faint)] hover:text-red-500 p-1 text-[10px]";
-        delBtn.onclick = (e) => {
+        delBtn.onclick = async (e) => {
             e.stopPropagation();
-            if (!confirm('Delete?')) return;
+            const confirmed = await showConfirm('Delete this track?');
+            if (!confirmed) return;
             if (this.timelineController?.deleteTrack) {
                 this.timelineController.deleteTrack(track.id);
             }

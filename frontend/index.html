@@ -259,6 +259,21 @@
         <div class="flex items-center gap-4"><span id="status-history">History: 0/0</span><span>Space Play | Tab Navigate | Arrows Move | Shift+Arrows Resize</span></div>
     </div>
 
+    <div id="confirm-modal" class="modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title" id="confirm-title">PicoLume Studio</div>
+            </div>
+            <div class="confirm-body">
+                <p id="confirm-message" class="confirm-message"></p>
+                <div class="confirm-actions">
+                    <button id="confirm-cancel" class="btn">Cancel</button>
+                    <button id="confirm-ok" class="btn btn--primary">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="manual-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="User Manual" aria-hidden="true">
         <div class="modal-panel">
             <div class="modal-header">

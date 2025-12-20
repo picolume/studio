@@ -951,6 +951,43 @@ body {
     background: var(--modal-frame-bg);
 }
 
+/* Confirm Dialog */
+#confirm-modal .modal-panel {
+    width: min(380px, 90vw);
+    height: auto;
+    max-height: 90vh;
+}
+#confirm-modal .modal-header {
+    height: 40px;
+    padding: 0 16px;
+    background: var(--modal-bg);
+    border-bottom: 1px solid var(--modal-border);
+}
+#confirm-modal .modal-title {
+    font-size: 13px;
+    color: var(--ui-text);
+    font-weight: 600;
+}
+#confirm-modal .confirm-body {
+    padding: 20px 20px 16px;
+}
+#confirm-modal .confirm-message {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ui-text-muted);
+    margin-bottom: 20px;
+}
+#confirm-modal .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+#confirm-modal .btn {
+    min-width: 80px;
+    height: 32px;
+    font-size: 12px;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 10px;

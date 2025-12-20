@@ -11,6 +11,7 @@
 
 import { createInitialState } from '../core/StateManager.js';
 import { getBackend } from '../core/Backend.js';
+import { showConfirm } from '../utils.js';
 
 export class ProjectService {
     constructor(stateManager, audioService, backend = getBackend()) {
@@ -148,7 +149,7 @@ export class ProjectService {
     async createNew(confirm = true) {
         // Check for unsaved changes
         if (confirm && this.stateManager.get('isDirty')) {
-            const shouldContinue = window.confirm(
+            const shouldContinue = await showConfirm(
                 'You have unsaved changes. Create new project anyway?'
             );
             if (!shouldContinue) {

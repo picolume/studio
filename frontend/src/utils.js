@@ -144,3 +144,49 @@ export function getCssVar(name, fallback = '') {
     const value = raw.trim();
     return value || fallback;
 }
+
+/**
+ * Shows a custom confirmation dialog instead of the native confirm().
+ * @param {string} message - The message to display
+ * @param {string} [title] - Optional custom title (defaults to "PicoLume Studio")
+ * @returns {Promise<boolean>} - Resolves to true if OK clicked, false if cancelled
+ */
+export function showConfirm(message, title = 'PicoLume Studio') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        const titleEl = document.getElementById('confirm-title');
+        const messageEl = document.getElementById('confirm-message');
+        const okBtn = document.getElementById('confirm-ok');
+        const cancelBtn = document.getElementById('confirm-cancel');
+
+        if (!modal || !messageEl || !okBtn || !cancelBtn) {
+            // Fallback to native confirm if modal elements not found
+            resolve(window.confirm(message));
+            return;
+        }
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        modal.setAttribute('aria-hidden', 'false');
+
+        const cleanup = () => {
+            modal.setAttribute('aria-hidden', 'true');
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            document.removeEventListener('keydown', onKeydown);
+        };
+
+        const onOk = () => { cleanup(); resolve(true); };
+        const onCancel = () => { cleanup(); resolve(false); };
+        const onKeydown = (e) => {
+            if (e.key === 'Escape') { onCancel(); }
+            else if (e.key === 'Enter') { onOk(); }
+        };
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKeydown);
+
+        okBtn.focus();
+    });
+}
