@@ -540,6 +540,7 @@
                 <div class="nav-section-title">Overview</div>
                 <a href="#intro" class="nav-link active">Introduction</a>
                 <a href="#interface" class="nav-link">Interface</a>
+                <a href="#preview" class="nav-link">Preview Modes</a>
                 <a href="#layout" class="nav-link">Layout &amp; Shortcuts</a>
             </div>
             <div class="nav-section">
@@ -611,8 +612,31 @@
                 <li><strong>Effect Palette (Left):</strong> A library of all available lighting patterns. These are "Smart Clips" that adapt to any duration you set.</li>
                 <li><strong>Timeline (Center):</strong> The main workspace. Top tracks render *above* bottom tracks visually (bottom track = highest priority).</li>
                 <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click a clip. Time values use <code>MM:SS.ss</code> format (e.g., "05:23.45" for 5 minutes, 23.45 seconds).</li>
-                <li><strong>Preview Canvas (Top Center):</strong> A real-time simulation of your show. It approximates the look of your LEDs based on your timeline.</li>
+                <li><strong>Preview Canvas (Top Center):</strong> A real-time simulation of your show. Use the <strong>preview mode buttons</strong> to switch between Track/Field/Off, and drag the <strong>resize handle</strong> under the preview to change its height.</li>
             </ul>
+        </section>
+
+        <section id="preview">
+            <h2>Preview Modes</h2>
+            <p>The Preview shows a live approximation of what your props will do at the current playhead time. It is not a pixel-perfect hardware emulator, but it is great for timing and intent.</p>
+
+            <h3>Track View</h3>
+            <p><strong>Track View</strong> displays each LED track as a compact strip, centered in the preview. This is the fastest way to verify layering and timing across tracks.</p>
+
+            <h3>Field View</h3>
+            <p><strong>Field View</strong> displays your props as rings arranged on a field. Each ring shows a sampled slice of the effect so you can quickly see how different props will look at the same moment.</p>
+            <ul>
+                <li><strong>Auto layout:</strong> Props are arranged automatically when no saved position exists.</li>
+                <li><strong>Drag to reposition:</strong> Click and drag a prop to place it. Positions are saved into the project.</li>
+            </ul>
+
+            <h3>Off</h3>
+            <p><strong>Off</strong> disables preview rendering (useful on low-power machines).</p>
+
+            <div class="callout">
+                <h4>Resizing the Preview</h4>
+                <p>Drag the horizontal handle directly under the preview canvas to make the preview taller or shorter. The app remembers your preview height and pane visibility.</p>
+            </div>
         </section>
 
         <section id="layout">
