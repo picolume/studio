@@ -180,6 +180,7 @@ flowchart TB
 | **Application** | `core/Application.js` | Main application bootstrap, initializes all services and controllers |
 | **StateManager** | `core/StateManager.js` | Centralized immutable state management with undo/redo support |
 | **ErrorHandler** | `core/ErrorHandler.js` | Centralized error handling and toast notifications |
+| **Backend Adapter** | `core/Backend.js` | Environment adapter (Wails vs browser demo) for backend-dependent features |
 | **Validators** | `core/validators.js` | Input validation functions for colors, times, clips, tracks |
 | **AudioService** | `services/AudioService.js` | Web Audio API management, buffer loading, playback control |
 | **ProjectService** | `services/ProjectService.js` | Project save/load/new operations via backend |
@@ -190,6 +191,16 @@ flowchart TB
 | **InspectorRenderer** | `views/InspectorRenderer.js` | Property panel for clips and project settings |
 | **timeline.js** | `timeline.js` | Coordination layer between renderers |
 | **utils.js** | `utils.js` | Color conversion, time formatting, helpers |
+
+##### Website Demo (Static Frontend)
+
+To keep the marketing site demo aligned with the Studio UI, the repo includes a static web demo build that reuses the same frontend code (ES Modules + compiled Tailwind CSS) but runs without the Go/Wails backend.
+
+- **Output folder**: `website/public/studio-demo/` (served as `/studio-demo/` by Astro)
+- **Entry URL**: `website/public/demo.html` redirects to `/studio-demo/index.html`
+- **Sync script**: `scripts/sync-studio-demo.mjs` copies `studio/frontend/` into `website/public/studio-demo/` and strips Wails-only pieces (ex: `/wailsjs/runtime/runtime.js`)
+- **Demo detection**: the frontend checks for `window.go.main.App`; if absent, it uses the demo backend adapter (`core/Backend.js`) and disables backend-only actions (Save/Load/Export/Upload)
+- **Website build integration**: `website/package.json` runs the sync script automatically via `prebuild`, so `cd website && npm run build` produces a deployable `website/dist/` that includes the synced demo
 
 #### 3.2.2 Backend Components
 

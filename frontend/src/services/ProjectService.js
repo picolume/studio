@@ -10,11 +10,13 @@
  */
 
 import { createInitialState } from '../core/StateManager.js';
+import { getBackend } from '../core/Backend.js';
 
 export class ProjectService {
-    constructor(stateManager, audioService) {
+    constructor(stateManager, audioService, backend = getBackend()) {
         this.stateManager = stateManager;
         this.audioService = audioService;
+        this.backend = backend;
     }
 
     /**
@@ -26,11 +28,15 @@ export class ProjectService {
      */
     async save(path = null, forceSaveAs = false, silent = false) {
         try {
+            if (!this.backend?.capabilities?.fileIO) {
+                return { success: false, message: 'Save is not available in the web demo' };
+            }
+
             let targetPath = path || this.stateManager.get('filePath');
 
             // Request path if needed
             if (forceSaveAs || !targetPath) {
-                targetPath = await window.go.main.App.RequestSavePath();
+                targetPath = await this.backend.requestSavePath();
                 if (!targetPath) {
                     return { success: false, message: 'Save cancelled' };
                 }
@@ -40,7 +46,7 @@ export class ProjectService {
             const projectData = this._prepareProjectForSave();
 
             // Call backend to save
-            const result = await window.go.main.App.SaveProjectToPath(
+            const result = await this.backend.saveProjectToPath(
                 targetPath,
                 JSON.stringify(projectData.project),
                 projectData.audio
@@ -75,7 +81,11 @@ export class ProjectService {
      */
     async load() {
         try {
-            const result = await window.go.main.App.LoadProject();
+            if (!this.backend?.capabilities?.fileIO) {
+                return { success: false, message: 'Load is not available in the web demo' };
+            }
+
+            const result = await this.backend.loadProject();
 
             // Check for cancellation or error
             if (!result || result.error === "Cancelled") {
@@ -168,8 +178,12 @@ export class ProjectService {
      */
     async exportBinary() {
         try {
+            if (!this.backend?.capabilities?.exportBinary) {
+                return { success: false, message: 'Export is not available in the web demo' };
+            }
+
             const project = this.stateManager.get('project');
-            const result = await window.go.main.App.SaveBinary(
+            const result = await this.backend.saveBinary(
                 JSON.stringify(project)
             );
 
@@ -192,8 +206,12 @@ export class ProjectService {
      */
     async uploadToDevice() {
         try {
+            if (!this.backend?.capabilities?.upload) {
+                return { success: false, message: 'Upload is not available in the web demo' };
+            }
+
             const project = this.stateManager.get('project');
-            const result = await window.go.main.App.UploadToPico(
+            const result = await this.backend.uploadToPico(
                 JSON.stringify(project)
             );
 

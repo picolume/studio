@@ -6,6 +6,7 @@
 
 import { app } from './core/Application.js';
 import { CONFIG, getSnappedTime } from './utils.js';
+import { getBackend } from './core/Backend.js';
 
 // Import legacy timeline functions (to be refactored later)
 import {
@@ -41,6 +42,24 @@ window.addEventListener('DOMContentLoaded', async () => {
     errorHandler = app.errorHandler;
 
     const els = app.elements;
+
+    // ==========================================
+    // DEMO BADGE (web demo only)
+    // ==========================================
+
+    try {
+        const backend = getBackend();
+        if (backend?.kind === 'demo') {
+            const titleEl = document.getElementById('app-title');
+            if (titleEl && !document.getElementById('app-demo-badge')) {
+                const badge = document.createElement('span');
+                badge.id = 'app-demo-badge';
+                badge.textContent = 'DEMO';
+                badge.className = 'ml-2 text-xs font-semibold tracking-widest text-cyan-400 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded px-2 py-0.5 align-middle';
+                titleEl.appendChild(badge);
+            }
+        }
+    } catch { }
 
     // ==========================================
     // THEME (Standard / Aurora)
