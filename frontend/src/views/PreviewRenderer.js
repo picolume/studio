@@ -44,6 +44,7 @@ export class PreviewRenderer {
             grid: getCssVar('--ui-canvas-grid', '#333333'),
             label: getCssVar('--ui-canvas-label', '#666666'),
             dim: getCssVar('--ui-canvas-dim', '#888888'),
+            message: getCssVar('--ui-text-muted', '#9ca3af'),
         };
     }
 
@@ -53,7 +54,7 @@ export class PreviewRenderer {
         ctx.fillStyle = colors.overlay;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.fillStyle = colors.label;
+        ctx.fillStyle = colors.message;
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -133,7 +134,7 @@ export class PreviewRenderer {
         const fieldLayout = project.settings?.fieldLayout || {};
 
         if (usedProps.length === 0) {
-            ctx.fillStyle = colors.label;
+            ctx.fillStyle = colors.message;
             ctx.font = '14px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';

@@ -789,7 +789,7 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 
 ### 6.4 Visual Theming
 
-- **Theme System**: User-selectable themes (Standard/Aurora/Nord/Solarized/Gruvbox/High Contrast/Crimson)
+- **Theme System**: User-selectable themes (Standard/Aurora/Nord/Solarized/Gruvbox/High Contrast/Crimson/Graphite)
 - **Default Theme**: Standard (when no preference is saved)
 - **Persistence**: Theme selection is remembered between launches
 - **Accent Color**: Theme-dependent highlight color (e.g., cyan in Standard)
