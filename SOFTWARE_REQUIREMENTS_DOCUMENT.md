@@ -199,7 +199,7 @@ To keep the marketing site demo aligned with the Studio UI, the repo includes a 
 - **Output folder**: `website/public/studio-demo/` (served as `/studio-demo/` by Astro)
 - **Entry URL**: `website/public/demo.html` redirects to `/studio-demo/index.html`
 - **Sync script**: `scripts/sync-studio-demo.mjs` copies `studio/frontend/` into `website/public/studio-demo/` and strips Wails-only pieces (ex: `/wailsjs/runtime/runtime.js`)
-- **Demo detection**: the frontend checks for `window.go.main.App`; if absent, it uses the demo backend adapter (`core/Backend.js`) and disables backend-only actions (Save/Load/Export/Upload)
+- **Demo detection**: the frontend checks for `window.go.main.App`; if absent, it uses the demo backend adapter (`core/Backend.js`). Export/Upload remain disabled; Save/Load use browser file pickers and produce/consume standard `.lum` files compatible with the desktop app
 - **Website build integration**: `website/package.json` runs the sync script automatically via `prebuild`, so `cd website && npm run build` produces a deployable `website/dist/` that includes the synced demo
 
 #### 3.2.2 Backend Components
