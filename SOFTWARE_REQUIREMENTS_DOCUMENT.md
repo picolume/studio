@@ -194,13 +194,15 @@ flowchart TB
 
 ##### Website Demo (Static Frontend)
 
-To keep the marketing site demo aligned with the Studio UI, the repo includes a static web demo build that reuses the same frontend code (ES Modules + compiled Tailwind CSS) but runs without the Go/Wails backend.
+To keep the marketing site demo aligned with the Studio UI, the project maintains a static web demo build that reuses the same frontend code (ES Modules + compiled Tailwind CSS) but runs without the Go/Wails backend.
 
-- **Output folder**: `website/public/studio-demo/` (served as `/studio-demo/` by Astro)
-- **Entry URL**: `website/public/demo.html` redirects to `/studio-demo/index.html`
-- **Sync script**: `scripts/sync-studio-demo.mjs` copies `studio/frontend/` into `website/public/studio-demo/` and strips Wails-only pieces (ex: `/wailsjs/runtime/runtime.js`)
-- **Demo detection**: the frontend checks for `window.go.main.App`; if absent, it uses the demo backend adapter (`core/Backend.js`). Export/Upload remain disabled; Save/Load use browser file pickers and produce/consume standard `.lum` files compatible with the desktop app
-- **Website build integration**: `website/package.json` runs the sync script automatically via `prebuild`, so `cd website && npm run build` produces a deployable `website/dist/` that includes the synced demo
+- **Output folder (website repo)**: `website/public/studio-demo/` (served as `/studio-demo/` by Astro)
+- **Entry URL (website repo)**: `website/public/demo.html` redirects to `/studio-demo/index.html`
+- **Sync script (studio repo)**: `scripts/sync-studio-demo.mjs` copies `studio/frontend/` into the website repo's `website/public/studio-demo/` and strips Wails-only pieces (ex: `/wailsjs/runtime/runtime.js`)
+- **Demo detection**: the frontend checks for `window.go.main.App`; if absent, it uses the demo backend adapter (`core/Backend.js`)
+  - Save/Load are supported via browser file pickers and use standard `.lum` files compatible with the desktop app
+  - Export/Upload remain disabled in the web demo
+- **CI/CD (website repo)**: the website repo can build and deploy automatically (e.g. GitHub Actions -> Hostinger via FTP) by building the Astro site and deploying `dist/`. In this model, `website/public/studio-demo/` is treated as a committed static asset that is updated by the sync script during development.
 
 #### 3.2.2 Backend Components
 
@@ -1453,6 +1455,7 @@ picolume/studio/
 | 0.1.4 | Dec 2025 | Replaced silent error ignoring with proper error handling in binary generation |
 | 0.1.5 | Dec 2025 | Added keyboard navigation for timeline clips (Tab, Arrow keys, Enter/Space) |
 | 0.1.6 | Dec 2025 | Added retry/timeout logic for async audio operations (AudioService.js) |
+| 0.2.0 | Dec 2025 | Added theme system + website demo workflow; web demo supports `.lum` Save/Load (incl. embedded audio) |
 
 ---
 
