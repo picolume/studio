@@ -213,7 +213,7 @@ export class InspectorRenderer {
 
         const addBtn = document.createElement('button');
         addBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] mb-4";
-        addBtn.innerHTML = "<i class='fas fa-plus mr-1'></i> Add Profile";
+        addBtn.innerHTML = "<i class='fas fa-plus mr-1 text-[10px] relative -top-px'></i> Add Profile";
         addBtn.onclick = () => {
             this.stateManager?.update(draft => {
                 if (!draft.project.settings.profiles) draft.project.settings.profiles = [];
@@ -267,7 +267,9 @@ export class InspectorRenderer {
             container.appendChild(card);
         });
 
-        const addGrpBtn = document.createElement('button'); addGrpBtn.innerText = "+ Add Group"; addGrpBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] mb-4";
+        const addGrpBtn = document.createElement('button');
+        addGrpBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] mb-4";
+        addGrpBtn.innerHTML = "<i class='fas fa-plus mr-1 text-[10px] relative -top-px'></i> Add Group";
         addGrpBtn.onclick = () => {
             this.stateManager?.update(draft => {
                 if (!draft.project.propGroups) draft.project.propGroups = [];
