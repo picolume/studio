@@ -33,22 +33,17 @@ async function dataUrlToBytes(dataUrl) {
     return new Uint8Array(ab);
 }
 
-function bytesToBase64(bytes) {
-    const chunkSize = 0x8000;
-    let binary = '';
-    let out = '';
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(i, i + chunkSize);
-        binary = '';
-        for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]);
-        out += btoa(binary);
-    }
-    return out;
-}
-
-function bytesToDataUrl(bytes, mime) {
-    const b64 = bytesToBase64(bytes);
-    return `data:${mime};base64,${b64}`;
+async function bytesToDataUrl(bytes, mime) {
+    return await new Promise((resolve, reject) => {
+        try {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error || new Error('Failed to read blob'));
+            reader.readAsDataURL(new Blob([bytes], { type: mime }));
+        } catch (err) {
+            reject(err);
+        }
+    });
 }
 
 export async function createLumBytes(projectJson, audioFiles, { compress = false } = {}) {
@@ -83,10 +78,10 @@ export async function parseLumBytes(zipBytes) {
         const baseName = name.split('/').pop() || '';
         const parts = baseName.split('.');
         if (parts.length < 2) continue;
-        const id = parts[0];
+        const id = parts.slice(0, -1).join('.');
         const ext = parts[parts.length - 1];
         const mime = mimeFromExt(ext);
-        audioFiles[id] = bytesToDataUrl(bytes, mime);
+        audioFiles[id] = await bytesToDataUrl(bytes, mime);
     }
 
     return { projectJson, audioFiles };
