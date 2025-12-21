@@ -127,12 +127,15 @@ export class AudioService {
 
     /**
      * Ensure audio context is initialized
+     * @param {Object} [options]
+     * @param {boolean} [options.resume=true] - Whether to attempt to resume a suspended AudioContext
      */
-    async ensureInit() {
+    async ensureInit(options = {}) {
+        const { resume = true } = options;
         if (!this.ctx) {
             this.init();
         }
-        if (this.ctx.state === 'suspended') {
+        if (resume && this.ctx.state === 'suspended') {
             try {
                 await withTimeout(
                     this.ctx.resume(),
@@ -140,8 +143,9 @@ export class AudioService {
                     'Audio context resume timed out'
                 );
             } catch (error) {
-                console.error('Failed to resume audio context:', error);
-                throw new Error(`Failed to initialize audio playback: ${error.message}`);
+                // In browsers, AudioContext resume may be blocked unless called from a user gesture.
+                // Decoding audio does not require a resumed context, so only warn here.
+                console.warn('Audio context resume failed (will remain suspended):', error);
             }
         }
     }
@@ -153,7 +157,8 @@ export class AudioService {
      * @returns {Promise<AudioBuffer>}
      */
     async loadAudioFile(file, bufferId) {
-        await this.ensureInit();
+        // Decoding is allowed even while the AudioContext is suspended; don't force resume here.
+        await this.ensureInit({ resume: false });
 
         try {
             // Read file with timeout
@@ -206,7 +211,8 @@ export class AudioService {
      * @returns {Promise<AudioBuffer>}
      */
     async loadAudioFromDataURL(bufferId, dataURL) {
-        await this.ensureInit();
+        // Decoding is allowed even while the AudioContext is suspended; don't force resume here.
+        await this.ensureInit({ resume: false });
 
         try {
             // Fetch with timeout and retry for transient network issues
