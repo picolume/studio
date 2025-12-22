@@ -1011,7 +1011,7 @@ body {
 .btn--wide { width: 128px; }
 .btn--md   { width: 96px; }
 
-.btn.btn--icon[aria-pressed="false"] {
+.btn.btn--icon.btn--pane-toggle[aria-pressed="false"] {
     border-color: rgba(34, 211, 238, 0.75);
     box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25);
 }
