@@ -41,7 +41,7 @@ export class InspectorRenderer {
     }
 
     _renderMultiSelection(container, selection) {
-        container.innerHTML = `<div class="font-bold text-white mb-2 border-b border-[var(--ui-border)] pb-2">MULTIPLE CLIPS</div>`;
+        container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-2 border-b border-[var(--ui-border)] pb-2">MULTIPLE CLIPS</div>`;
         container.insertAdjacentHTML('beforeend', `<div class="text-xs text-[var(--ui-text-subtle)] italic mb-4">${selection.length} clips selected</div>`);
         const del = document.createElement('button');
         del.innerText = "Delete Selected";
@@ -62,7 +62,7 @@ export class InspectorRenderer {
             this._ensureDefaultProfiles();
         }
 
-        container.innerHTML = `<div class="font-bold text-white mb-2 border-b border-[var(--ui-border)] pb-2">PROJECT SETTINGS</div>`;
+        container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-2 border-b border-[var(--ui-border)] pb-2">PROJECT SETTINGS</div>`;
 
         // --- Project Info ---
         container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Project Info</div>`);
@@ -153,7 +153,7 @@ export class InspectorRenderer {
 
             const row1 = document.createElement('div'); row1.className = "flex justify-between items-center mb-1";
             const pName = document.createElement('input');
-            pName.className = "bg-transparent text-sm font-bold text-white outline-none w-2/3 border-b border-transparent focus:border-cyan-500";
+            pName.className = "bg-transparent text-sm font-bold text-[var(--ui-text-strong)] outline-none w-2/3 border-b border-transparent focus:border-[var(--accent)]";
             pName.value = profile.name || "Profile";
             pName.oninput = (e) => {
                 this.stateManager?.update(draft => {
@@ -234,7 +234,7 @@ export class InspectorRenderer {
         propGroups.forEach((grp) => {
             const card = document.createElement('div'); card.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded mb-2 border border-[var(--ui-border)]";
             const row1 = document.createElement('div'); row1.className = "flex justify-between mb-1";
-            const gName = document.createElement('input'); gName.className = "bg-transparent text-sm font-bold text-white outline-none w-2/3 border-b border-transparent focus:border-cyan-500";
+            const gName = document.createElement('input'); gName.className = "bg-transparent text-sm font-bold text-[var(--ui-text-strong)] outline-none w-2/3 border-b border-transparent focus:border-[var(--accent)]";
             gName.scope = grp.id; gName.value = grp.name || "";
             gName.oninput = e => {
                 this.stateManager?.update(draft => {
@@ -286,7 +286,7 @@ export class InspectorRenderer {
         project.tracks.forEach(t => { const c = t.clips.find(x => x.id === clipId); if (c) clip = c; });
         if (!clip) return;
 
-        container.innerHTML = `<div class="font-bold text-white mb-4 border-b border-[var(--ui-border)] pb-2">${clip.type.toUpperCase()} CLIP</div>`;
+        container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-4 border-b border-[var(--ui-border)] pb-2">${clip.type.toUpperCase()} CLIP</div>`;
 
         if (clip.type === 'audio') {
             this._renderAudioClipProps(container, clip);
@@ -351,7 +351,7 @@ export class InspectorRenderer {
         audioInfo.innerHTML = `
             <div class="flex items-center gap-2 mb-2">
                 <i class="fas fa-music text-orange-400"></i>
-                <span class="text-sm text-white font-medium">${fileName}</span>
+                <span class="text-sm text-[var(--ui-text-strong)] font-medium">${fileName}</span>
             </div>
             <div class="text-xs text-[var(--ui-text-muted)] mb-3">
                 Duration: ${(clip.duration / 1000).toFixed(2)}s
@@ -405,10 +405,10 @@ export class InspectorRenderer {
         } else if (typeof val === 'number' || type === 'number') {
             inp.type = 'number';
             inp.step = '0.1';
-            inp.className = "w-full bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded px-2 py-1 text-sm text-white";
+            inp.className = "w-full bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded px-2 py-1 text-sm text-[var(--ui-text)]";
         } else {
             inp.type = 'text';
-            inp.className = "w-full bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded px-2 py-1 text-sm text-white";
+            inp.className = "w-full bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded px-2 py-1 text-sm text-[var(--ui-text)]";
         }
 
         const safeVal = (val !== undefined) ? val : "";

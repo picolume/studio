@@ -62,12 +62,39 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch { }
 
     // ==========================================
-    // THEME (Standard / Aurora)
+    // THEME
     // ==========================================
 
     const UI_THEME_KEY = 'picolume:theme';
+    const UI_LAST_DARK_THEME_KEY = 'picolume:last-dark-theme';
     const DEFAULT_THEME = 'standard';
-    const THEMES = new Set(['standard', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
+    const LIGHT_THEME = 'daylight';
+    const THEMES = new Set(['standard', 'daylight', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
+
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
+
+    const getCurrentTheme = () => document.documentElement.dataset.theme || DEFAULT_THEME;
+
+    const loadLastDarkTheme = () => {
+        try {
+            const raw = localStorage.getItem(UI_LAST_DARK_THEME_KEY);
+            if (raw && THEMES.has(raw) && raw !== LIGHT_THEME) return raw;
+        } catch { }
+        return DEFAULT_THEME;
+    };
+
+    const syncThemeToggleUI = (theme) => {
+        if (!btnThemeToggle) return;
+        const isLight = theme === LIGHT_THEME;
+        btnThemeToggle.setAttribute('aria-pressed', String(isLight));
+        btnThemeToggle.title = isLight ? 'Switch to dark theme (Alt+T)' : 'Switch to light theme (Alt+T)';
+
+        const icon = btnThemeToggle.querySelector('i');
+        if (icon) {
+            icon.className = isLight ? 'fas fa-moon' : 'fas fa-circle-half-stroke';
+            icon.setAttribute('aria-hidden', 'true');
+        }
+    };
 
     const setTheme = (theme) => {
         const resolved = THEMES.has(theme) ? theme : DEFAULT_THEME;
@@ -77,11 +104,17 @@ window.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem(UI_THEME_KEY, resolved);
         } catch { }
 
+        if (resolved !== LIGHT_THEME) {
+            try { localStorage.setItem(UI_LAST_DARK_THEME_KEY, resolved); } catch { }
+        }
+
         document.querySelectorAll('.hamburger-theme-item[data-action="theme"]').forEach(btn => {
             const isActive = btn.dataset.theme === resolved;
             btn.setAttribute('aria-checked', String(isActive));
             btn.classList.toggle('is-active', isActive);
         });
+
+        syncThemeToggleUI(resolved);
 
         window.dispatchEvent(new CustomEvent('app:timeline-changed'));
         try { renderPreview(); } catch { }
@@ -96,6 +129,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     };
 
     setTheme(loadTheme());
+
+    const toggleLightDark = () => {
+        const current = getCurrentTheme();
+        if (current === LIGHT_THEME) {
+            setTheme(loadLastDarkTheme());
+            return;
+        }
+        try { localStorage.setItem(UI_LAST_DARK_THEME_KEY, current); } catch { }
+        setTheme(LIGHT_THEME);
+    };
+
+    btnThemeToggle?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleLightDark();
+    });
 
     // ==========================================
     // LAYOUT TOGGLES (Palette / Preview / Inspector)
@@ -618,6 +667,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (e.key === '1') { e.preventDefault(); togglePane('palette'); return; }
             if (e.key === '2') { e.preventDefault(); togglePane('preview'); return; }
             if (e.key === '3') { e.preventDefault(); togglePane('inspector'); return; }
+            if (e.key.toLowerCase() === 't') { e.preventDefault(); toggleLightDark(); return; }
         }
         // Ctrl+Z / Cmd+Z: Undo
         if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {

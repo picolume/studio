@@ -91,7 +91,7 @@ export class TimelineRenderer {
         label.ondblclick = (e) => {
             e.stopPropagation();
             const inp = document.createElement('input'); inp.value = track.label;
-            inp.className = "bg-[var(--ui-toolbar-bg)] text-white px-1 py-0.5 rounded text-xs w-full";
+            inp.className = "bg-[var(--ui-toolbar-bg)] text-[var(--ui-text)] px-1 py-0.5 rounded text-xs w-full";
             const trackId = track.id;
             const save = () => {
                 const next = inp.value.trim();
