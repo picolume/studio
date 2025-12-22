@@ -161,6 +161,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     const manualModal = document.getElementById('manual-modal');
     const manualFrame = document.getElementById('manual-frame');
     const btnManualClose = document.getElementById('btn-manual-close');
+    const aboutModal = document.getElementById('about-modal');
+    const btnAboutClose = document.getElementById('btn-about-close');
+    const aboutVersion = document.getElementById('about-version');
+    const aboutWailsVersion = document.getElementById('about-wails-version');
 
     const readCssPx = (name, fallback) => {
         const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -255,6 +259,19 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const setAboutOpen = (open) => {
+        if (!aboutModal) return;
+        aboutModal.setAttribute('aria-hidden', String(!open));
+        if (open && aboutVersion) {
+            const meta = document.querySelector('meta[name="picolume-version"]');
+            aboutVersion.textContent = meta?.getAttribute('content') || 'dev';
+        }
+        if (open && aboutWailsVersion) {
+            const meta = document.querySelector('meta[name="wails-version"]');
+            aboutWailsVersion.textContent = meta?.getAttribute('content') || 'dev';
+        }
+    };
+
     btnManual?.addEventListener('click', (e) => {
         e.preventDefault();
         setManualOpen(true);
@@ -262,6 +279,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     btnManualClose?.addEventListener('click', () => setManualOpen(false));
     manualModal?.addEventListener('mousedown', (e) => {
         if (e.target === manualModal) setManualOpen(false);
+    });
+    btnAboutClose?.addEventListener('click', () => setAboutOpen(false));
+    aboutModal?.addEventListener('mousedown', (e) => {
+        if (e.target === aboutModal) setAboutOpen(false);
     });
 
     loadUILayout();
@@ -518,6 +539,9 @@ window.addEventListener('DOMContentLoaded', async () => {
             case 'settings':
                 els.btnSettings?.click();
                 break;
+            case 'about':
+                setAboutOpen(true);
+                break;
             case 'manual':
                 e.preventDefault();
                 setManualOpen(true);
@@ -555,14 +579,77 @@ window.addEventListener('DOMContentLoaded', async () => {
     // PROJECT OPERATIONS
     // ==========================================
 
+    const statusEls = {
+        project: document.getElementById('status-project'),
+        dirty: document.getElementById('status-dirty'),
+        selection: document.getElementById('status-selection'),
+        snap: document.getElementById('status-snap'),
+        grid: document.getElementById('status-grid'),
+    };
+
+    const formatGridSize = (ms) => {
+        const n = Number(ms);
+        if (!Number.isFinite(n) || n <= 0) return '—';
+        if (n % 1000 === 0) return `${n / 1000}s`;
+        return `${n}ms`;
+    };
+
+    const findClipInProject = (project, clipId) => {
+        if (!project?.tracks || !clipId) return null;
+        for (const track of project.tracks) {
+            const clip = (track?.clips || []).find(c => c.id === clipId);
+            if (clip) return clip;
+        }
+        return null;
+    };
+
+    const updateStatusBar = () => {
+        if (statusEls.project) {
+            statusEls.project.textContent = projectService.getProjectName() || 'Untitled';
+        }
+
+        const isDirty = Boolean(stateManager.get('isDirty'));
+        if (statusEls.dirty) {
+            statusEls.dirty.classList.toggle('hidden', !isDirty);
+        }
+
+        const selection = stateManager.get('selection') || [];
+        if (statusEls.selection) {
+            if (selection.length === 0) {
+                statusEls.selection.textContent = 'Selection: none';
+            } else if (selection.length === 1) {
+                const project = stateManager.get('project');
+                const clip = findClipInProject(project, selection[0]);
+                const typeLabel = clip?.type ? String(clip.type) : 'clip';
+                statusEls.selection.textContent = `Selection: ${typeLabel}`;
+            } else {
+                statusEls.selection.textContent = `Selection: ${selection.length} clips`;
+            }
+        }
+
+        const snapEnabled = Boolean(stateManager.get('ui.snapEnabled'));
+        const gridSize = stateManager.get('ui.gridSize') || 1000;
+
+        if (statusEls.snap) statusEls.snap.textContent = `Snap: ${snapEnabled ? 'On' : 'Off'}`;
+        if (statusEls.grid) statusEls.grid.textContent = `Grid: ${formatGridSize(gridSize)}`;
+    };
+
+    const refreshUIForProject = () => {
+        stateManager?.set('selection', [], { skipHistory: true });
+        populateInspector(null);
+        buildTimeline();
+        updatePlayheadUI();
+        updateGridBackground();
+        try { renderPreview(); } catch { }
+        updateStatusBar();
+    };
+
     if (els.btnNew) {
         els.btnNew.onclick = async () => {
             const result = await projectService.createNew(true);
             if (result.success) {
                 errorHandler.success(result.message);
-                buildTimeline();
-                updatePlayheadUI();
-                updateGridBackground();
+                refreshUIForProject();
             }
         };
     }
@@ -572,6 +659,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             const result = await projectService.save();
             if (result.success) {
                 if (result.message) errorHandler.success(result.message);
+                updateStatusBar();
             } else {
                 errorHandler.handle(result.message);
             }
@@ -583,6 +671,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             const result = await projectService.save(null, true);
             if (result.success) {
                 errorHandler.success(result.message);
+                updateStatusBar();
             } else {
                 errorHandler.handle(result.message);
             }
@@ -594,9 +683,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             const result = await projectService.load();
             if (result.success) {
                 errorHandler.success(result.message);
-                buildTimeline();
-                updatePlayheadUI();
-                updateGridBackground();
+                refreshUIForProject();
             } else if (result.message !== 'Load cancelled') {
                 errorHandler.handle(result.message);
             }
@@ -631,6 +718,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             stateManager.set('selection', [], { skipHistory: true });
             updateSelectionUI();
             populateInspector(null);
+            updateStatusBar();
         };
     }
 
@@ -656,6 +744,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
+        // Esc: Close about
+        if (e.key === 'Escape' && aboutModal?.getAttribute('aria-hidden') === 'false') {
+            e.preventDefault();
+            setAboutOpen(false);
+            return;
+        }
         // Esc: Close manual
         if (e.key === 'Escape' && manualModal?.getAttribute('aria-hidden') === 'false') {
             e.preventDefault();
@@ -748,6 +842,12 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
+
+    // Status bar updates (project/selection/snap/grid)
+    window.addEventListener('app:timeline-changed', updateStatusBar);
+    window.addEventListener('app:selection-changed', updateStatusBar);
+    window.addEventListener('app:grid-changed', updateStatusBar);
+    updateStatusBar();
 
     // ==========================================
     // KEYBOARD NAVIGATION FOR TIMELINE (Accessibility)

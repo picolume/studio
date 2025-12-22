@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PicoLume Studio</title>
     <meta name="wails-options" content="noautoinject" />
+    <meta name="picolume-version" content="0.2.1" />
+    <meta name="wails-version" content="2.11.0" />
 
     <link href="./src/assets/fontawsome/all.min.css" rel="stylesheet">
 
@@ -70,7 +72,7 @@
 
             <div class="menu-group" role="group" aria-label="Layout">
                 <button id="btn-toggle-palette" class="btn btn--icon btn--pane-toggle" aria-pressed="true" title="Toggle Palette (Alt+1)">
-                    <i class="fas fa-th-large"></i>
+                    <i class="fas fa-palette"></i>
                 </button>
                 <button id="btn-toggle-preview" class="btn btn--icon btn--pane-toggle" aria-pressed="true" title="Toggle Preview (Alt+2)">
                     <i class="fas fa-tv"></i>
@@ -160,6 +162,9 @@
                     <button class="hamburger-item" role="menuitem" data-action="settings">
                         <i class="fas fa-cog"></i><span>Project Settings</span>
                     </button>
+                    <button class="hamburger-item" role="menuitem" data-action="about">
+                        <i class="fas fa-circle-info"></i><span>About</span>
+                    </button>
                     <a class="hamburger-item" role="menuitem" data-action="manual">
                         <i class="fas fa-book"></i><span>User Manual</span>
                     </a>
@@ -170,7 +175,12 @@
 
     <div class="flex-1 flex overflow-hidden">
         <div id="pane-palette" class="sidebar-palette bg-[var(--ui-panel-bg)] border-r border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--palette-width);">
-            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)]">Effect Palette</div>
+            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)] flex items-center gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <i class="fas fa-palette text-[var(--ui-text-subtle)] text-xs" aria-hidden="true"></i>
+                    <span class="truncate">Effect Palette</span>
+                </div>
+            </div>
             <div class="p-3 overflow-y-auto flex-1" id="palette-container">
                 <div class="text-xs text-[var(--ui-text-faint)] mb-2 italic">Drag to LED Tracks</div>
 
@@ -253,16 +263,29 @@
             </div>
         </div>
 
-        <div id="pane-inspector" class="sidebar-inspector bg-[var(--ui-panel-bg)] border-l border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);">
-            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)]">Inspector</div>
+            <div id="pane-inspector" class="sidebar-inspector bg-[var(--ui-panel-bg)] border-l border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);">
+            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)] flex items-center gap-2">
+                <i class="fas fa-sliders-h text-[var(--ui-text-subtle)] text-xs" aria-hidden="true"></i>
+                <span class="truncate">Inspector</span>
+            </div>
             <div id="inspector-content" class="p-4 flex-1 overflow-y-auto"></div>
         </div>
     </div>
 
     <div class="status-bar">
-        <div class="flex items-center gap-4">
-             </div>
-        <div class="flex items-center gap-4"><span id="status-history">History: 0/0</span><span>Space Play | Tab Navigate | Arrows Move | Shift+Arrows Resize</span></div>
+        <div class="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="text-[var(--ui-text-faint)]">Project</span>
+                <span id="status-project" class="truncate text-[var(--ui-text)] font-semibold">Untitled</span>
+                <span id="status-dirty" class="hidden text-[var(--accent)]" title="Unsaved changes">●</span>
+            </div>
+            <div class="h-4 w-px bg-[var(--ui-border)] hidden md:block" aria-hidden="true"></div>
+            <span id="status-selection" class="truncate text-[var(--ui-text-subtle)] hidden md:inline">Selection: none</span>
+            <div class="h-4 w-px bg-[var(--ui-border)] hidden lg:block" aria-hidden="true"></div>
+            <span id="status-snap" class="text-[var(--ui-text-subtle)] hidden lg:inline">Snap: On</span>
+            <span id="status-grid" class="text-[var(--ui-text-subtle)] hidden lg:inline">Grid: 1s</span>
+        </div>
+        <div class="flex items-center gap-4 shrink-0"><span id="status-history">History: 0/0</span><span>Space Play | Tab Navigate | Arrows Move | Shift+Arrows Resize</span></div>
     </div>
 
     <div id="confirm-modal" class="modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message" aria-hidden="true">
@@ -289,6 +312,36 @@
                 </button>
             </div>
             <iframe id="manual-frame" class="modal-frame" title="PicoLume Manual"></iframe>
+        </div>
+    </div>
+
+    <div id="about-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title" id="about-title">About PicoLume Studio</div>
+                <button id="btn-about-close" class="btn btn--icon" title="Close (Esc)" aria-label="Close about">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="about-body">
+                <div class="about-hero">
+                    <div class="about-logo" aria-hidden="true"><i class="fas fa-bolt"></i></div>
+                    <div class="min-w-0">
+                        <div class="about-app-name">PicoLume Studio</div>
+                        <div class="about-tagline">Timeline-based LED show editor</div>
+                    </div>
+                </div>
+
+                <div class="about-grid">
+                    <div class="about-row"><span class="about-k">Version</span><span id="about-version" class="about-v">—</span></div>
+                    <div class="about-row"><span class="about-k">License</span><span class="about-v">GPL-v3.0</span></div>
+                    <div class="about-row"><span class="about-k">Copyright</span><span class="about-v">© 2025 PicoLume Project</span></div>
+                    <div class="about-row"><span class="about-k">Framework</span><span class="about-v">Wails <span id="about-wails-version">—</span></span></div>
+                </div>
+
+                <p class="about-note">This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3.</p>
+                <p class="about-note">Full license text is available in <span class="about-mono">studio/LICENSE.txt</span>.</p>
+            </div>
         </div>
     </div>
 

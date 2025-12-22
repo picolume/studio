@@ -48,7 +48,7 @@ export class PreviewRenderer {
         };
     }
 
-    _renderOff(canvas) {
+    _renderMessage(canvas, messageText) {
         const colors = this._getThemeColors();
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = colors.overlay;
@@ -58,7 +58,11 @@ export class PreviewRenderer {
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Preview disabled', canvas.width / 2, canvas.height / 2);
+        ctx.fillText(messageText, canvas.width / 2, canvas.height / 2);
+    }
+
+    _renderOff(canvas) {
+        this._renderMessage(canvas, 'Preview disabled');
     }
 
     _renderTrack(canvas) {
@@ -68,14 +72,20 @@ export class PreviewRenderer {
         const ctx = canvas.getContext('2d');
 
         const project = this.stateManager.get('project');
-        if (!project?.tracks) return;
+        if (!project?.tracks) {
+            this._renderMessage(canvas, 'No project loaded');
+            return;
+        }
 
         const currentTime = this.stateManager.get('playback.currentTime') || 0;
         const ledTracks = project.tracks.filter(t => t.type === 'led');
 
         ctx.fillStyle = colors.bg; ctx.fillRect(0, 0, w, h);
 
-        if (ledTracks.length === 0) return;
+        if (ledTracks.length === 0) {
+            this._renderMessage(canvas, 'No LED tracks');
+            return;
+        }
 
         // Use 2/3 of width for the LED strip, centered
         const stripWidth = w * 0.67;

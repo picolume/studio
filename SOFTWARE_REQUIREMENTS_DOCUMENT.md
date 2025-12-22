@@ -1,6 +1,6 @@
 # PicoLume Studio - Software Requirements Document
 
-**Version:** 0.1.6 (Alpha)
+**Version:** 0.2.1
 **Last Updated:** December 2025
 **Author:** PicoLume Project
 **License:** GNU General Public License v3.0
@@ -322,7 +322,7 @@ classDiagram
 ```javascript
 {
     project: {
-        version: '1.0.0',
+        version: '0.2.1',
         name: "My Show",
         duration: 60000,  // milliseconds
         settings: {
@@ -802,7 +802,7 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 
 ### 6.4 Visual Theming
 
-- **Theme System**: User-selectable themes (Standard/Aurora/Nord/Solarized/Gruvbox/High Contrast/Crimson/Graphite)
+- **Theme System**: User-selectable themes (Standard/Daylight/Aurora/Nord/Solarized/Gruvbox/High Contrast/Crimson/Graphite/Forest)
 - **Default Theme**: Standard (when no preference is saved)
 - **Persistence**: Theme selection is remembered between launches
 - **Accent Color**: Theme-dependent highlight color (e.g., cyan in Standard)
@@ -957,7 +957,7 @@ myshow.lum
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "0.2.1",
   "name": "My Show",
   "duration": 60000,
   "settings": {
@@ -1456,6 +1456,7 @@ picolume/studio/
 | 0.1.5 | Dec 2025 | Added keyboard navigation for timeline clips (Tab, Arrow keys, Enter/Space) |
 | 0.1.6 | Dec 2025 | Added retry/timeout logic for async audio operations (AudioService.js) |
 | 0.2.0 | Dec 2025 | Added theme system + website demo workflow; web demo supports `.lum` Save/Load (incl. embedded audio) |
+| 0.2.1 | Dec 2025 | Added Daylight light theme + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
 
 ---
 

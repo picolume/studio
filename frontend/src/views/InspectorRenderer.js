@@ -292,14 +292,14 @@ export class InspectorRenderer {
             this._renderAudioClipProps(container, clip);
         }
 
-        const updateClip = (updates) => {
+        const updateClip = (updates, options) => {
             this.stateManager?.update(draft => {
                 draft.project.tracks.forEach(t => {
                     const c = t.clips.find(x => x.id === clipId);
                     if (c) Object.assign(c, updates);
                 });
                 draft.isDirty = true;
-            });
+            }, options);
             // We need to notify timeline to redraw if start/duration changed
             window.dispatchEvent(new CustomEvent('app:timeline-changed'));
         };
@@ -312,25 +312,37 @@ export class InspectorRenderer {
             updateClip({ duration: parseTime(e.target.value) });
         });
 
-        if (clip.type === 'rainbowHold') {
-            this._addInput(container, "Frequency", clip.props.frequency || 1, e => {
-                const prevProps = { ...clip.props };
-                prevProps.frequency = parseFloat(e.target.value);
-                updateClip({ props: prevProps });
-            }, 'number');
-        }
+        const sliderSpecByKey = {
+            rate: { min: 1, max: 30, step: 1, valueLabel: v => `${Math.round(v)} /s` },
+            speed: { min: 0.1, max: 5, step: 0.1, valueLabel: v => `${Number(v).toFixed(1)}×` },
+            frequency: { min: 0.1, max: 5, step: 0.1, valueLabel: v => `${Number(v).toFixed(1)}` },
+            width: { min: 0.01, max: 0.5, step: 0.01, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
+            tailLen: { min: 0.05, max: 1, step: 0.05, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
+            density: { min: 0, max: 1, step: 0.01, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
+            amount: { min: 0, max: 1, step: 0.01, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
+        };
 
         // Generic props
         Object.keys(clip.props).forEach(key => {
             if (['audioSrcPath', 'name', 'volume'].includes(key)) return;
-            if (key === 'frequency' && clip.type === 'rainbowHold') return;
 
-            this._addInput(container, key, clip.props[key], e => {
+            const value = clip.props[key];
+            const sliderSpec = (typeof value === 'number') ? sliderSpecByKey[key] : null;
+
+            if (sliderSpec) {
+                this._addSlider(container, key, value, sliderSpec, (nextVal) => {
+                    const prevProps = { ...clip.props, [key]: nextVal };
+                    updateClip({ props: prevProps }, { skipHistory: true });
+                });
+                return;
+            }
+
+            this._addInput(container, key, value, e => {
                 const next = (e.target.type === 'number') ? parseFloat(e.target.value) : e.target.value;
                 const prevProps = { ...clip.props };
                 prevProps[key] = next;
                 updateClip({ props: prevProps });
-            }, typeof clip.props[key] === 'number' ? 'number' : undefined);
+            }, typeof value === 'number' ? 'number' : undefined);
         });
 
         const del = document.createElement('button'); del.innerText = "Delete Clip"; del.className = "w-full bg-red-900 hover:bg-red-800 text-red-100 py-1 rounded text-xs mt-4";
@@ -416,6 +428,49 @@ export class InspectorRenderer {
         inp.oninput = cb;
         inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } };
         d.appendChild(inp); parent.appendChild(d);
+    }
+
+    _addSlider(parent, lbl, val, spec, onValue) {
+        const d = document.createElement('div');
+        d.className = "mb-3";
+        d.innerHTML = `
+            <div class="flex items-baseline justify-between mb-1">
+                <label class="block text-xs text-[var(--ui-text-muted)]">${lbl}</label>
+                <span class="text-xs text-[var(--ui-text-subtle)] font-mono" data-role="value"></span>
+            </div>
+        `;
+
+        const row = document.createElement('div');
+        row.className = "flex items-center gap-2";
+
+        const inp = document.createElement('input');
+        inp.type = 'range';
+        inp.min = String(spec.min);
+        inp.max = String(spec.max);
+        inp.step = String(spec.step ?? 0.1);
+        inp.value = String(val ?? spec.min);
+        inp.className = "flex-1 h-1 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-cyan-500";
+
+        const valueEl = d.querySelector('[data-role=\"value\"]');
+        const formatValue = (n) => {
+            if (!Number.isFinite(n)) return '';
+            return typeof spec.valueLabel === 'function' ? spec.valueLabel(n) : String(n);
+        };
+        const sync = () => {
+            const next = parseFloat(inp.value);
+            if (valueEl) valueEl.textContent = formatValue(next);
+        };
+
+        inp.addEventListener('input', (e) => {
+            const next = parseFloat(e.target.value);
+            if (valueEl) valueEl.textContent = formatValue(next);
+            onValue(next);
+        });
+
+        sync();
+        row.appendChild(inp);
+        d.appendChild(row);
+        parent.appendChild(d);
     }
 
     _computePatch(profiles) {
