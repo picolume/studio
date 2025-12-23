@@ -802,7 +802,7 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 
 ### 6.4 Visual Theming
 
-- **Theme System**: User-selectable themes (Standard/Daylight/Aurora/Nord/Solarized/Gruvbox/High Contrast/Crimson/Graphite/Forest)
+- **Theme System**: User-selectable themes (Standard/Daylight/Lilac/Aurora/Nord/Solarized/Gruvbox/High Contrast/Crimson/Graphite/Forest)
 - **Default Theme**: Standard (when no preference is saved)
 - **Persistence**: Theme selection is remembered between launches
 - **Accent Color**: Theme-dependent highlight color (e.g., cyan in Standard)
@@ -1456,7 +1456,7 @@ picolume/studio/
 | 0.1.5 | Dec 2025 | Added keyboard navigation for timeline clips (Tab, Arrow keys, Enter/Space) |
 | 0.1.6 | Dec 2025 | Added retry/timeout logic for async audio operations (AudioService.js) |
 | 0.2.0 | Dec 2025 | Added theme system + website demo workflow; web demo supports `.lum` Save/Load (incl. embedded audio) |
-| 0.2.1 | Dec 2025 | Added Daylight light theme + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
+| 0.2.1 | Dec 2025 | Added light themes (Daylight/Lilac) + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
 
 ---
 

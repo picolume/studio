@@ -67,9 +67,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const UI_THEME_KEY = 'picolume:theme';
     const UI_LAST_DARK_THEME_KEY = 'picolume:last-dark-theme';
+    const UI_LAST_LIGHT_THEME_KEY = 'picolume:last-light-theme';
     const DEFAULT_THEME = 'standard';
-    const LIGHT_THEME = 'daylight';
-    const THEMES = new Set(['standard', 'daylight', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
+    const LIGHT_THEMES = new Set(['daylight', 'lilac']);
+    const THEMES = new Set(['standard', 'daylight', 'lilac', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
 
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
 
@@ -78,14 +79,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     const loadLastDarkTheme = () => {
         try {
             const raw = localStorage.getItem(UI_LAST_DARK_THEME_KEY);
-            if (raw && THEMES.has(raw) && raw !== LIGHT_THEME) return raw;
+            if (raw && THEMES.has(raw) && !LIGHT_THEMES.has(raw)) return raw;
         } catch { }
         return DEFAULT_THEME;
     };
 
+    const loadLastLightTheme = () => {
+        try {
+            const raw = localStorage.getItem(UI_LAST_LIGHT_THEME_KEY);
+            if (raw && LIGHT_THEMES.has(raw)) return raw;
+        } catch { }
+        return 'daylight';
+    };
+
     const syncThemeToggleUI = (theme) => {
         if (!btnThemeToggle) return;
-        const isLight = theme === LIGHT_THEME;
+        const isLight = LIGHT_THEMES.has(theme);
         btnThemeToggle.setAttribute('aria-pressed', String(isLight));
         btnThemeToggle.title = isLight ? 'Switch to dark theme (Alt+T)' : 'Switch to light theme (Alt+T)';
 
@@ -104,7 +113,9 @@ window.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem(UI_THEME_KEY, resolved);
         } catch { }
 
-        if (resolved !== LIGHT_THEME) {
+        if (LIGHT_THEMES.has(resolved)) {
+            try { localStorage.setItem(UI_LAST_LIGHT_THEME_KEY, resolved); } catch { }
+        } else {
             try { localStorage.setItem(UI_LAST_DARK_THEME_KEY, resolved); } catch { }
         }
 
@@ -132,12 +143,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const toggleLightDark = () => {
         const current = getCurrentTheme();
-        if (current === LIGHT_THEME) {
+        if (LIGHT_THEMES.has(current)) {
             setTheme(loadLastDarkTheme());
             return;
         }
         try { localStorage.setItem(UI_LAST_DARK_THEME_KEY, current); } catch { }
-        setTheme(LIGHT_THEME);
+        setTheme(loadLastLightTheme());
     };
 
     btnThemeToggle?.addEventListener('click', (e) => {
