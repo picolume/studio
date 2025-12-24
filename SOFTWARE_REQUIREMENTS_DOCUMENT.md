@@ -256,17 +256,28 @@ classDiagram
     }
 
     class Settings {
-        +number ledCount
-        +number brightness
         +HardwareProfile[] profiles
         +Map~string,string~ patch
+        +Map~string,FieldPosition~ fieldLayout
     }
 
     class HardwareProfile {
         +string id
         +string name
-        +number ledCount
         +string assignedIds
+        +number ledCount
+        +number ledType
+        +number colorOrder
+        +number brightnessCap
+        +number voltage
+        +number physicalLength
+        +number pixelsPerMeter
+        +string notes
+    }
+
+    class FieldPosition {
+        +number x
+        +number y
     }
 
     class PropGroup {
@@ -326,10 +337,9 @@ classDiagram
         name: "My Show",
         duration: 60000,  // milliseconds
         settings: {
-            ledCount: 164,
-            brightness: 255,  // 0-255
             profiles: [...],
-            patch: {}  // prop ID -> profile ID mapping
+            patch: {},        // prop ID -> profile ID mapping (computed from assignedIds)
+            fieldLayout: {}   // prop ID -> { x, y } positions for field preview
         },
         propGroups: [...],
         tracks: [...]
@@ -349,7 +359,8 @@ classDiagram
     ui: {
         zoom: 50,         // pixels per second
         snapEnabled: true,
-        gridSize: 1000    // snap grid in ms
+        gridSize: 1000,   // snap grid in ms
+        previewMode: 'track' // 'track' | 'field' | 'off'
     },
     audio: {
         ctx: null,        // AudioContext
@@ -596,7 +607,7 @@ classDiagram
 - **Trigger**: Click "Export" button
 - **Preconditions**: Project has LED clips
 - **Flow**:
-  1. Generate binary format (V2 with LUT)
+  1. Generate binary format (V3 with PropConfig LUT)
   2. Prompt for save location
   3. Write file to disk
 - **Postconditions**: Binary file saved
@@ -711,8 +722,7 @@ flowchart TB
 - **No Selection**: Project settings
   - Project name, duration
   - Auto-save toggle
-  - Master brightness
-  - Hardware profiles
+  - Hardware profiles (per-prop configuration: LED type/order/brightness cap + assigned prop IDs)
   - Prop groups
 
 - **Single Clip**: Clip properties
@@ -902,13 +912,13 @@ func validateSavePath(path string, allowedExtensions []string) (string, error)
 
 #### 7.5.2 Input Validation
 
-Frontend validation (`validators.js`) enforces:
+Frontend validation helpers (`core/validators.js`) cover:
 - Hex color format validation
 - Time value bounds checking
-- LED count limits (1-1000)
-- Brightness range (0-255)
 - ID string format validation
 - Clip and track structure validation
+
+Hardware profile inputs are additionally clamped to valid ranges when edited in the Inspector (`StateManager.clampProfileValue()`), including LED count (1-1000), brightness cap (0-255), and enum fields (LED type / color order).
 
 Backend validation (`app.go`) during binary generation:
 - **Color parsing**: Invalid hex colors logged and default to black (0x000000)
@@ -962,12 +972,23 @@ myshow.lum
   "name": "My Show",
   "duration": 60000,
   "settings": {
-    "ledCount": 164,
-    "brightness": 255,
     "profiles": [
-      { "id": "p_default", "name": "Standard Prop", "ledCount": 164, "assignedIds": "1-164" }
+      {
+        "id": "p_default",
+        "name": "Standard Prop",
+        "assignedIds": "1-224",
+        "ledCount": 164,
+        "ledType": 0,
+        "colorOrder": 0,
+        "brightnessCap": 255,
+        "voltage": 5,
+        "physicalLength": null,
+        "pixelsPerMeter": 60,
+        "notes": ""
+      }
     ],
-    "patch": { "1": "p_default" }
+    "patch": { "1": "p_default" },
+    "fieldLayout": {}
   },
   "propGroups": [
     { "id": "g_all", "name": "All Props", "ids": "1-18" }
@@ -1009,25 +1030,35 @@ myshow.lum
 
 ### 8.2 Binary Show File (.bin)
 
-The binary format (V2) is structured for efficient parsing on the Pico:
+The binary format (V3) is structured for efficient parsing on the Pico and includes a per-prop `PropConfig` look-up table (LUT) derived from Hardware Profiles.
 
 ```
 +------------------+--------+--------------------------------+
 | Offset           | Size   | Description                    |
 +------------------+--------+--------------------------------+
 | 0x0000           | 4      | Magic: 0x5049434F ("PICO")     |
-| 0x0004           | 2      | Version: 2                     |
+| 0x0004           | 2      | Version: 3                     |
 | 0x0006           | 2      | Event count                    |
-| 0x0008           | 2      | Default LED count              |
-| 0x000A           | 1      | Master brightness              |
+| 0x0008           | 2      | Default LED count (legacy)     |
+| 0x000A           | 1      | Master brightness (legacy)     |
 | 0x000B           | 1      | Reserved                       |
 | 0x000C           | 4      | Reserved                       |
-| 0x0010           | 1      | Padding                        |
-| 0x0011           | 448    | LUT (224 props x 2 bytes each) |
-| 0x01D1           | N*52   | Events (52 bytes each)         |
+| 0x0010           | 1792   | PropConfig LUT (224 x 8 bytes) |
+| 0x0710           | N*48   | Events (48 bytes each)         |
 +------------------+--------+--------------------------------+
 
-Event Structure (52 bytes):
+PropConfig LUT Entry (8 bytes each, 1-indexed by prop ID):
++--------+--------+-------------------------------------------+
+| Offset | Size   | Description                               |
++--------+--------+-------------------------------------------+
+| 0x00   | 2      | LED count                                 |
+| 0x02   | 1      | LED type (chipset enum)                   |
+| 0x03   | 1      | Color order enum                           |
+| 0x04   | 1      | Brightness cap (0-255)                    |
+| 0x05   | 3      | Reserved                                  |
++--------+--------+-------------------------------------------+
+
+Event Structure (48 bytes):
 +--------+--------+--------------------------------+
 | Offset | Size   | Description                    |
 +--------+--------+--------------------------------+
@@ -1036,7 +1067,8 @@ Event Structure (52 bytes):
 | 0x08   | 1      | Effect code                    |
 | 0x09   | 3      | Padding                        |
 | 0x0C   | 4      | Color (RGB)                    |
-| 0x10   | 28     | Prop mask (7 x uint32)         |
+| 0x10   | 4      | Color2 (RGB)                   |
+| 0x14   | 28     | Prop mask (7 x uint32)         |
 +--------+--------+--------------------------------+
 ```
 

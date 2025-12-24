@@ -130,7 +130,7 @@ type HardwareProfile struct {
 	LedCount int    `json:"ledCount"`
 
 	// Firmware-critical fields (written to show.bin)
-	LedType       int `json:"ledType"`       // 0=WS2812B, 1=SK6812, 2=SK6812_RGBW, 3=APA102
+	LedType       int `json:"ledType"`       // 0=WS2812B, 1=SK6812, 2=SK6812_RGBW, 3=WS2811, 4=WS2813, 5=WS2815
 	ColorOrder    int `json:"colorOrder"`    // 0=GRB, 1=RGB, 2=BRG, 3=RBG, 4=GBR, 5=BGR
 	BrightnessCap int `json:"brightnessCap"` // 0-255, max brightness for this profile
 
@@ -403,7 +403,7 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 	//
 	// PropConfig struct (8 bytes per prop):
 	//   uint16_t led_count;     // 2 bytes
-	//   uint8_t  led_type;      // 1 byte (0=WS2812B, 1=SK6812, 2=SK6812_RGBW, 3=APA102)
+	//   uint8_t  led_type;      // 1 byte (0=WS2812B, 1=SK6812, 2=SK6812_RGBW, 3=APA102, 4=WS2811, 5=WS2813, 6=WS2815)
 	//   uint8_t  color_order;   // 1 byte (0=GRB, 1=RGB, 2=BRG, 3=RBG, 4=GBR, 5=BGR)
 	//   uint8_t  brightness_cap;// 1 byte (0-255)
 	//   uint8_t  reserved[3];   // 3 bytes

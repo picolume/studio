@@ -18,14 +18,18 @@ export const LED_TYPES = Object.freeze({
     WS2812B: 0,
     SK6812: 1,
     SK6812_RGBW: 2,
-    APA102: 3
+    WS2811: 3,
+    WS2813: 4,
+    WS2815: 5
 });
 
 export const LED_TYPE_LABELS = Object.freeze({
-    [LED_TYPES.WS2812B]: 'WS2812B (RGB)',
-    [LED_TYPES.SK6812]: 'SK6812 (RGB)',
-    [LED_TYPES.SK6812_RGBW]: 'SK6812 (RGBW)',
-    [LED_TYPES.APA102]: 'APA102 (RGB+Clock)'
+    [LED_TYPES.WS2812B]: 'WS2812B',
+    [LED_TYPES.SK6812]: 'SK6812',
+    [LED_TYPES.SK6812_RGBW]: 'SK6812 RGBW',
+    [LED_TYPES.WS2811]: 'WS2811',
+    [LED_TYPES.WS2813]: 'WS2813',
+    [LED_TYPES.WS2815]: 'WS2815'
 });
 
 export const COLOR_ORDERS = Object.freeze({

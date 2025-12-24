@@ -699,7 +699,7 @@
 
         <section id="profiles">
             <h2>Hardware Profiles & Patching</h2>
-            <p>This is the most powerful feature of PicoLume Studio. It allows you to control a "heterogeneous" fleet of props—meaning not all your lights need to be the same length.</p>
+            <p>This is the most powerful feature of PicoLume Studio. It allows you to control a "heterogeneous" fleet of props-meaning not all your lights need to be the same length.</p>
 
             <div class="callout">
                 <h4>Scenario: The Mixed Band</h4>
@@ -710,17 +710,30 @@
             <p>Go to the Inspector panel (ensure no clips are selected so you see "Project Settings").</p>
             <ol>
                 <li>Find the <strong>Hardware Profiles</strong> section.</li>
-                <li>Click <strong>+ Add Profile</strong>.</li>
-                <li><strong>Name:</strong> Give it a descriptive name (e.g., "Snare Drum").</li>
-                <li><strong>LED Count:</strong> Enter the exact physical number of pixels on that strip.</li>
+                <li>Click <strong>Add Profile</strong>.</li>
+                <li><strong>Name:</strong> Edit the profile name directly in the list (e.g., "Snare Drum").</li>
+                <li><strong>Props:</strong> In the <strong>Props</strong> field, enter the hardware IDs that should use this profile.</li>
+                <li><strong>Hardware details:</strong> Click the <i class="fas fa-cog" aria-hidden="true"></i> gear to open <strong>Hardware Profile Settings</strong>, then set:
+                    <ul>
+                        <li><strong>LED Count</strong></li>
+                        <li><strong>LED Type</strong> (chipset)</li>
+                        <li><strong>Color Order</strong> (fixes swapped colors)</li>
+                        <li><strong>Max Brightness</strong> (limits max brightness per prop type)</li>
+                        <li><strong>Voltage</strong> and <strong>Notes</strong> (optional documentation)</li>
+                    </ul>
+                </li>
             </ol>
 
-            <h3>2. Patching IDs</h3>
-            <p>The <strong>IDs</strong> field tells the system which physical props belong to this profile. You set the ID on the physical Pico controller using the onboard buttons.</p>
+            <h3>2. Patching IDs (Props Field)</h3>
+            <p>The <strong>Props</strong> field tells Studio which physical props belong to this profile. You set the ID on each physical Pico controller using the onboard buttons.</p>
             <ul>
-                <li><strong>Syntax:</strong> You can use single numbers or ranges.</li>
-                <li><strong>Example:</strong> <code>1-10, 15, 20-25</code> means props 1 through 10, prop 15, and props 20 through 25 are all this type.</li>
+                <li><strong>Valid range:</strong> IDs are in the range <code>1-224</code>.</li>
+                <li><strong>Syntax:</strong> Use comma-separated numbers and ranges.</li>
+                <li><strong>Example:</strong> <code>1-10, 15, 20-25</code> means props 1 through 10, prop 15, and props 20 through 25 use this profile.</li>
             </ul>
+
+            <h3>3. Order & Conflicts</h3>
+            <p>Studio generates a patch map automatically from your profile <strong>Props</strong> assignments when exporting or uploading. If the same prop ID appears in multiple profiles, the lower profile in the list wins. Drag profile cards to reorder if needed, but it’s best to avoid overlaps.</p>
         </section>
 
         <section id="groups">

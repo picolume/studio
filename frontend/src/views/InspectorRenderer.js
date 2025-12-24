@@ -313,17 +313,12 @@ export class InspectorRenderer {
             header.appendChild(actions);
             card.appendChild(header);
 
-            // Summary info row 1: LED spec
+            // Summary info row: LED spec with labeled values
             const ledTypeName = this._getLedTypeName(p.ledType);
+            const brightnessPercent = Math.round((p.brightnessCap / 255) * 100);
             const specRow = document.createElement('div');
-            specRow.className = "flex items-center gap-2 text-xs text-[var(--ui-text)] mb-1";
-            specRow.innerHTML = `
-                <span class="font-mono text-cyan-400">${p.ledCount}</span>
-                <span class="text-[var(--ui-text-subtle)]">×</span>
-                <span>${ledTypeName}</span>
-                <span class="text-[var(--ui-text-subtle)]">&bull;</span>
-                <span class="text-[var(--ui-text-subtle)]">${Math.round((p.brightnessCap / 255) * 100)}% max</span>
-            `;
+            specRow.className = "text-xs text-[var(--ui-text-subtle)]";
+            specRow.innerHTML = `LEDs: <span class="text-[var(--ui-text)]">${p.ledCount}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Type: <span class="text-[var(--ui-text)]">${ledTypeName}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Max: <span class="text-[var(--ui-text)]">${brightnessPercent}%</span>`;
             card.appendChild(specRow);
 
             // Summary info row 2: Assigned IDs
@@ -375,7 +370,9 @@ export class InspectorRenderer {
             case LED_TYPES.WS2812B: return 'WS2812B';
             case LED_TYPES.SK6812: return 'SK6812';
             case LED_TYPES.SK6812_RGBW: return 'SK6812 RGBW';
-            case LED_TYPES.APA102: return 'APA102';
+            case LED_TYPES.WS2811: return 'WS2811';
+            case LED_TYPES.WS2813: return 'WS2813';
+            case LED_TYPES.WS2815: return 'WS2815';
             default: return 'WS2812B';
         }
     }
@@ -446,8 +443,8 @@ export class InspectorRenderer {
             this._updateProfile(profile.id, { colorOrder: parseInt(val) });
         });
 
-        // Brightness Cap slider
-        this._addModalSlider(body, "Brightness Cap", 0, 255, profile.brightnessCap, (val) => {
+        // Max brightness slider
+        this._addModalSlider(body, "Max Brightness", 0, 255, profile.brightnessCap, (val) => {
             this._updateProfile(profile.id, { brightnessCap: parseInt(val) });
         }, (v) => `${Math.round((v / 255) * 100)}%`);
 
@@ -468,19 +465,10 @@ export class InspectorRenderer {
         });
 
         // Physical Length
-        this._addModalField(body, "Physical Length (cm)", "number", profile.physicalLength || '', (val) => {
-            this._updateProfile(profile.id, { physicalLength: val ? parseInt(val) : null });
-        }, "Leave blank if unknown");
-
-        // Pixels Per Meter
-        this._addModalField(body, "Pixels Per Meter", "number", profile.pixelsPerMeter || 60, (val) => {
-            this._updateProfile(profile.id, { pixelsPerMeter: parseInt(val) || 60 });
-        });
-
         // Notes
         this._addModalTextarea(body, "Notes", profile.notes || '', (val) => {
             this._updateProfile(profile.id, { notes: val });
-        }, "Any additional notes about this hardware...");
+        }, "Any additional notes about this hardware...", { rows: 6 });
 
         panel.appendChild(body);
 
@@ -587,14 +575,14 @@ export class InspectorRenderer {
     /**
      * Add a textarea to modal
      */
-    _addModalTextarea(container, label, value, onChange, placeholder = '') {
+    _addModalTextarea(container, label, value, onChange, placeholder = '', opts = {}) {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">${label}</label>`;
         const textarea = document.createElement('textarea');
         textarea.value = value;
         textarea.placeholder = placeholder;
-        textarea.rows = 2;
-        textarea.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500 resize-none";
+        textarea.rows = Number.isFinite(opts.rows) ? opts.rows : 2;
+        textarea.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500 resize-y";
         textarea.oninput = (e) => onChange(e.target.value);
         wrapper.appendChild(textarea);
         container.appendChild(wrapper);
