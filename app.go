@@ -176,7 +176,9 @@ type ClipProps struct {
 	Color2     string `json:"color2"`
 	ColorA     string `json:"colorA"`
 	ColorB     string `json:"colorB"`
-	ColorStart string `json:"colorStart"`
+	ColorStart string  `json:"colorStart"`
+	Speed      float64 `json:"speed"`
+	Width      float64 `json:"width"`
 }
 
 // ==========================================================
@@ -428,8 +430,31 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 
 			binary.Write(eventBuf, binary.LittleEndian, uint32(clip.StartTime))
 			binary.Write(eventBuf, binary.LittleEndian, uint32(clip.Duration))
+			// Calculate Speed/Width bytes
+			// Speed: 0.1-5.0 mapped to 0-255 (x * 50). Default 1.0 -> 50.
+			speedVal := clip.Props.Speed
+			if speedVal <= 0 {
+				speedVal = 1.0
+			}
+			speedByte := uint8(0)
+			if speedVal*50 > 255 {
+				speedByte = 255
+			} else {
+				speedByte = uint8(speedVal * 50)
+			}
+
+			// Width: 0.0-1.0 mapped to 0-255. Default 0.5 -> 127
+			widthVal := clip.Props.Width
+			if widthVal <= 0 {
+				// Some effects might default differently, but 0 usually means "default" or "tiny"
+				// Let's assume 0 is a valid value from UI if set, otherwise maybe default to something reasonable?
+				// Actually, frontend defaults width to 0.1 or similar. If 0, let's pass 0.
+			}
+			widthByte := uint8(widthVal * 255)
+
 			binary.Write(eventBuf, binary.LittleEndian, uint8(getEffectCode(clip.Type)))
-			eventBuf.Write([]byte{0, 0, 0})
+			// Use padding bytes: [Speed, Width, Reserved]
+			eventBuf.Write([]byte{speedByte, widthByte, 0})
 			binary.Write(eventBuf, binary.LittleEndian, uint32(parseColor(colorHex)))
 			binary.Write(eventBuf, binary.LittleEndian, uint32(parseColor(color2Hex)))
 			for _, m := range mask {
