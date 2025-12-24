@@ -10,6 +10,234 @@
 
 const MAX_HISTORY = 50;
 
+/**
+ * Hardware Profile Constants
+ * These values map directly to firmware enums for PropConfig
+ */
+export const LED_TYPES = Object.freeze({
+    WS2812B: 0,
+    SK6812: 1,
+    SK6812_RGBW: 2,
+    APA102: 3
+});
+
+export const LED_TYPE_LABELS = Object.freeze({
+    [LED_TYPES.WS2812B]: 'WS2812B (RGB)',
+    [LED_TYPES.SK6812]: 'SK6812 (RGB)',
+    [LED_TYPES.SK6812_RGBW]: 'SK6812 (RGBW)',
+    [LED_TYPES.APA102]: 'APA102 (RGB+Clock)'
+});
+
+export const COLOR_ORDERS = Object.freeze({
+    GRB: 0,  // WS2812B default
+    RGB: 1,
+    BRG: 2,
+    RBG: 3,
+    GBR: 4,
+    BGR: 5
+});
+
+export const COLOR_ORDER_LABELS = Object.freeze({
+    [COLOR_ORDERS.GRB]: 'GRB (WS2812B default)',
+    [COLOR_ORDERS.RGB]: 'RGB',
+    [COLOR_ORDERS.BRG]: 'BRG',
+    [COLOR_ORDERS.RBG]: 'RBG',
+    [COLOR_ORDERS.GBR]: 'GBR',
+    [COLOR_ORDERS.BGR]: 'BGR'
+});
+
+/**
+ * Create a default hardware profile
+ * @param {string} id - Unique profile ID
+ * @param {string} name - Display name
+ * @param {number} ledCount - Number of LEDs
+ * @param {string} assignedIds - Prop ID range (e.g., '1-164')
+ */
+export function createDefaultProfile(id, name, ledCount, assignedIds) {
+    return {
+        // Identity
+        id,
+        name,
+        assignedIds,
+
+        // Firmware-critical fields (written to show.bin)
+        ledCount,
+        ledType: LED_TYPES.WS2812B,
+        colorOrder: COLOR_ORDERS.GRB,
+        brightnessCap: 255,
+
+        // Informational fields (for documentation/UI only)
+        voltage: 5,              // 5V or 12V or 24V
+        physicalLength: null,    // Length in cm (null = not specified)
+        pixelsPerMeter: 60,      // LED density
+        notes: ''                // User notes
+    };
+}
+
+/**
+ * Migrate a legacy profile to the new format
+ * Adds missing fields with sensible defaults
+ * @param {Object} profile - Legacy profile object
+ * @returns {Object} - Migrated profile with all fields
+ */
+export function migrateProfile(profile) {
+    return {
+        // Keep existing fields
+        id: profile.id,
+        name: profile.name,
+        assignedIds: profile.assignedIds,
+        ledCount: profile.ledCount,
+
+        // Add firmware fields with defaults if missing
+        ledType: profile.ledType ?? LED_TYPES.WS2812B,
+        colorOrder: profile.colorOrder ?? COLOR_ORDERS.GRB,
+        brightnessCap: profile.brightnessCap ?? 255,
+
+        // Add informational fields with defaults if missing
+        voltage: profile.voltage ?? 5,
+        physicalLength: profile.physicalLength ?? null,
+        pixelsPerMeter: profile.pixelsPerMeter ?? 60,
+        notes: profile.notes ?? ''
+    };
+}
+
+/**
+ * Migrate all profiles in a project settings object
+ * @param {Object} settings - Project settings
+ * @returns {Object} - Settings with migrated profiles
+ */
+export function migrateProjectProfiles(settings) {
+    if (!settings.profiles || !Array.isArray(settings.profiles)) {
+        return settings;
+    }
+
+    return {
+        ...settings,
+        profiles: settings.profiles.map(migrateProfile)
+    };
+}
+
+/**
+ * Validate a hardware profile
+ * @param {Object} profile - Profile to validate
+ * @returns {{ valid: boolean, errors: string[] }} - Validation result
+ */
+export function validateProfile(profile) {
+    const errors = [];
+
+    // Required identity fields
+    if (!profile.id || typeof profile.id !== 'string') {
+        errors.push('Profile must have a valid ID');
+    }
+    if (!profile.name || typeof profile.name !== 'string') {
+        errors.push('Profile must have a name');
+    }
+
+    // LED count validation
+    if (typeof profile.ledCount !== 'number' || profile.ledCount < 1 || profile.ledCount > 1000) {
+        errors.push('LED count must be between 1 and 1000');
+    }
+
+    // LED type validation
+    const validLedTypes = Object.values(LED_TYPES);
+    if (profile.ledType !== undefined && !validLedTypes.includes(profile.ledType)) {
+        errors.push(`LED type must be one of: ${validLedTypes.join(', ')}`);
+    }
+
+    // Color order validation
+    const validColorOrders = Object.values(COLOR_ORDERS);
+    if (profile.colorOrder !== undefined && !validColorOrders.includes(profile.colorOrder)) {
+        errors.push(`Color order must be one of: ${validColorOrders.join(', ')}`);
+    }
+
+    // Brightness cap validation
+    if (profile.brightnessCap !== undefined) {
+        if (typeof profile.brightnessCap !== 'number' || profile.brightnessCap < 0 || profile.brightnessCap > 255) {
+            errors.push('Brightness cap must be between 0 and 255');
+        }
+    }
+
+    // Voltage validation (optional field)
+    if (profile.voltage !== undefined) {
+        const validVoltages = [5, 12, 24];
+        if (!validVoltages.includes(profile.voltage)) {
+            errors.push('Voltage must be 5, 12, or 24');
+        }
+    }
+
+    // Pixels per meter validation (optional field)
+    if (profile.pixelsPerMeter !== undefined && profile.pixelsPerMeter !== null) {
+        if (typeof profile.pixelsPerMeter !== 'number' || profile.pixelsPerMeter < 1 || profile.pixelsPerMeter > 300) {
+            errors.push('Pixels per meter must be between 1 and 300');
+        }
+    }
+
+    // Physical length validation (optional field)
+    if (profile.physicalLength !== undefined && profile.physicalLength !== null) {
+        if (typeof profile.physicalLength !== 'number' || profile.physicalLength < 1) {
+            errors.push('Physical length must be a positive number');
+        }
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors
+    };
+}
+
+/**
+ * Validate all profiles in project settings
+ * @param {Object} settings - Project settings
+ * @returns {{ valid: boolean, profileErrors: Map<string, string[]> }}
+ */
+export function validateAllProfiles(settings) {
+    const profileErrors = new Map();
+    let allValid = true;
+
+    if (settings.profiles && Array.isArray(settings.profiles)) {
+        for (const profile of settings.profiles) {
+            const result = validateProfile(profile);
+            if (!result.valid) {
+                allValid = false;
+                profileErrors.set(profile.id || 'unknown', result.errors);
+            }
+        }
+    }
+
+    return { valid: allValid, profileErrors };
+}
+
+/**
+ * Clamp a value to valid profile field ranges
+ * Used to sanitize input before saving
+ * @param {string} field - Field name
+ * @param {*} value - Value to clamp
+ * @returns {*} - Clamped value
+ */
+export function clampProfileValue(field, value) {
+    switch (field) {
+        case 'ledCount':
+            return Math.max(1, Math.min(1000, Math.round(value) || 164));
+        case 'ledType':
+            const validLedTypes = Object.values(LED_TYPES);
+            return validLedTypes.includes(value) ? value : LED_TYPES.WS2812B;
+        case 'colorOrder':
+            const validColorOrders = Object.values(COLOR_ORDERS);
+            return validColorOrders.includes(value) ? value : COLOR_ORDERS.GRB;
+        case 'brightnessCap':
+            return Math.max(0, Math.min(255, Math.round(value) || 255));
+        case 'voltage':
+            const validVoltages = [5, 12, 24];
+            return validVoltages.includes(value) ? value : 5;
+        case 'pixelsPerMeter':
+            return Math.max(1, Math.min(300, Math.round(value) || 60));
+        case 'physicalLength':
+            return value ? Math.max(1, Math.round(value)) : null;
+        default:
+            return value;
+    }
+}
+
 export class StateManager {
     constructor(initialState = {}) {
         this._state = this._deepFreeze(initialState);
@@ -339,10 +567,8 @@ export function createInitialState() {
             name: "My Show",
             duration: 60000,
             settings: {
-                ledCount: 164,
-                brightness: 255,
                 profiles: [
-                    { id: 'p_default', name: 'Standard Prop', ledCount: 164, assignedIds: '1-164' }
+                    createDefaultProfile('p_default', 'Standard Prop', 164, '1-224')
                 ],
                 patch: {},
                 fieldLayout: {} // propId -> { x, y } positions for field preview

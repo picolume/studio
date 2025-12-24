@@ -1,4 +1,13 @@
 import { formatTime, parseTime, parseIdString } from '../utils.js';
+import {
+    LED_TYPES,
+    LED_TYPE_LABELS,
+    COLOR_ORDERS,
+    COLOR_ORDER_LABELS,
+    createDefaultProfile,
+    migrateProfile,
+    clampProfileValue
+} from '../core/StateManager.js';
 
 export class InspectorRenderer {
     constructor(deps) {
@@ -120,22 +129,6 @@ export class InspectorRenderer {
         autoSaveDiv.appendChild(asCheck); autoSaveDiv.appendChild(asLabel); infoDiv.appendChild(autoSaveDiv);
         container.appendChild(infoDiv);
 
-        // Global Brightness
-        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Global Settings</div>`);
-        const bDiv = document.createElement('div'); bDiv.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded mb-4 border border-[var(--ui-border)]";
-        bDiv.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">Master Brightness (0-255)</label>`;
-        const bInp = document.createElement('input'); bInp.type = "number"; bInp.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-1 py-1";
-        bInp.value = project.settings?.brightness ?? 255;
-        bInp.oninput = (e) => {
-            const next = parseInt(e.target.value) || 0;
-            this.stateManager?.update(draft => {
-                draft.project.settings.brightness = next;
-                draft.isDirty = true;
-            }, { skipHistory: true });
-        };
-        bDiv.appendChild(bInp);
-        container.appendChild(bDiv);
-
         // Hardware Profiles
         this._renderHardwareProfiles(container, project);
 
@@ -147,68 +140,215 @@ export class InspectorRenderer {
         container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Hardware Profiles</div>`);
         const profiles = (project?.settings?.profiles || []);
 
-        profiles.forEach((profile) => {
-            const card = document.createElement('div');
-            card.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded mb-2 border border-[var(--ui-border)] relative group";
+        const list = document.createElement('div');
+        list.className = "space-y-2 mb-2 relative";
+        container.appendChild(list);
 
-            const row1 = document.createElement('div'); row1.className = "flex justify-between items-center mb-1";
+        let draggingProfileId = null;
+        const interactiveSelector = 'input, textarea, select, button, a, [contenteditable="true"]';
+        const isInteractiveDragTarget = (target) => {
+            if (!target || !(target instanceof Element)) return false;
+            return Boolean(target.closest(interactiveSelector));
+        };
+        const isDragFromInteractiveArea = (evt, cardEl) => {
+            const path = typeof evt.composedPath === 'function' ? evt.composedPath() : [];
+            for (const node of path) {
+                if (!(node instanceof Element)) continue;
+                if (node === cardEl) break;
+                if (node.matches(interactiveSelector)) return true;
+            }
+            return false;
+        };
+
+        let dropTargetEl = null;
+        const clearDropIndicators = () => {
+            dropTargetEl?.classList.remove('dnd-drop-target');
+            dropTargetEl = null;
+            list.classList.remove('dnd-drop-end');
+        };
+
+        const getDragAfterElement = (y) => {
+            const items = [...list.querySelectorAll('[data-profile-id]')];
+            const INSERT_BEFORE_FRACTION = 0.75;
+            let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+            for (const child of items) {
+                if (child.dataset.profileId === draggingProfileId) continue;
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height * INSERT_BEFORE_FRACTION;
+                if (offset < 0 && offset > closest.offset) closest = { offset, element: child };
+            }
+            return closest.element;
+        };
+
+        list.addEventListener('dragover', (e) => {
+            if (!draggingProfileId) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            const afterEl = getDragAfterElement(e.clientY);
+            if (!afterEl) {
+                if (!list.classList.contains('dnd-drop-end')) {
+                    clearDropIndicators();
+                    list.classList.add('dnd-drop-end');
+                }
+                return;
+            }
+            if (list.classList.contains('dnd-drop-end') || afterEl !== dropTargetEl) {
+                clearDropIndicators();
+                dropTargetEl = afterEl;
+                dropTargetEl?.classList.add('dnd-drop-target');
+            }
+        });
+
+        list.addEventListener('drop', (e) => {
+            if (!draggingProfileId) return;
+            e.preventDefault();
+
+            const afterEl = getDragAfterElement(e.clientY);
+            const insertBeforeId = afterEl?.dataset?.profileId || null;
+            const draggedId = draggingProfileId;
+
+            this.stateManager?.update(draft => {
+                const arr = (draft.project.settings.profiles || []).slice();
+                const fromIndex = arr.findIndex(p => p?.id === draggedId);
+                if (fromIndex < 0) return;
+
+                const toIndexRaw = insertBeforeId
+                    ? arr.findIndex(p => p?.id === insertBeforeId)
+                    : arr.length;
+                if (toIndexRaw < 0) return;
+
+                const [item] = arr.splice(fromIndex, 1);
+                const toIndex = fromIndex < toIndexRaw ? (toIndexRaw - 1) : toIndexRaw;
+                arr.splice(toIndex, 0, item);
+
+                draft.project.settings.profiles = arr;
+                draft.project.settings.patch = this._computePatch(draft.project.settings.profiles);
+                draft.isDirty = true;
+            });
+
+            draggingProfileId = null;
+            clearDropIndicators();
+            this.render(null);
+        });
+
+        profiles.forEach((profile) => {
+            // Ensure profile has all fields (migration for older projects)
+            const p = migrateProfile(profile);
+
+            const card = document.createElement('div');
+            card.className = "bg-[var(--ui-toolbar-bg)] p-3 rounded border border-[var(--ui-border)] relative group overflow-hidden cursor-grab active:cursor-grabbing";
+            card.dataset.profileId = p.id;
+            card.title = "Drag to reorder";
+            card.draggable = false;
+            card.addEventListener('pointerdown', (e) => {
+                card.draggable = !isInteractiveDragTarget(e.target);
+            }, { capture: true });
+            card.addEventListener('pointerup', () => {
+                card.draggable = false;
+            }, { capture: true });
+            card.addEventListener('pointercancel', () => {
+                card.draggable = false;
+            }, { capture: true });
+            card.addEventListener('dragstart', (e) => {
+                if (!card.draggable || isDragFromInteractiveArea(e, card)) {
+                    e.preventDefault();
+                    card.draggable = false;
+                    return;
+                }
+                draggingProfileId = p.id;
+                card.classList.add('dnd-dragging');
+                clearDropIndicators();
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', p.id);
+            });
+            card.addEventListener('dragend', () => {
+                draggingProfileId = null;
+                card.classList.remove('dnd-dragging');
+                clearDropIndicators();
+                card.draggable = false;
+            });
+
+            // Header row: name + action buttons
+            const header = document.createElement('div');
+            header.className = "flex items-center gap-2 mb-2 min-w-0";
+
             const pName = document.createElement('input');
-            pName.className = "bg-transparent text-sm font-bold text-[var(--ui-text-strong)] outline-none w-2/3 border-b border-transparent focus:border-[var(--accent)]";
-            pName.value = profile.name || "Profile";
+            pName.className = "bg-transparent text-sm font-bold text-[var(--ui-text-strong)] outline-none flex-1 min-w-0 border-b border-transparent focus:border-[var(--accent)]";
+            pName.value = p.name || "Profile";
             pName.oninput = (e) => {
                 this.stateManager?.update(draft => {
-                    const p = (draft.project.settings.profiles || []).find(x => x.id === profile.id);
-                    if (p) { p.name = e.target.value; draft.isDirty = true; }
+                    const prof = (draft.project.settings.profiles || []).find(x => x.id === p.id);
+                    if (prof) { prof.name = e.target.value; draft.isDirty = true; }
                 }, { skipHistory: true });
             };
-            row1.appendChild(pName);
+            header.appendChild(pName);
 
+            const actions = document.createElement('div');
+            actions.className = "flex items-center gap-2 shrink-0";
+
+            // Gear icon for detailed settings
+            const gearBtn = document.createElement('button');
+            gearBtn.innerHTML = "<i class='fas fa-cog'></i>";
+            gearBtn.className = "text-[var(--ui-text-subtle)] hover:text-cyan-400 transition-colors";
+            gearBtn.title = "Edit hardware details";
+            gearBtn.onclick = () => this._openProfileModal(p.id);
+            actions.appendChild(gearBtn);
+
+            // Delete button (only if more than one profile)
             if (profiles.length > 1) {
-                const del = document.createElement('button'); del.innerHTML = "<i class='fas fa-times'></i>"; del.className = "text-[var(--ui-text-subtle)] hover:text-red-500";
+                const del = document.createElement('button');
+                del.innerHTML = "<i class='fas fa-times'></i>";
+                del.className = "text-[var(--ui-text-subtle)] hover:text-red-500 transition-colors";
+                del.title = "Delete profile";
                 del.onclick = () => {
                     this.stateManager?.update(draft => {
-                        draft.project.settings.profiles = draft.project.settings.profiles.filter(p => p.id !== profile.id);
+                        draft.project.settings.profiles = draft.project.settings.profiles.filter(x => x.id !== p.id);
                         draft.project.settings.patch = this._computePatch(draft.project.settings.profiles);
                         draft.isDirty = true;
                     });
                     this.render(null);
                 };
-                row1.appendChild(del);
+                actions.appendChild(del);
             }
-            card.appendChild(row1);
+            header.appendChild(actions);
+            card.appendChild(header);
 
-            const row2 = document.createElement('div'); row2.className = "flex items-center mb-1";
-            row2.innerHTML = `<span class="text-xs text-[var(--ui-text-subtle)] mr-2 w-16">LED Count:</span>`;
-            const cInp = document.createElement('input'); cInp.type = "number";
-            cInp.className = "bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] rounded px-1 py-0.5 flex-1 outline-none border border-[var(--ui-border)]";
-            cInp.value = profile.ledCount;
-            cInp.onchange = (e) => {
-                const next = parseInt(e.target.value) || 10;
-                this.stateManager?.update(draft => {
-                    const p = (draft.project.settings.profiles || []).find(x => x.id === profile.id);
-                    if (p) { p.ledCount = next; draft.isDirty = true; }
-                }, { skipHistory: true });
-            };
-            row2.appendChild(cInp); card.appendChild(row2);
+            // Summary info row 1: LED spec
+            const ledTypeName = this._getLedTypeName(p.ledType);
+            const specRow = document.createElement('div');
+            specRow.className = "flex items-center gap-2 text-xs text-[var(--ui-text)] mb-1";
+            specRow.innerHTML = `
+                <span class="font-mono text-cyan-400">${p.ledCount}</span>
+                <span class="text-[var(--ui-text-subtle)]">×</span>
+                <span>${ledTypeName}</span>
+                <span class="text-[var(--ui-text-subtle)]">&bull;</span>
+                <span class="text-[var(--ui-text-subtle)]">${Math.round((p.brightnessCap / 255) * 100)}% max</span>
+            `;
+            card.appendChild(specRow);
 
-            const row3 = document.createElement('div'); row3.className = "flex items-center";
-            row3.innerHTML = `<span class="text-xs text-[var(--ui-text-subtle)] mr-2 w-16">IDs:</span>`;
+            // Summary info row 2: Assigned IDs
+            const idsRow = document.createElement('div');
+            idsRow.className = "flex items-center gap-2 mt-2";
+            idsRow.innerHTML = `<span class="text-xs text-[var(--ui-text-subtle)]">Props:</span>`;
+
             const idInp = document.createElement('input');
-            idInp.className = "bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] rounded px-1 py-0.5 flex-1 outline-none border border-[var(--ui-border)] font-mono";
-            idInp.value = profile.assignedIds || "";
+            idInp.className = "bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] rounded px-2 py-1 flex-1 outline-none border border-[var(--ui-border)] font-mono";
+            idInp.value = p.assignedIds || "";
             idInp.placeholder = "1-10, 15";
             idInp.oninput = (e) => {
                 this.stateManager?.update(draft => {
-                    const p = (draft.project.settings.profiles || []).find(x => x.id === profile.id);
-                    if (p) {
-                        p.assignedIds = e.target.value;
+                    const prof = (draft.project.settings.profiles || []).find(x => x.id === p.id);
+                    if (prof) {
+                        prof.assignedIds = e.target.value;
                         draft.project.settings.patch = this._computePatch(draft.project.settings.profiles);
                         draft.isDirty = true;
                     }
                 }, { skipHistory: true });
             };
-            row3.appendChild(idInp); card.appendChild(row3);
-            container.appendChild(card);
+            idsRow.appendChild(idInp);
+            card.appendChild(idsRow);
+
+            list.appendChild(card);
         });
 
         const addBtn = document.createElement('button');
@@ -217,9 +357,8 @@ export class InspectorRenderer {
         addBtn.onclick = () => {
             this.stateManager?.update(draft => {
                 if (!draft.project.settings.profiles) draft.project.settings.profiles = [];
-                draft.project.settings.profiles.push({
-                    id: 'p_' + Date.now(), name: 'New Hardware', ledCount: 164, assignedIds: ''
-                });
+                const newProfile = createDefaultProfile('p_' + Date.now(), 'New Hardware', 164, '');
+                draft.project.settings.profiles.push(newProfile);
                 draft.project.settings.patch = this._computePatch(draft.project.settings.profiles);
                 draft.isDirty = true;
             });
@@ -228,13 +367,371 @@ export class InspectorRenderer {
         container.appendChild(addBtn);
     }
 
+    /**
+     * Get short LED type name for display
+     */
+    _getLedTypeName(ledType) {
+        switch (ledType) {
+            case LED_TYPES.WS2812B: return 'WS2812B';
+            case LED_TYPES.SK6812: return 'SK6812';
+            case LED_TYPES.SK6812_RGBW: return 'SK6812 RGBW';
+            case LED_TYPES.APA102: return 'APA102';
+            default: return 'WS2812B';
+        }
+    }
+
+    /**
+     * Open profile edit modal with all hardware details
+     */
+    _openProfileModal(profileId) {
+        const current = (this.stateManager?.get('project.settings.profiles') || []).find(p => p?.id === profileId);
+        if (!current) return;
+        const profile = migrateProfile(current);
+
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        // Don't use the app's `.modal-overlay`/`.modal-panel` classes here: they default to `display:none`
+        // unless `aria-hidden="false"` is set and they enforce a large iframe-oriented layout.
+        overlay.className = "fixed inset-0 bg-[var(--overlay-bg)] flex items-center justify-center z-[2100] p-6";
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Hardware Profile Settings');
+
+        const close = () => {
+            overlay.remove();
+            this.render(null);
+        };
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) close();
+        };
+
+        const panel = document.createElement('div');
+        panel.className = "bg-[var(--ui-panel-bg)] border border-[var(--ui-border)] rounded-lg shadow-2xl w-full max-w-md";
+
+        // Header
+        const header = document.createElement('div');
+        header.className = "flex items-center justify-between p-4 border-b border-[var(--ui-border)]";
+        header.innerHTML = `
+            <h2 class="text-sm font-bold text-[var(--ui-text-strong)]">Hardware Profile Settings</h2>
+        `;
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = "<i class='fas fa-times'></i>";
+        closeBtn.className = "text-[var(--ui-text-subtle)] hover:text-[var(--ui-text)] transition-colors";
+        closeBtn.onclick = close;
+        header.appendChild(closeBtn);
+        panel.appendChild(header);
+
+        // Body
+        const body = document.createElement('div');
+        body.className = "p-4 space-y-4";
+
+        // Profile name
+        this._addModalField(body, "Profile Name", "text", profile.name, (val) => {
+            this._updateProfile(profile.id, { name: val });
+        });
+
+        // LED Count
+        this._addModalField(body, "LED Count", "number", profile.ledCount, (val) => {
+            this._updateProfile(profile.id, { ledCount: parseInt(val) || 164 });
+        });
+
+        // LED Type dropdown
+        this._addModalSelect(body, "LED Type", LED_TYPE_LABELS, profile.ledType, (val) => {
+            this._updateProfile(profile.id, { ledType: parseInt(val) });
+        });
+
+        // Color Order dropdown
+        this._addModalSelect(body, "Color Order", COLOR_ORDER_LABELS, profile.colorOrder, (val) => {
+            this._updateProfile(profile.id, { colorOrder: parseInt(val) });
+        });
+
+        // Brightness Cap slider
+        this._addModalSlider(body, "Brightness Cap", 0, 255, profile.brightnessCap, (val) => {
+            this._updateProfile(profile.id, { brightnessCap: parseInt(val) });
+        }, (v) => `${Math.round((v / 255) * 100)}%`);
+
+        // Separator for info fields
+        body.insertAdjacentHTML('beforeend', `
+            <div class="border-t border-[var(--ui-border)] pt-4 mt-4">
+                <div class="text-xs text-[var(--ui-text-subtle)] uppercase mb-3">Documentation (Optional)</div>
+            </div>
+        `);
+
+        // Voltage
+        this._addModalSelect(body, "Voltage", {
+            5: '5V',
+            12: '12V',
+            24: '24V'
+        }, profile.voltage || 5, (val) => {
+            this._updateProfile(profile.id, { voltage: parseInt(val) });
+        });
+
+        // Physical Length
+        this._addModalField(body, "Physical Length (cm)", "number", profile.physicalLength || '', (val) => {
+            this._updateProfile(profile.id, { physicalLength: val ? parseInt(val) : null });
+        }, "Leave blank if unknown");
+
+        // Pixels Per Meter
+        this._addModalField(body, "Pixels Per Meter", "number", profile.pixelsPerMeter || 60, (val) => {
+            this._updateProfile(profile.id, { pixelsPerMeter: parseInt(val) || 60 });
+        });
+
+        // Notes
+        this._addModalTextarea(body, "Notes", profile.notes || '', (val) => {
+            this._updateProfile(profile.id, { notes: val });
+        }, "Any additional notes about this hardware...");
+
+        panel.appendChild(body);
+
+        // Footer
+        const footer = document.createElement('div');
+        footer.className = "flex justify-end gap-2 p-4 border-t border-[var(--ui-border)]";
+        const doneBtn = document.createElement('button');
+        doneBtn.textContent = "Done";
+        doneBtn.className = "px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-sm transition-colors";
+        doneBtn.onclick = close;
+        footer.appendChild(doneBtn);
+        panel.appendChild(footer);
+
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+    }
+
+    /**
+     * Update a profile in state with validation
+     */
+    _updateProfile(profileId, updates) {
+        // Clamp values to valid ranges before saving
+        const clampedUpdates = {};
+        for (const [field, value] of Object.entries(updates)) {
+            clampedUpdates[field] = clampProfileValue(field, value);
+        }
+
+        this.stateManager?.update(draft => {
+            const prof = (draft.project.settings.profiles || []).find(x => x.id === profileId);
+            if (prof) {
+                Object.assign(prof, clampedUpdates);
+                draft.isDirty = true;
+            }
+        }, { skipHistory: true });
+    }
+
+    /**
+     * Add a text/number input field to modal
+     */
+    _addModalField(container, label, type, value, onChange, placeholder = '') {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">${label}</label>`;
+        const input = document.createElement('input');
+        input.type = type;
+        input.value = value ?? '';
+        input.placeholder = placeholder;
+        input.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500";
+        input.oninput = (e) => onChange(e.target.value);
+        wrapper.appendChild(input);
+        container.appendChild(wrapper);
+    }
+
+    /**
+     * Add a select dropdown to modal
+     */
+    _addModalSelect(container, label, options, currentValue, onChange) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">${label}</label>`;
+        const select = document.createElement('select');
+        select.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500 cursor-pointer";
+
+        for (const [value, label] of Object.entries(options)) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            opt.selected = String(value) === String(currentValue);
+            select.appendChild(opt);
+        }
+
+        select.onchange = (e) => onChange(e.target.value);
+        wrapper.appendChild(select);
+        container.appendChild(wrapper);
+    }
+
+    /**
+     * Add a slider to modal
+     */
+    _addModalSlider(container, label, min, max, value, onChange, formatValue) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `
+            <div class="flex justify-between items-center mb-1">
+                <label class="text-xs text-[var(--ui-text-subtle)]">${label}</label>
+                <span class="text-xs text-[var(--ui-text)] font-mono" data-value></span>
+            </div>
+        `;
+        const valueEl = wrapper.querySelector('[data-value]');
+        valueEl.textContent = formatValue ? formatValue(value) : value;
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = min;
+        slider.max = max;
+        slider.value = value;
+        slider.className = "w-full h-1.5 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-cyan-500";
+        slider.oninput = (e) => {
+            const val = parseInt(e.target.value);
+            valueEl.textContent = formatValue ? formatValue(val) : val;
+            onChange(val);
+        };
+        wrapper.appendChild(slider);
+        container.appendChild(wrapper);
+    }
+
+    /**
+     * Add a textarea to modal
+     */
+    _addModalTextarea(container, label, value, onChange, placeholder = '') {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">${label}</label>`;
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.placeholder = placeholder;
+        textarea.rows = 2;
+        textarea.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500 resize-none";
+        textarea.oninput = (e) => onChange(e.target.value);
+        wrapper.appendChild(textarea);
+        container.appendChild(wrapper);
+    }
+
     _renderPropGroups(container, project) {
         container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Prop Groups</div>`);
         const propGroups = (project.propGroups || []);
+
+        const list = document.createElement('div');
+        list.className = "space-y-2 mb-2 relative";
+        container.appendChild(list);
+
+        let draggingGroupId = null;
+        const interactiveSelector = 'input, textarea, select, button, a, [contenteditable="true"]';
+        const isInteractiveDragTarget = (target) => {
+            if (!target || !(target instanceof Element)) return false;
+            return Boolean(target.closest(interactiveSelector));
+        };
+        const isDragFromInteractiveArea = (evt, cardEl) => {
+            const path = typeof evt.composedPath === 'function' ? evt.composedPath() : [];
+            for (const node of path) {
+                if (!(node instanceof Element)) continue;
+                if (node === cardEl) break;
+                if (node.matches(interactiveSelector)) return true;
+            }
+            return false;
+        };
+
+        let dropTargetEl = null;
+        const clearDropIndicators = () => {
+            dropTargetEl?.classList.remove('dnd-drop-target');
+            dropTargetEl = null;
+            list.classList.remove('dnd-drop-end');
+        };
+
+        const getDragAfterElement = (y) => {
+            const items = [...list.querySelectorAll('[data-group-id]')];
+            const INSERT_BEFORE_FRACTION = 0.75;
+            let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+            for (const child of items) {
+                if (child.dataset.groupId === draggingGroupId) continue;
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height * INSERT_BEFORE_FRACTION;
+                if (offset < 0 && offset > closest.offset) closest = { offset, element: child };
+            }
+            return closest.element;
+        };
+
+        list.addEventListener('dragover', (e) => {
+            if (!draggingGroupId) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            const afterEl = getDragAfterElement(e.clientY);
+            if (!afterEl) {
+                if (!list.classList.contains('dnd-drop-end')) {
+                    clearDropIndicators();
+                    list.classList.add('dnd-drop-end');
+                }
+                return;
+            }
+            if (list.classList.contains('dnd-drop-end') || afterEl !== dropTargetEl) {
+                clearDropIndicators();
+                dropTargetEl = afterEl;
+                dropTargetEl?.classList.add('dnd-drop-target');
+            }
+        });
+
+        list.addEventListener('drop', (e) => {
+            if (!draggingGroupId) return;
+            e.preventDefault();
+
+            const afterEl = getDragAfterElement(e.clientY);
+            const insertBeforeId = afterEl?.dataset?.groupId || null;
+            const draggedId = draggingGroupId;
+
+            this.stateManager?.update(draft => {
+                const arr = (draft.project.propGroups || []).slice();
+                const fromIndex = arr.findIndex(g => g?.id === draggedId);
+                if (fromIndex < 0) return;
+
+                const toIndexRaw = insertBeforeId
+                    ? arr.findIndex(g => g?.id === insertBeforeId)
+                    : arr.length;
+                if (toIndexRaw < 0) return;
+
+                const [item] = arr.splice(fromIndex, 1);
+                const toIndex = fromIndex < toIndexRaw ? (toIndexRaw - 1) : toIndexRaw;
+                arr.splice(toIndex, 0, item);
+
+                draft.project.propGroups = arr;
+                draft.isDirty = true;
+            });
+
+            draggingGroupId = null;
+            clearDropIndicators();
+            this.render(null);
+        });
         propGroups.forEach((grp) => {
-            const card = document.createElement('div'); card.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded mb-2 border border-[var(--ui-border)]";
-            const row1 = document.createElement('div'); row1.className = "flex justify-between mb-1";
-            const gName = document.createElement('input'); gName.className = "bg-transparent text-sm font-bold text-[var(--ui-text-strong)] outline-none w-2/3 border-b border-transparent focus:border-[var(--accent)]";
+            const card = document.createElement('div');
+            card.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded border border-[var(--ui-border)] overflow-hidden cursor-grab active:cursor-grabbing";
+            card.dataset.groupId = grp.id;
+            card.title = "Drag to reorder";
+            card.draggable = false;
+            card.addEventListener('pointerdown', (e) => {
+                card.draggable = !isInteractiveDragTarget(e.target);
+            }, { capture: true });
+            card.addEventListener('pointerup', () => {
+                card.draggable = false;
+            }, { capture: true });
+            card.addEventListener('pointercancel', () => {
+                card.draggable = false;
+            }, { capture: true });
+            card.addEventListener('dragstart', (e) => {
+                if (!card.draggable || isDragFromInteractiveArea(e, card)) {
+                    e.preventDefault();
+                    card.draggable = false;
+                    return;
+                }
+                draggingGroupId = grp.id;
+                card.classList.add('dnd-dragging');
+                clearDropIndicators();
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', grp.id);
+            });
+            card.addEventListener('dragend', () => {
+                draggingGroupId = null;
+                card.classList.remove('dnd-dragging');
+                clearDropIndicators();
+                card.draggable = false;
+            });
+
+            const row1 = document.createElement('div');
+            row1.className = "flex items-center gap-2 mb-1 min-w-0";
+
+            const gName = document.createElement('input');
+            gName.className = "bg-transparent text-sm font-bold text-[var(--ui-text-strong)] outline-none flex-1 min-w-0 border-b border-transparent focus:border-[var(--accent)]";
             gName.scope = grp.id; gName.value = grp.name || "";
             gName.oninput = e => {
                 this.stateManager?.update(draft => {
@@ -244,7 +741,9 @@ export class InspectorRenderer {
                 // Trigger timeline update safely? Actually names of prop groups only affect dropdowns on timeline, so yes.
                 window.dispatchEvent(new CustomEvent('app:timeline-changed'));
             };
-            const del = document.createElement('button'); del.innerHTML = "<i class='fas fa-times'></i>"; del.className = "text-[var(--ui-text-subtle)] hover:text-red-500";
+            const del = document.createElement('button');
+            del.innerHTML = "<i class='fas fa-times'></i>";
+            del.className = "text-[var(--ui-text-subtle)] hover:text-red-500 shrink-0";
             del.onclick = () => {
                 this.stateManager?.update(draft => {
                     draft.project.propGroups = (draft.project.propGroups || []).filter(g => g.id !== grp.id);
@@ -264,7 +763,7 @@ export class InspectorRenderer {
                 }, { skipHistory: true });
             };
             row2.appendChild(ids); card.appendChild(row2);
-            container.appendChild(card);
+            list.appendChild(card);
         });
 
         const addGrpBtn = document.createElement('button');
@@ -487,7 +986,7 @@ export class InspectorRenderer {
     _ensureDefaultProfiles() {
         this.stateManager?.update(draft => {
             if (!draft.project.settings.profiles) {
-                draft.project.settings.profiles = [{ id: 'p_def', name: 'Standard Prop', ledCount: 164, assignedIds: '1-164' }];
+                draft.project.settings.profiles = [createDefaultProfile('p_def', 'Standard Prop', 164, '1-164')];
             }
             if (!draft.project.settings.patch) {
                 draft.project.settings.patch = this._computePatch(draft.project.settings.profiles);

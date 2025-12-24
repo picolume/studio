@@ -128,6 +128,27 @@ type HardwareProfile struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
 	LedCount int    `json:"ledCount"`
+
+	// Firmware-critical fields (written to show.bin)
+	LedType       int `json:"ledType"`       // 0=WS2812B, 1=SK6812, 2=SK6812_RGBW, 3=APA102
+	ColorOrder    int `json:"colorOrder"`    // 0=GRB, 1=RGB, 2=BRG, 3=RBG, 4=GBR, 5=BGR
+	BrightnessCap int `json:"brightnessCap"` // 0-255, max brightness for this profile
+
+	// Informational fields (not written to binary)
+	Voltage        int    `json:"voltage"`        // 5, 12, or 24
+	PhysicalLength *int   `json:"physicalLength"` // cm, nullable
+	PixelsPerMeter int    `json:"pixelsPerMeter"` // LED density
+	Notes          string `json:"notes"`          // User notes
+}
+
+// PropConfig represents the per-prop configuration written to show.bin (8 bytes)
+// This matches the firmware's PropConfig struct
+type PropConfig struct {
+	LedCount      uint16 // Number of LEDs
+	LedType       uint8  // LED chipset type
+	ColorOrder    uint8  // Color channel ordering
+	BrightnessCap uint8  // Max brightness (0-255)
+	Reserved      [3]uint8
 }
 
 type PropGroup struct {
@@ -158,7 +179,7 @@ type ClipProps struct {
 }
 
 // ==========================================================
-// HELPER: CORE BINARY GENERATION (V2 with LUT)
+// HELPER: CORE BINARY GENERATION (V3 with PropConfig LUT)
 // ==========================================================
 func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 	var p Project
@@ -171,33 +192,52 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 	const MASK_ARRAY_SIZE = 7
 
 	// --- 1. PREPARE PROFILES ---
-	profileMap := make(map[string]int)
+	// Map profile ID -> full profile data
+	profileMap := make(map[string]*HardwareProfile)
 	if p.Settings.Profiles != nil {
-		for _, prof := range p.Settings.Profiles {
-			profileMap[prof.ID] = prof.LedCount
+		for i := range p.Settings.Profiles {
+			prof := &p.Settings.Profiles[i]
+			profileMap[prof.ID] = prof
 		}
 	}
 
-	defaultLen := int(p.Settings.LedCount)
-	if defaultLen == 0 {
-		defaultLen = 164
-	}
+	// --- 2. GENERATE LOOK-UP TABLE (LUT) with PropConfig ---
+	// V3 format: 8 bytes per prop (PropConfig struct)
+	// Default values for props not assigned to any profile
+	const defaultLedCount = 164
+	const defaultBrightness = 255
 
-	// --- 2. GENERATE LOOK-UP TABLE (LUT) ---
 	lutBuf := new(bytes.Buffer)
 	for i := 1; i <= TOTAL_PROPS; i++ {
 		propID := strconv.Itoa(i)
-		length := defaultLen
 
+		// Default config values (used for unassigned props)
+		config := PropConfig{
+			LedCount:      defaultLedCount,
+			LedType:       0, // WS2812B
+			ColorOrder:    0, // GRB
+			BrightnessCap: defaultBrightness,
+			Reserved:      [3]uint8{0, 0, 0},
+		}
+
+		// Override with profile-specific values if assigned
 		if p.Settings.Patch != nil {
 			if profileID, ok := p.Settings.Patch[propID]; ok {
-				if val, found := profileMap[profileID]; found {
-					length = val
+				if prof, found := profileMap[profileID]; found {
+					config.LedCount = uint16(prof.LedCount)
+					config.LedType = uint8(prof.LedType)
+					config.ColorOrder = uint8(prof.ColorOrder)
+					config.BrightnessCap = uint8(prof.BrightnessCap)
 				}
 			}
 		}
 
-		binary.Write(lutBuf, binary.LittleEndian, uint16(length))
+		// Write PropConfig struct (8 bytes)
+		binary.Write(lutBuf, binary.LittleEndian, config.LedCount)
+		binary.Write(lutBuf, binary.LittleEndian, config.LedType)
+		binary.Write(lutBuf, binary.LittleEndian, config.ColorOrder)
+		binary.Write(lutBuf, binary.LittleEndian, config.BrightnessCap)
+		binary.Write(lutBuf, binary.LittleEndian, config.Reserved)
 	}
 
 	// --- 3. HELPERS FOR EVENTS ---
@@ -344,34 +384,39 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 		}
 	}
 
-	// --- 5. WRITE HEADER (V2) ---
-	// FIXED: Must match Pico's ShowHeader struct (16 bytes total):
+	// --- 5. WRITE HEADER (V3) ---
+	// ShowHeader struct (16 bytes total):
 	//
 	// struct __attribute__((packed)) ShowHeader {
 	//     uint32_t magic;      // 4 bytes  - offset 0
 	//     uint16_t version;    // 2 bytes  - offset 4
 	//     uint16_t eventCount; // 2 bytes  - offset 6
-	//     uint16_t ledCount;   // 2 bytes  - offset 8  (legacy/fallback for V1)
-	//     uint8_t  brightness; // 1 byte   - offset 10
+	//     uint16_t ledCount;   // 2 bytes  - offset 8  (legacy/fallback)
+	//     uint8_t  brightness; // 1 byte   - offset 10 (global brightness)
 	//     uint8_t  _reserved1; // 1 byte   - offset 11
 	//     uint8_t  reserved[4];// 4 bytes  - offset 12
 	// };
 	//
-	// For V2, the Pico then reads:
-	//   - 1 byte padding
-	//   - 448 bytes LUT (224 props × 2 bytes each)
+	// For V3, after header:
+	//   - 1792 bytes PropConfig LUT (224 props × 8 bytes each)
 	//   - Events...
+	//
+	// PropConfig struct (8 bytes per prop):
+	//   uint16_t led_count;     // 2 bytes
+	//   uint8_t  led_type;      // 1 byte (0=WS2812B, 1=SK6812, 2=SK6812_RGBW, 3=APA102)
+	//   uint8_t  color_order;   // 1 byte (0=GRB, 1=RGB, 2=BRG, 3=RBG, 4=GBR, 5=BGR)
+	//   uint8_t  brightness_cap;// 1 byte (0-255)
+	//   uint8_t  reserved[3];   // 3 bytes
 
-	binary.Write(buf, binary.LittleEndian, uint32(0x5049434F))           // Magic "PICO"
-	binary.Write(buf, binary.LittleEndian, uint16(2))                    // Version 2
-	binary.Write(buf, binary.LittleEndian, uint16(eventCount))           // Event count
-	binary.Write(buf, binary.LittleEndian, uint16(defaultLen))           // ledCount (fallback/legacy)
-	binary.Write(buf, binary.LittleEndian, uint8(p.Settings.Brightness)) // Brightness
-	buf.Write([]byte{0})                                                 // _reserved1
-	buf.Write([]byte{0, 0, 0, 0})                                        // reserved[4]
+	binary.Write(buf, binary.LittleEndian, uint32(0x5049434F)) // Magic "PICO"
+	binary.Write(buf, binary.LittleEndian, uint16(3))          // Version 3
+	binary.Write(buf, binary.LittleEndian, uint16(eventCount)) // Event count
+	binary.Write(buf, binary.LittleEndian, uint16(defaultLedCount))  // ledCount (legacy, unused in V3)
+	binary.Write(buf, binary.LittleEndian, uint8(defaultBrightness)) // brightness (legacy, unused in V3)
+	buf.Write([]byte{0})                                             // _reserved1
+	buf.Write([]byte{0, 0, 0, 0})                                    // reserved[4]
 
-	// V2-specific: padding byte before LUT (as expected by Pico V2 parsing)
-	buf.Write([]byte{0})
+	// V3: PropConfig LUT follows header directly (1792 bytes = 224 × 8)
 	buf.Write(lutBuf.Bytes())
 	buf.Write(eventBuf.Bytes())
 

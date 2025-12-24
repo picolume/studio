@@ -69,8 +69,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     const UI_LAST_DARK_THEME_KEY = 'picolume:last-dark-theme';
     const UI_LAST_LIGHT_THEME_KEY = 'picolume:last-light-theme';
     const DEFAULT_THEME = 'standard';
-    const LIGHT_THEMES = new Set(['daylight', 'lilac']);
-    const THEMES = new Set(['standard', 'daylight', 'lilac', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
+    const LIGHT_THEMES = new Set(['daylight', 'lilac', 'rose', 'latte']);
+    const THEMES = new Set(['standard', 'daylight', 'lilac', 'rose', 'latte', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
 
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
 
@@ -185,7 +185,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const UI_DEFAULTS = {
         paletteWidth: readCssPx('--palette-width', 256),
-        inspectorWidth: readCssPx('--inspector-width', 288),
+        inspectorWidth: readCssPx('--inspector-width', 320),
         previewHeight: readCssPx('--preview-height', 256),
     };
 
@@ -814,7 +814,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         // Delete: Delete selected
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (document.activeElement.tagName !== 'INPUT') {
+            if (!isTypingTarget(document.activeElement)) {
                 e.preventDefault();
                 timelineController.deleteSelected();
                 buildTimeline();
@@ -823,7 +823,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         // Ctrl+C: Copy
         if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-            if (document.activeElement.tagName !== 'INPUT') {
+            if (!isTypingTarget(document.activeElement)) {
                 e.preventDefault();
                 timelineController.copySelected();
                 updateClipboardUI();
@@ -831,7 +831,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         // Ctrl+V: Paste
         if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-            if (document.activeElement.tagName !== 'INPUT') {
+            if (!isTypingTarget(document.activeElement)) {
                 e.preventDefault();
                 timelineController.paste();
                 buildTimeline();
@@ -839,7 +839,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         // Ctrl+D: Duplicate
         if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-            if (document.activeElement.tagName !== 'INPUT') {
+            if (!isTypingTarget(document.activeElement)) {
                 e.preventDefault();
                 timelineController.duplicateSelected();
                 buildTimeline();
@@ -847,7 +847,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         // Space: Play/Pause
         if (e.key === ' ') {
-            if (document.activeElement.tagName !== 'INPUT') {
+            if (!isTypingTarget(document.activeElement)) {
                 e.preventDefault();
                 els.btnPlay?.click();
             }

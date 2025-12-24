@@ -1,30 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-manual="true">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>PicoLume Studio - User Manual</title>
-        <!-- Use system fonts only so the manual works offline inside the app -->
+        <!-- Use the same compiled CSS as the app so themes apply automatically. -->
+        <link rel="stylesheet" href="./src/style.css">
         <style>
         :root {
-            /* Matching the app's color palette */
-            --bg-darkest: #121212;
-            --bg-dark: #1a1a1a;
-            --bg-panel: #232323;
-            --bg-elevated: #2a2a2a;
-            --bg-hover: #333333;
-            
-            --accent-teal: #00bcd4;
-            --accent-teal-dim: rgba(0, 188, 212, 0.15);
-            --accent-green: #4caf50;
-            --accent-pink: #e91e63;
-            --accent-orange: #ff9800;
-            
-            --text-primary: #e0e0e0;
-            --text-secondary: #999999;
-            --text-muted: #666666;
-            --border-color: #333333;
-            --border-subtle: #2a2a2a;
+            /* Map legacy manual tokens onto the app's theme tokens. */
+            --bg-darkest: var(--bg-dark);
+            --bg-elevated: var(--ui-toolbar-bg);
+            --bg-hover: var(--ui-toolbar-hover-bg);
+
+            --accent-teal: var(--accent);
+            --accent-teal-dim: color-mix(in srgb, var(--accent) 16%, transparent);
+            --accent-green: #22c55e;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+
+            --text-primary: var(--ui-text);
+            --text-secondary: var(--ui-text-subtle);
+            --text-muted: var(--ui-text-faint);
+            --border-color: var(--ui-border);
+            --border-subtle: var(--ui-panel-border);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -36,6 +35,14 @@
             color: var(--text-primary);
             line-height: 1.6;
             font-size: 14px;
+        }
+
+        /* The app stylesheet sets `body { overflow: hidden; user-select: none; }`.
+           Override for the manual so mouse-wheel scrolling and text selection work. */
+        html[data-manual="true"], html[data-manual="true"] body {
+            overflow: auto;
+            user-select: text;
+            -webkit-user-select: text;
         }
 
         /* Navigation - matches app sidebar style */
@@ -665,7 +672,7 @@
                 <li>Hover over <strong>Themes</strong> to open the submenu.</li>
                 <li>Select a theme.</li>
             </ol>
-            <p>You can also use the header light/dark toggle (<kbd>Alt</kbd>+<kbd>T</kbd>) to quickly switch between your last-used light theme (e.g., <strong>Daylight</strong> / <strong>Lilac</strong>) and your last-used dark theme.</p>
+            <p>You can also use the header light/dark toggle (<kbd>Alt</kbd>+<kbd>T</kbd>) to quickly switch between your last-used light theme (e.g., <strong>Daylight</strong> / <strong>Lilac</strong> / <strong>Rose</strong> / <strong>Latte</strong>) and your last-used dark theme.</p>
 
             <div class="callout">
                 <h4>Remembered between launches</h4>
@@ -677,6 +684,8 @@
                 <li><strong>Standard</strong> (default)</li>
                 <li><strong>Daylight</strong> (light)</li>
                 <li><strong>Lilac</strong> (light)</li>
+                <li><strong>Rose</strong> (light)</li>
+                <li><strong>Latte</strong> (light)</li>
                 <li><strong>Aurora</strong></li>
                 <li><strong>Nord</strong></li>
                 <li><strong>Solarized</strong></li>
@@ -972,6 +981,30 @@
     </main>
 
     <script>
+        // Apply the app's current theme and keep in sync while embedded in the manual iframe.
+        (() => {
+            const UI_THEME_KEY = 'picolume:theme';
+            const DEFAULT_THEME = 'standard';
+
+            const applyTheme = (theme) => {
+                document.documentElement.dataset.theme = theme || DEFAULT_THEME;
+            };
+
+            const readStoredTheme = () => {
+                try { return localStorage.getItem(UI_THEME_KEY); } catch { return null; }
+            };
+
+            let initialTheme = null;
+            try { initialTheme = window.parent?.document?.documentElement?.dataset?.theme || null; } catch { }
+            if (!initialTheme) initialTheme = readStoredTheme() || DEFAULT_THEME;
+            applyTheme(initialTheme);
+
+            window.addEventListener('storage', (e) => {
+                if (e.key !== UI_THEME_KEY) return;
+                applyTheme(e.newValue);
+            });
+        })();
+
         // Scroll-based navigation highlighting
         document.addEventListener('DOMContentLoaded', () => {
             const sections = document.querySelectorAll('section[id]');
