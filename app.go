@@ -125,9 +125,10 @@ type Settings struct {
 }
 
 type HardwareProfile struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	LedCount int    `json:"ledCount"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	AssignedIds string `json:"assignedIds"` // Prop ID range (e.g., "1-18" or "1,3,5")
+	LedCount    int    `json:"ledCount"`
 
 	// Firmware-critical fields (written to show.bin)
 	LedType       int `json:"ledType"`       // 0=WS2812B, 1=SK6812, 2=SK6812_RGBW, 3=WS2811, 4=WS2813, 5=WS2815
@@ -201,7 +202,66 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 		}
 	}
 
-	// --- 2. GENERATE LOOK-UP TABLE (LUT) with PropConfig ---
+	// --- 2. BUILD PROP-TO-PROFILE MAPPING ---
+	// Priority: profile.AssignedIds (parsed), then fall back to Patch map
+	// propAssignment maps prop ID (int) -> profile pointer
+	propAssignment := make(map[int]*HardwareProfile)
+
+	// Helper to parse ID strings like "1-18" or "1,3,5" into individual prop IDs
+	parseIdRange := func(idStr string) []int {
+		var ids []int
+		parts := strings.Split(idStr, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			if strings.Contains(part, "-") {
+				rangeParts := strings.Split(part, "-")
+				if len(rangeParts) == 2 {
+					start, err1 := strconv.Atoi(strings.TrimSpace(rangeParts[0]))
+					end, err2 := strconv.Atoi(strings.TrimSpace(rangeParts[1]))
+					if err1 == nil && err2 == nil && start <= end {
+						for i := start; i <= end; i++ {
+							if i >= 1 && i <= TOTAL_PROPS {
+								ids = append(ids, i)
+							}
+						}
+					}
+				}
+			} else {
+				id, err := strconv.Atoi(part)
+				if err == nil && id >= 1 && id <= TOTAL_PROPS {
+					ids = append(ids, id)
+				}
+			}
+		}
+		return ids
+	}
+
+	// First, apply profile's AssignedIds (later profiles override earlier ones)
+	for i := range p.Settings.Profiles {
+		prof := &p.Settings.Profiles[i]
+		if prof.AssignedIds != "" {
+			for _, propID := range parseIdRange(prof.AssignedIds) {
+				propAssignment[propID] = prof
+			}
+		}
+	}
+
+	// Then, apply Patch map overrides (explicit assignments take priority)
+	if p.Settings.Patch != nil {
+		for propIDStr, profileID := range p.Settings.Patch {
+			propID, err := strconv.Atoi(propIDStr)
+			if err == nil && propID >= 1 && propID <= TOTAL_PROPS {
+				if prof, found := profileMap[profileID]; found {
+					propAssignment[propID] = prof
+				}
+			}
+		}
+	}
+
+	// --- 3. GENERATE LOOK-UP TABLE (LUT) with PropConfig ---
 	// V3 format: 8 bytes per prop (PropConfig struct)
 	// Default values for props not assigned to any profile
 	const defaultLedCount = 164
@@ -209,8 +269,6 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 
 	lutBuf := new(bytes.Buffer)
 	for i := 1; i <= TOTAL_PROPS; i++ {
-		propID := strconv.Itoa(i)
-
 		// Default config values (used for unassigned props)
 		config := PropConfig{
 			LedCount:      defaultLedCount,
@@ -221,15 +279,11 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 		}
 
 		// Override with profile-specific values if assigned
-		if p.Settings.Patch != nil {
-			if profileID, ok := p.Settings.Patch[propID]; ok {
-				if prof, found := profileMap[profileID]; found {
-					config.LedCount = uint16(prof.LedCount)
-					config.LedType = uint8(prof.LedType)
-					config.ColorOrder = uint8(prof.ColorOrder)
-					config.BrightnessCap = uint8(prof.BrightnessCap)
-				}
-			}
+		if prof, found := propAssignment[i]; found {
+			config.LedCount = uint16(prof.LedCount)
+			config.LedType = uint8(prof.LedType)
+			config.ColorOrder = uint8(prof.ColorOrder)
+			config.BrightnessCap = uint8(prof.BrightnessCap)
 		}
 
 		// Write PropConfig struct (8 bytes)
@@ -240,7 +294,7 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 		binary.Write(lutBuf, binary.LittleEndian, config.Reserved)
 	}
 
-	// --- 3. HELPERS FOR EVENTS ---
+	// --- 4. HELPERS FOR EVENTS ---
 	parseColor := func(hex string) uint32 {
 		if len(hex) == 0 {
 			return 0
@@ -554,7 +608,16 @@ func (a *App) UploadToPico(projectJson string) string {
 	}
 
 	if len(possibleDrives) == 0 {
-		return "No Pico found. (Hold CONFIG btn while plugging in?)"
+		// If the Pico's USB volume is freshly formatted, it may not contain any marker
+		// files yet (e.g., INDEX.HTM/show.bin). Fall back to asking the user to select
+		// the mounted drive manually.
+		dir, derr := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+			Title: "Select PicoLume USB Drive (USB MODE)",
+		})
+		if derr != nil || dir == "" {
+			return "No Pico found. (Hold CONFIG btn while plugging in?)"
+		}
+		possibleDrives = append(possibleDrives, dir)
 	}
 
 	targetDrive = possibleDrives[len(possibleDrives)-1]
