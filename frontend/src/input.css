@@ -7,7 +7,7 @@
     /* Standard theme (cyan accents) with the softer "Graphite" styling */
     --bg-dark: #1b1c1a;
     --bg-panel: #232422;
-    --border-color: #3a3c39;
+    --border-color: #355354;
     --accent: #00bcd4;
     --playhead-color: #ff5252;
     --fg: #e7e7e4;
@@ -56,13 +56,13 @@
     --ui-header-to: #1b1c1a;
 
     --ui-panel-bg: #1b1c1a;
-    --ui-panel-border: #3a3c39;
+    --ui-panel-border: #355354;
 
     --ui-toolbar-bg: #232422;
     --ui-toolbar-hover-bg: #2f302d;
 
-    --ui-border: #444744;
-    --ui-border-strong: #646663;
+    --ui-border: #3a5858;
+    --ui-border-strong: #4a6968;
 
     --ui-text-strong: #f3f4f6;
     --ui-text: #e7e7e4;
