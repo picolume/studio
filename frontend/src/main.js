@@ -176,6 +176,55 @@ window.addEventListener('DOMContentLoaded', async () => {
     const btnAboutClose = document.getElementById('btn-about-close');
     const aboutVersion = document.getElementById('about-version');
     const aboutWailsVersion = document.getElementById('about-wails-version');
+    const uploadModal = document.getElementById('upload-modal');
+    const uploadMessage = document.getElementById('upload-message');
+
+    const uploadButtonIcon = els.btnUpload?.querySelector('i') || null;
+    const uploadButtonLabel = els.btnUpload?.querySelector('span') || null;
+    const uploadButtonDefaultIconClass = uploadButtonIcon?.className || 'fas fa-microchip';
+    const uploadButtonDefaultLabel = uploadButtonLabel?.textContent || 'Upload';
+
+    let uploadInProgress = false;
+
+    const setUploadStatus = (message) => {
+        if (!uploadMessage) return;
+        const text = String(message || '').trim();
+        if (text) uploadMessage.textContent = text;
+    };
+
+    const setUploadUiBusy = (busy) => {
+        uploadInProgress = busy;
+
+        uploadModal?.setAttribute('aria-hidden', String(!busy));
+
+        if (busy) {
+            document.body?.setAttribute('aria-busy', 'true');
+            setUploadStatus('Preparing upload...');
+        } else {
+            document.body?.removeAttribute('aria-busy');
+        }
+
+        if (els.btnUpload) {
+            els.btnUpload.disabled = busy;
+        }
+
+        if (uploadButtonIcon) {
+            uploadButtonIcon.className = busy ? 'fas fa-spinner fa-spin' : uploadButtonDefaultIconClass;
+        }
+
+        if (uploadButtonLabel) {
+            uploadButtonLabel.textContent = busy ? 'Uploading...' : uploadButtonDefaultLabel;
+        }
+    };
+
+    try {
+        if (window.runtime?.EventsOn) {
+            window.runtime.EventsOn('upload:status', (message) => {
+                if (!uploadInProgress) return;
+                setUploadStatus(message);
+            });
+        }
+    } catch { }
 
     const readCssPx = (name, fallback) => {
         const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -714,11 +763,30 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     if (els.btnUpload) {
         els.btnUpload.onclick = async () => {
-            const result = await projectService.uploadToDevice();
-            if (result.success) {
-                errorHandler.success(result.message);
-            } else {
-                errorHandler.handle(result.message);
+            if (uploadInProgress) return;
+
+            if (!projectService?.backend?.capabilities?.upload) {
+                const result = await projectService.uploadToDevice();
+                if (result.success) {
+                    errorHandler.success(result.message);
+                } else {
+                    errorHandler.handle(result.message);
+                }
+                return;
+            }
+
+            setUploadUiBusy(true);
+            await new Promise((resolve) => (window.requestAnimationFrame ? window.requestAnimationFrame(resolve) : setTimeout(resolve, 0)));
+
+            try {
+                const result = await projectService.uploadToDevice();
+                if (result.success) {
+                    errorHandler.success(result.message);
+                } else {
+                    errorHandler.handle(result.message);
+                }
+            } finally {
+                setUploadUiBusy(false);
             }
         };
     }

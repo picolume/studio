@@ -318,7 +318,7 @@ export class InspectorRenderer {
             const brightnessPercent = Math.round((p.brightnessCap / 255) * 100);
             const specRow = document.createElement('div');
             specRow.className = "text-xs text-[var(--ui-text-subtle)]";
-            specRow.innerHTML = `LEDs: <span class="text-[var(--ui-text)]">${p.ledCount}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Type: <span class="text-[var(--ui-text)]">${ledTypeName}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Max: <span class="text-[var(--ui-text)]">${brightnessPercent}%</span>`;
+            specRow.innerHTML = `LED: <span class="text-[var(--ui-text)]">${p.ledCount}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Type: <span class="text-[var(--ui-text)]">${ledTypeName}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Max: <span class="text-[var(--ui-text)]">${brightnessPercent}%</span>`;
             card.appendChild(specRow);
 
             // Summary info row 2: Assigned IDs

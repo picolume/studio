@@ -107,6 +107,13 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+func (a *App) emitUploadStatus(message string) {
+	if a == nil || a.ctx == nil || message == "" {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "upload:status", message)
+}
+
 // ==========================================================
 // DATA STRUCTURES
 // ==========================================================
@@ -118,10 +125,11 @@ type Project struct {
 }
 
 type Settings struct {
-	LedCount   uint16            `json:"ledCount"`
-	Brightness uint8             `json:"brightness"`
-	Profiles   []HardwareProfile `json:"profiles"`
-	Patch      map[string]string `json:"patch"`
+	LedCount     uint16            `json:"ledCount"`
+	Brightness   uint8             `json:"brightness"`
+	ShowDuration float64           `json:"showDuration"` // Total show length in ms
+	Profiles     []HardwareProfile `json:"profiles"`
+	Patch        map[string]string `json:"patch"`
 }
 
 type HardwareProfile struct {
@@ -172,10 +180,10 @@ type Clip struct {
 }
 
 type ClipProps struct {
-	Color      string `json:"color"`
-	Color2     string `json:"color2"`
-	ColorA     string `json:"colorA"`
-	ColorB     string `json:"colorB"`
+	Color      string  `json:"color"`
+	Color2     string  `json:"color2"`
+	ColorA     string  `json:"colorA"`
+	ColorB     string  `json:"colorB"`
 	ColorStart string  `json:"colorStart"`
 	Speed      float64 `json:"speed"`
 	Width      float64 `json:"width"`
@@ -374,10 +382,30 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 		return masks
 	}
 
-	// --- 4. GENERATE EVENTS ---
+	// --- 4. HELPER: Write an event to the buffer ---
+	writeEvent := func(eventBuf *bytes.Buffer, startTime, duration uint32, effectType uint8,
+		speedByte, widthByte uint8, color, color2 uint32, mask [MASK_ARRAY_SIZE]uint32) {
+		binary.Write(eventBuf, binary.LittleEndian, startTime)
+		binary.Write(eventBuf, binary.LittleEndian, duration)
+		binary.Write(eventBuf, binary.LittleEndian, effectType)
+		eventBuf.Write([]byte{speedByte, widthByte, 0}) // Speed, Width, Reserved
+		binary.Write(eventBuf, binary.LittleEndian, color)
+		binary.Write(eventBuf, binary.LittleEndian, color2)
+		for _, m := range mask {
+			binary.Write(eventBuf, binary.LittleEndian, m)
+		}
+	}
+
+	// --- 5. GENERATE EVENTS (with gap-filling) ---
 	buf := new(bytes.Buffer)
 	eventBuf := new(bytes.Buffer)
 	eventCount := 0
+
+	// Get show duration for final OFF event (default to 60000ms if not set)
+	showDuration := p.Settings.ShowDuration
+	if showDuration <= 0 {
+		showDuration = 60000 // Default 1 minute
+	}
 
 	for _, track := range p.Tracks {
 		if track.Type != "led" {
@@ -402,7 +430,38 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 			continue
 		}
 
-		for _, clip := range track.Clips {
+		// Sort clips by start time for gap detection
+		clips := make([]Clip, len(track.Clips))
+		copy(clips, track.Clips)
+		// Simple bubble sort (clips are usually few)
+		for i := 0; i < len(clips)-1; i++ {
+			for j := 0; j < len(clips)-i-1; j++ {
+				if clips[j].StartTime > clips[j+1].StartTime {
+					clips[j], clips[j+1] = clips[j+1], clips[j]
+				}
+			}
+		}
+
+		// Track the end of the last clip for gap detection
+		var lastEndTime float64 = 0
+
+		for _, clip := range clips {
+			// --- GAP DETECTION: Insert OFF event if there's a gap before this clip ---
+			if clip.StartTime > lastEndTime {
+				gapDuration := clip.StartTime - lastEndTime
+				if gapDuration > 0 {
+					eventCount++
+					writeEvent(eventBuf,
+						uint32(lastEndTime), // Start at end of previous clip
+						uint32(gapDuration), // Duration of the gap
+						0,                   // Effect type 0 = OFF
+						0, 0,                // Speed, Width (not used for OFF)
+						0, 0, // Colors (not used for OFF)
+						mask)
+				}
+			}
+
+			// --- Write the actual clip event ---
 			eventCount++
 			colorHex := clip.Props.Color
 			if colorHex == "" {
@@ -428,8 +487,6 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 				color2Hex = "#000000"
 			}
 
-			binary.Write(eventBuf, binary.LittleEndian, uint32(clip.StartTime))
-			binary.Write(eventBuf, binary.LittleEndian, uint32(clip.Duration))
 			// Calculate Speed/Width bytes
 			// Speed: 0.1-5.0 mapped to 0-255 (x * 50). Default 1.0 -> 50.
 			speedVal := clip.Props.Speed
@@ -443,27 +500,42 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 				speedByte = uint8(speedVal * 50)
 			}
 
-			// Width: 0.0-1.0 mapped to 0-255. Default 0.5 -> 127
-			widthVal := clip.Props.Width
-			if widthVal <= 0 {
-				// Some effects might default differently, but 0 usually means "default" or "tiny"
-				// Let's assume 0 is a valid value from UI if set, otherwise maybe default to something reasonable?
-				// Actually, frontend defaults width to 0.1 or similar. If 0, let's pass 0.
-			}
-			widthByte := uint8(widthVal * 255)
+			// Width: 0.0-1.0 mapped to 0-255
+			widthByte := uint8(clip.Props.Width * 255)
 
-			binary.Write(eventBuf, binary.LittleEndian, uint8(getEffectCode(clip.Type)))
-			// Use padding bytes: [Speed, Width, Reserved]
-			eventBuf.Write([]byte{speedByte, widthByte, 0})
-			binary.Write(eventBuf, binary.LittleEndian, uint32(parseColor(colorHex)))
-			binary.Write(eventBuf, binary.LittleEndian, uint32(parseColor(color2Hex)))
-			for _, m := range mask {
-				binary.Write(eventBuf, binary.LittleEndian, m)
+			writeEvent(eventBuf,
+				uint32(clip.StartTime),
+				uint32(clip.Duration),
+				getEffectCode(clip.Type),
+				speedByte, widthByte,
+				parseColor(colorHex),
+				parseColor(color2Hex),
+				mask)
+
+			// Update lastEndTime
+			clipEnd := clip.StartTime + clip.Duration
+			if clipEnd > lastEndTime {
+				lastEndTime = clipEnd
+			}
+		}
+
+		// --- FINAL OFF EVENT: From last clip end to show duration ---
+		if lastEndTime < showDuration {
+			finalGap := showDuration - lastEndTime
+			if finalGap > 0 {
+				eventCount++
+				writeEvent(eventBuf,
+					uint32(lastEndTime),
+					uint32(finalGap),
+					0, // OFF
+					0, 0,
+					0, 0,
+					mask)
 			}
 		}
 	}
 
-	// --- 5. WRITE HEADER (V3) ---
+	// --- 6. WRITE HEADER (V3) ---
 	// ShowHeader struct (16 bytes total):
 	//
 	// struct __attribute__((packed)) ShowHeader {
@@ -487,9 +559,9 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 	//   uint8_t  brightness_cap;// 1 byte (0-255)
 	//   uint8_t  reserved[3];   // 3 bytes
 
-	binary.Write(buf, binary.LittleEndian, uint32(0x5049434F)) // Magic "PICO"
-	binary.Write(buf, binary.LittleEndian, uint16(3))          // Version 3
-	binary.Write(buf, binary.LittleEndian, uint16(eventCount)) // Event count
+	binary.Write(buf, binary.LittleEndian, uint32(0x5049434F))       // Magic "PICO"
+	binary.Write(buf, binary.LittleEndian, uint16(3))                // Version 3
+	binary.Write(buf, binary.LittleEndian, uint16(eventCount))       // Event count
 	binary.Write(buf, binary.LittleEndian, uint16(defaultLedCount))  // ledCount (legacy, unused in V3)
 	binary.Write(buf, binary.LittleEndian, uint8(defaultBrightness)) // brightness (legacy, unused in V3)
 	buf.Write([]byte{0})                                             // _reserved1
@@ -606,11 +678,13 @@ func (a *App) SaveBinary(projectJson string) string {
 
 // UploadToPico: Writes file and resets via Native Serial
 func (a *App) UploadToPico(projectJson string) string {
+	a.emitUploadStatus("Generating show.bin...")
 	data, count, err := generateBinaryBytes(projectJson)
 	if err != nil {
 		return "Error generating binary: " + err.Error()
 	}
 
+	a.emitUploadStatus("Looking for PicoLume USB drive...")
 	targetDrive := ""
 	possibleDrives := []string{}
 
@@ -636,6 +710,7 @@ func (a *App) UploadToPico(projectJson string) string {
 		// If the Pico's USB volume is freshly formatted, it may not contain any marker
 		// files yet (e.g., INDEX.HTM/show.bin). Fall back to asking the user to select
 		// the mounted drive manually.
+		a.emitUploadStatus("Select the PicoLume USB drive...")
 		dir, derr := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 			Title: "Select PicoLume USB Drive (USB MODE)",
 		})
@@ -649,6 +724,7 @@ func (a *App) UploadToPico(projectJson string) string {
 
 	// --- UPDATED FILE WRITE LOGIC ---
 	destPath := filepath.Join(targetDrive, "show.bin")
+	a.emitUploadStatus(fmt.Sprintf("Uploading show.bin to %s...", targetDrive))
 
 	// 1. Open with Truncate
 	f, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
@@ -671,6 +747,7 @@ func (a *App) UploadToPico(projectJson string) string {
 	f.Close()
 
 	// --- TRIGGER RESET ---
+	a.emitUploadStatus("Scanning for PicoLume serial port (auto-reset)...")
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		return "File saved to " + targetDrive + ", but Serial scan failed."
@@ -692,6 +769,7 @@ func (a *App) UploadToPico(projectJson string) string {
 	}
 
 	// 4. Wait for OS to finish background tasks before rebooting
+	a.emitUploadStatus("Resetting PicoLume device...")
 	time.Sleep(3 * time.Second)
 
 	mode := &serial.Mode{BaudRate: 115200}

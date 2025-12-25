@@ -98,7 +98,7 @@
     --track-height: 80px;
     --header-width: 240px;
     --ruler-height: 24px;
-    --inspector-width: 320px;
+    --inspector-width: 300px;
     --palette-width: 256px;
     --toolbar-height: 56px;
     --preview-height: 256px;
@@ -1445,6 +1445,55 @@ body {
     min-width: 80px;
     height: 32px;
     font-size: 12px;
+}
+
+/* Upload Dialog */
+#upload-modal {
+    cursor: progress;
+}
+#upload-modal .modal-panel {
+    width: min(460px, 92vw);
+    height: auto;
+    max-height: 90vh;
+    cursor: default;
+}
+#upload-modal .modal-header {
+    height: 40px;
+    padding: 0 16px;
+    background: var(--modal-bg);
+    border-bottom: 1px solid var(--modal-border);
+}
+#upload-modal .modal-title {
+    font-size: 13px;
+    color: var(--ui-text);
+    font-weight: 600;
+}
+#upload-modal .upload-body {
+    padding: 18px 20px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+#upload-modal .upload-spinner {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 18%, var(--ui-toolbar-bg));
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--ui-border));
+    color: color-mix(in srgb, var(--accent) 90%, var(--ui-text-strong));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+#upload-modal .upload-spinner i {
+    font-size: 18px;
+}
+#upload-modal .upload-message {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ui-text-muted);
+    margin: 0;
 }
 
 /* About Dialog */
