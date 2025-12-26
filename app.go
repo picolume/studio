@@ -544,10 +544,7 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 	//     uint32_t magic;      // 4 bytes  - offset 0
 	//     uint16_t version;    // 2 bytes  - offset 4
 	//     uint16_t eventCount; // 2 bytes  - offset 6
-	//     uint16_t ledCount;   // 2 bytes  - offset 8  (legacy/fallback)
-	//     uint8_t  brightness; // 1 byte   - offset 10 (global brightness)
-	//     uint8_t  _reserved1; // 1 byte   - offset 11
-	//     uint8_t  reserved[4];// 4 bytes  - offset 12
+	//     uint8_t  reserved[8];// 8 bytes  - offset 8 (reserved for future use)
 	// };
 	//
 	// For V3, after header:
@@ -561,13 +558,10 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 	//   uint8_t  brightness_cap;// 1 byte (0-255)
 	//   uint8_t  reserved[3];   // 3 bytes
 
-	binary.Write(buf, binary.LittleEndian, uint32(0x5049434F))       // Magic "PICO"
-	binary.Write(buf, binary.LittleEndian, uint16(3))                // Version 3
-	binary.Write(buf, binary.LittleEndian, uint16(eventCount))       // Event count
-	binary.Write(buf, binary.LittleEndian, uint16(defaultLedCount))  // ledCount (legacy, unused in V3)
-	binary.Write(buf, binary.LittleEndian, uint8(defaultBrightness)) // brightness (legacy, unused in V3)
-	buf.Write([]byte{0})                                             // _reserved1
-	buf.Write([]byte{0, 0, 0, 0})                                    // reserved[4]
+	binary.Write(buf, binary.LittleEndian, uint32(0x5049434F)) // Magic "PICO"
+	binary.Write(buf, binary.LittleEndian, uint16(3))          // Version 3
+	binary.Write(buf, binary.LittleEndian, uint16(eventCount)) // Event count
+	buf.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0})                  // reserved[8]
 
 	// V3: PropConfig LUT follows header directly (1792 bytes = 224 × 8)
 	buf.Write(lutBuf.Bytes())

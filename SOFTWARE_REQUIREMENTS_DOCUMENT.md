@@ -1040,10 +1040,7 @@ The binary format (V3) is structured for efficient parsing on the Pico and inclu
 | 0x0000           | 4      | Magic: 0x5049434F ("PICO")     |
 | 0x0004           | 2      | Version: 3                     |
 | 0x0006           | 2      | Event count                    |
-| 0x0008           | 2      | Default LED count (legacy)     |
-| 0x000A           | 1      | Master brightness (legacy)     |
-| 0x000B           | 1      | Reserved                       |
-| 0x000C           | 4      | Reserved                       |
+| 0x0008           | 8      | Reserved                       |
 | 0x0010           | 1792   | PropConfig LUT (224 x 8 bytes) |
 | 0x0710           | N*48   | Events (48 bytes each)         |
 +------------------+--------+--------------------------------+
