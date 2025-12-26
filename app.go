@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -676,6 +678,25 @@ func (a *App) SaveBinary(projectJson string) string {
 	return fmt.Sprintf("Success! Exported %d events to %s", count, filename)
 }
 
+// ejectDrive safely ejects a USB drive on Windows using the Shell.Application COM object.
+// This ensures all cached writes are flushed and triggers the device's USB unplug callback.
+// On non-Windows systems, this is a no-op.
+func ejectDrive(drivePath string) error {
+	if goruntime.GOOS != "windows" {
+		return nil // No-op on non-Windows
+	}
+
+	// Extract drive letter from path (e.g., "D:/" -> "D:")
+	driveLetter := strings.TrimSuffix(drivePath, "/")
+	driveLetter = strings.TrimSuffix(driveLetter, "\\")
+
+	// Use PowerShell to safely eject the drive via Shell.Application COM object
+	// Namespace(17) is the "My Computer" folder, ParseName gets the drive, Eject removes it
+	psScript := fmt.Sprintf(`(New-Object -comObject Shell.Application).Namespace(17).ParseName("%s").InvokeVerb("Eject")`, driveLetter)
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psScript)
+	return cmd.Run()
+}
+
 // UploadToPico: Writes file and resets via Native Serial
 func (a *App) UploadToPico(projectJson string) string {
 	a.emitUploadStatus("Generating show.bin...")
@@ -746,7 +767,24 @@ func (a *App) UploadToPico(projectJson string) string {
 	}
 	f.Close()
 
-	// --- TRIGGER RESET ---
+	// --- TRIGGER RESET VIA EJECT (preferred) or SERIAL (fallback) ---
+
+	// Try Windows eject first - this is the most reliable method
+	// It ensures all cached writes are flushed and triggers the device's USB unplug callback
+	if goruntime.GOOS == "windows" {
+		a.emitUploadStatus("Ejecting USB drive (triggering device reload)...")
+		time.Sleep(500 * time.Millisecond) // Brief pause for filesystem to settle
+
+		if err := ejectDrive(targetDrive); err == nil {
+			// Eject succeeded - device will reboot via USB unplug callback
+			time.Sleep(1 * time.Second) // Give device time to process eject
+			return fmt.Sprintf("Success! Uploaded %d events. Device is reloading.", count)
+		}
+		// Eject failed, fall through to serial reset
+		fmt.Println("Eject failed, falling back to serial reset:", err)
+	}
+
+	// Fallback: Serial reset (for non-Windows or if eject failed)
 	a.emitUploadStatus("Scanning for PicoLume serial port (auto-reset)...")
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -768,7 +806,7 @@ func (a *App) UploadToPico(projectJson string) string {
 		return fmt.Sprintf("Success! Saved to %s. (Auto-reset skipped: No COM port)", targetDrive)
 	}
 
-	// 4. Wait for OS to finish background tasks before rebooting
+	// Wait for OS to finish background tasks before rebooting
 	a.emitUploadStatus("Resetting PicoLume device...")
 	time.Sleep(3 * time.Second)
 

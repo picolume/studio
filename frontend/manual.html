@@ -981,8 +981,13 @@
                 <li>Connect the Pico via USB to your computer.</li>
                 <li><strong>Hold the CONFIG button</strong> on the Pico while plugging it in (or while pressing Reset). The Pico will mount as a USB Mass Storage Device (like a flash drive).</li>
                 <li>Click the green <strong>Upload</strong> button in Studio.</li>
-                <li>The app will automatically find the drive, write the <code>show.bin</code> file, and send a reboot command to the Pico.</li>
+                <li>The app will automatically find the drive, write the <code>show.bin</code> file, and trigger a device reload.</li>
             </ol>
+
+            <div class="callout">
+                <h4>Reliability on Windows</h4>
+                <p>On Windows, Studio automatically ejects the USB drive after uploading. This ensures all cached writes are flushed before the device reboots, providing maximum reliability. The device also includes retry logic when loading the show file.</p>
+            </div>
 
             <h3>Option B: Manual Export</h3>
             <p>If automatic upload fails, click <strong>Export</strong> to download the <code>show.bin</code> file. You can then manually drag and drop this file onto the Pico's USB drive.</p>

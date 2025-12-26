@@ -621,7 +621,8 @@ classDiagram
   2. Detect Pico drive (skip bootloader mode)
   3. Write show.bin to device
   4. Wait for filesystem sync
-  5. Send reset command via serial
+  5. **Windows**: Eject USB drive (triggers device reload via unplug callback)
+  6. **Fallback**: Send reset command via serial (non-Windows or if eject fails)
 - **Postconditions**: Show loaded on device
 
 ### 5.6 Undo/Redo
@@ -1128,12 +1129,23 @@ sequenceDiagram
     FileSystem-->>Studio: Pico drive found
     Studio->>FileSystem: Write show.bin
     Studio->>FileSystem: Sync (flush)
-    Studio->>Studio: Wait 3 seconds
-    Studio->>Serial: Open port
-    Studio->>Pico: Send 'r'
-    Pico->>Pico: Reset & load show
+
+    alt Windows (preferred)
+        Studio->>FileSystem: Eject USB drive
+        FileSystem-->>Pico: USB unplug event
+        Pico->>Pico: Cleanup FatFS & reboot
+    else Non-Windows / Eject failed
+        Studio->>Studio: Wait 3 seconds
+        Studio->>Serial: Open port
+        Studio->>Pico: Send 'r'
+        Pico->>Pico: Cleanup FatFS & reboot
+    end
+
+    Pico->>Pico: Load show (with retry)
     Studio-->>User: Success message
 ```
+
+**Note:** On Windows, USB eject is the preferred method as it ensures all cached writes are flushed before the device reboots. The device firmware includes retry logic to handle any filesystem settling issues.
 
 ---
 
@@ -1389,9 +1401,16 @@ sequenceDiagram
     App.go->>FileSystem: Scan drives
     App.go->>FileSystem: Write show.bin
     App.go->>FileSystem: Sync
-    App.go->>Serial: Open port
-    App.go->>Serial: Write 'r'
-    Serial-->>App.go: ok
+
+    alt Windows
+        App.go->>FileSystem: Eject USB (PowerShell)
+        FileSystem-->>App.go: ok (device reboots via unplug callback)
+    else Non-Windows / Eject failed
+        App.go->>Serial: Open port
+        App.go->>Serial: Write 'r'
+        Serial-->>App.go: ok
+    end
+
     App.go-->>Wails: success message
     Wails-->>Frontend: success message
 ```
@@ -1490,6 +1509,7 @@ picolume/studio/
 | 0.1.6 | Dec 2025 | Added retry/timeout logic for async audio operations (AudioService.js) |
 | 0.2.0 | Dec 2025 | Added theme system + website demo workflow; web demo supports `.lum` Save/Load (incl. embedded audio) |
 | 0.2.1 | Dec 2025 | Added light themes (Daylight/Lilac/Rose/Latte) + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
+| 0.2.2 | Dec 2025 | Improved upload reliability: Windows USB eject after upload, firmware filesystem cleanup on reset/eject, show.bin load retry logic |
 
 ---
 

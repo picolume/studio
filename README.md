@@ -21,7 +21,7 @@ PicoLume Studio provides a video-editor-style timeline that allows you to:
 - **Cross-Platform:** Built with [Wails](https://wails.io/) (Go + Web Technologies), running natively on Windows, macOS, and Linux.
 - **Smart Patching:** decoupled hardware addresses from logical groups. Swap a broken receiver without reprogramming the show.
 - **Binary Compilation:** Compiles shows into a lightweight binary format (`.bin`) optimized for the RP2040 microcontroller.
-- **Auto-Upload:** One-click upload and reset for PicoLume devices via USB.
+- **Auto-Upload:** One-click upload and reset for PicoLume devices via USB. On Windows, automatically ejects the USB drive for maximum reliability.
 
 ## The Ecosystem
 
