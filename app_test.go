@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -460,5 +461,79 @@ func TestAudioTracksIgnored(t *testing.T) {
 
 	if count != 1 {
 		t.Errorf("Expected 1 event (only LED), got %d", count)
+	}
+}
+
+// TestIsPortLockedError tests detection of serial port lock errors
+func TestIsPortLockedError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "Windows access denied",
+			err:      errors.New("Access is denied"),
+			expected: true,
+		},
+		{
+			name:     "Windows access denied lowercase",
+			err:      errors.New("access is denied"),
+			expected: true,
+		},
+		{
+			name:     "Windows cannot access file",
+			err:      errors.New("The process cannot access the file because it is being used by another process"),
+			expected: true,
+		},
+		{
+			name:     "Linux resource busy",
+			err:      errors.New("device or resource busy"),
+			expected: true,
+		},
+		{
+			name:     "Linux resource busy uppercase",
+			err:      errors.New("Device or Resource Busy"),
+			expected: true,
+		},
+		{
+			name:     "macOS resource busy",
+			err:      errors.New("resource busy"),
+			expected: true,
+		},
+		{
+			name:     "port in use",
+			err:      errors.New("port is in use"),
+			expected: true,
+		},
+		{
+			name:     "generic serial error - not locked",
+			err:      errors.New("serial port not found"),
+			expected: false,
+		},
+		{
+			name:     "timeout error - not locked",
+			err:      errors.New("operation timed out"),
+			expected: false,
+		},
+		{
+			name:     "permission denied (different from access denied)",
+			err:      errors.New("permission denied"),
+			expected: true, // Contains "denied"
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPortLockedError(tt.err)
+			if result != tt.expected {
+				t.Errorf("isPortLockedError(%v) = %v, want %v", tt.err, result, tt.expected)
+			}
+		})
 	}
 }

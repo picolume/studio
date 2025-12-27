@@ -6,7 +6,8 @@ import {
     formatTime,
     parseTime,
     clamp,
-    pseudoRandom
+    pseudoRandom,
+    formatPicoStatus
 } from '../utils.js';
 
 describe('Color Utilities', () => {
@@ -196,6 +197,140 @@ describe('Math Utilities', () => {
             const value = pseudoRandom(0);
             expect(value).toBeGreaterThanOrEqual(0);
             expect(value).toBeLessThan(1);
+        });
+    });
+});
+
+describe('formatPicoStatus', () => {
+    describe('disconnected states', () => {
+        it('should return not detected for null status', () => {
+            const result = formatPicoStatus(null);
+            expect(result.text).toBe('Pico: Not detected');
+            expect(result.title).toBe('No PicoLume device detected');
+        });
+
+        it('should return not detected for undefined status', () => {
+            const result = formatPicoStatus(undefined);
+            expect(result.text).toBe('Pico: Not detected');
+            expect(result.title).toBe('No PicoLume device detected');
+        });
+
+        it('should return not detected when connected is false', () => {
+            const result = formatPicoStatus({ connected: false });
+            expect(result.text).toBe('Pico: Not detected');
+            expect(result.title).toBe('No PicoLume device detected');
+        });
+    });
+
+    describe('bootloader mode', () => {
+        it('should show bootloader without drive', () => {
+            const result = formatPicoStatus({ connected: true, mode: 'BOOTLOADER' });
+            expect(result.text).toBe('Pico: Bootloader');
+            expect(result.title).toBe('Pico is in UF2 bootloader mode');
+        });
+
+        it('should show bootloader with drive', () => {
+            const result = formatPicoStatus({ connected: true, mode: 'BOOTLOADER', usbDrive: 'E:/' });
+            expect(result.text).toBe('Pico: Bootloader (E:/)');
+            expect(result.title).toBe('Pico is in UF2 bootloader mode');
+        });
+    });
+
+    describe('USB mode', () => {
+        it('should show USB with drive only', () => {
+            const result = formatPicoStatus({ connected: true, mode: 'USB', usbDrive: 'E:/' });
+            expect(result.text).toBe('Pico: USB (E:/)');
+            expect(result.title).toBe('PicoLume USB upload volume detected');
+        });
+
+        it('should show USB+SERIAL with both', () => {
+            const result = formatPicoStatus({
+                connected: true,
+                mode: 'USB+SERIAL',
+                usbDrive: 'E:/',
+                serialPort: 'COM5'
+            });
+            expect(result.text).toBe('Pico: USB (E:/, COM5)');
+            expect(result.title).toBe('PicoLume USB upload volume detected');
+        });
+    });
+
+    describe('serial mode', () => {
+        it('should show connected with port', () => {
+            const result = formatPicoStatus({ connected: true, mode: 'SERIAL', serialPort: 'COM5' });
+            expect(result.text).toBe('Pico: Connected (COM5)');
+            expect(result.title).toBe('PicoLume serial connection detected');
+        });
+
+        it('should show connected without port', () => {
+            const result = formatPicoStatus({ connected: true, mode: 'SERIAL' });
+            expect(result.text).toBe('Pico: Connected');
+            expect(result.title).toBe('PicoLume serial connection detected');
+        });
+    });
+
+    describe('port locked warning', () => {
+        it('should show PORT BUSY warning in USB mode when locked', () => {
+            const result = formatPicoStatus({
+                connected: true,
+                mode: 'USB',
+                usbDrive: 'E:/',
+                serialPort: 'COM5',
+                serialPortLocked: true
+            });
+            expect(result.text).toBe('Pico: USB (E:/, COM5) [PORT BUSY]');
+            expect(result.title).toContain('Warning: Serial port is in use');
+            expect(result.title).toContain('Arduino IDE');
+        });
+
+        it('should show PORT BUSY warning in SERIAL mode when locked', () => {
+            const result = formatPicoStatus({
+                connected: true,
+                mode: 'SERIAL',
+                serialPort: 'COM5',
+                serialPortLocked: true
+            });
+            expect(result.text).toBe('Pico: Connected (COM5) [PORT BUSY]');
+            expect(result.title).toContain('Warning: Serial port is in use');
+        });
+
+        it('should not show warning when serialPortLocked is false', () => {
+            const result = formatPicoStatus({
+                connected: true,
+                mode: 'USB',
+                usbDrive: 'E:/',
+                serialPortLocked: false
+            });
+            expect(result.text).not.toContain('[PORT BUSY]');
+            expect(result.title).not.toContain('Warning');
+        });
+
+        it('should not show warning when serialPortLocked is undefined', () => {
+            const result = formatPicoStatus({
+                connected: true,
+                mode: 'USB',
+                usbDrive: 'E:/'
+            });
+            expect(result.text).not.toContain('[PORT BUSY]');
+            expect(result.title).not.toContain('Warning');
+        });
+    });
+
+    describe('edge cases', () => {
+        it('should handle lowercase mode', () => {
+            const result = formatPicoStatus({ connected: true, mode: 'usb', usbDrive: 'E:/' });
+            expect(result.text).toBe('Pico: USB (E:/)');
+        });
+
+        it('should handle unknown mode', () => {
+            const result = formatPicoStatus({ connected: true, mode: 'UNKNOWN' });
+            expect(result.text).toBe('Pico: Connected');
+            expect(result.title).toBe('PicoLume device detected');
+        });
+
+        it('should handle empty mode', () => {
+            const result = formatPicoStatus({ connected: true, mode: '' });
+            expect(result.text).toBe('Pico: Connected');
         });
     });
 });

@@ -5,7 +5,7 @@
  */
 
 import { app } from './core/Application.js';
-import { CONFIG, getSnappedTime, showConfirm } from './utils.js';
+import { CONFIG, getSnappedTime, showConfirm, formatPicoStatus } from './utils.js';
 import { getBackend } from './core/Backend.js';
 
 // Import legacy timeline functions (to be refactored later)
@@ -168,7 +168,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     const btnTogglePalette = document.getElementById('btn-toggle-palette');
     const btnTogglePreview = document.getElementById('btn-toggle-preview');
     const btnToggleInspector = document.getElementById('btn-toggle-inspector');
-    const btnManual = document.getElementById('btn-manual');
     const manualModal = document.getElementById('manual-modal');
     const manualFrame = document.getElementById('manual-frame');
     const btnManualClose = document.getElementById('btn-manual-close');
@@ -362,10 +361,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    btnManual?.addEventListener('click', (e) => {
-        e.preventDefault();
-        setManualOpen(true);
-    });
     btnManualClose?.addEventListener('click', () => setManualOpen(false));
     manualModal?.addEventListener('mousedown', (e) => {
         if (e.target === manualModal) setManualOpen(false);
@@ -731,57 +726,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     let picoStatusText = 'Pico: Not detected';
     let picoStatusTitle = 'No PicoLume device detected';
-
-    const formatPicoStatus = (status) => {
-        if (!status?.connected) {
-            return {
-                text: 'Pico: Not detected',
-                title: 'No PicoLume device detected'
-            };
-        }
-
-        const usbDrive = status.usbDrive || '';
-        const serialPort = status.serialPort || '';
-        const mode = String(status.mode || '').toUpperCase();
-        const portLocked = status.serialPortLocked === true;
-
-        // Warning suffix for locked port
-        const lockWarning = portLocked ? ' [PORT BUSY]' : '';
-        const lockTooltip = portLocked
-            ? '\n\nWarning: Serial port is in use by another application (Arduino IDE, PuTTY, etc.). Auto-reset after upload will fail.'
-            : '';
-
-        if (mode === 'BOOTLOADER') {
-            return {
-                text: usbDrive ? `Pico: Bootloader (${usbDrive})` : 'Pico: Bootloader',
-                title: 'Pico is in UF2 bootloader mode'
-            };
-        }
-
-        if (mode === 'USB' || mode === 'USB+SERIAL') {
-            const details = [];
-            if (usbDrive) details.push(usbDrive);
-            if (serialPort) details.push(serialPort);
-            const suffix = details.length ? ` (${details.join(', ')})` : '';
-            return {
-                text: `Pico: USB${suffix}${lockWarning}`,
-                title: 'PicoLume USB upload volume detected' + lockTooltip
-            };
-        }
-
-        if (mode === 'SERIAL') {
-            const suffix = serialPort ? ` (${serialPort})` : '';
-            return {
-                text: `Pico: Connected${suffix}${lockWarning}`,
-                title: 'PicoLume serial connection detected' + lockTooltip
-            };
-        }
-
-        return {
-            text: 'Pico: Connected' + lockWarning,
-            title: 'PicoLume device detected' + lockTooltip
-        };
-    };
 
     const renderPicoStatus = () => {
         if (!statusEls.pico) return;

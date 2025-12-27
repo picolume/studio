@@ -107,7 +107,7 @@ function createDemoBackend() {
         kind: 'demo',
         capabilities: {
             fileIO: true,
-            exportBinary: false,
+            exportBinary: true,
             upload: false,
             picoStatus: false
         },
@@ -181,8 +181,51 @@ function createDemoBackend() {
                 return { error: `Failed to load .lum: ${err?.message || err}` };
             }
         },
-        async saveBinary() {
-            return 'Not available in web demo';
+        async saveBinary(projectJson) {
+            try {
+                const { generateBinaryBytes } = await import('./BinaryGenerator.js');
+                const project = JSON.parse(projectJson);
+                const { bytes, eventCount } = generateBinaryBytes(project);
+
+                const blob = new Blob([bytes], { type: 'application/octet-stream' });
+
+                // Try File System Access API first
+                if (typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: 'show.bin',
+                            types: [
+                                {
+                                    description: 'PicoLume Binary',
+                                    accept: { 'application/octet-stream': ['.bin'] }
+                                }
+                            ]
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        return 'OK';
+                    } catch (err) {
+                        // User cancelled or API not available, fall through to download
+                        if (err?.name === 'AbortError') {
+                            return 'Cancelled';
+                        }
+                    }
+                }
+
+                // Fallback: download via anchor
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'show.bin';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                return 'OK';
+            } catch (err) {
+                return `Error: ${err?.message || err}`;
+            }
         },
         async uploadToPico() {
             return 'Not available in web demo';

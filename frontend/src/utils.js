@@ -146,6 +146,62 @@ export function getCssVar(name, fallback = '') {
 }
 
 /**
+ * Formats Pico connection status for display in the status bar.
+ * @param {Object} status - The connection status from backend
+ * @returns {{ text: string, title: string }} - Formatted text and tooltip
+ */
+export function formatPicoStatus(status) {
+    if (!status?.connected) {
+        return {
+            text: 'Pico: Not detected',
+            title: 'No PicoLume device detected'
+        };
+    }
+
+    const usbDrive = status.usbDrive || '';
+    const serialPort = status.serialPort || '';
+    const mode = String(status.mode || '').toUpperCase();
+    const portLocked = status.serialPortLocked === true;
+
+    // Warning suffix for locked port
+    const lockWarning = portLocked ? ' [PORT BUSY]' : '';
+    const lockTooltip = portLocked
+        ? '\n\nWarning: Serial port is in use by another application (Arduino IDE, PuTTY, etc.). Auto-reset after upload will fail.'
+        : '';
+
+    if (mode === 'BOOTLOADER') {
+        return {
+            text: usbDrive ? `Pico: Bootloader (${usbDrive})` : 'Pico: Bootloader',
+            title: 'Pico is in UF2 bootloader mode'
+        };
+    }
+
+    if (mode === 'USB' || mode === 'USB+SERIAL') {
+        const details = [];
+        if (usbDrive) details.push(usbDrive);
+        if (serialPort) details.push(serialPort);
+        const suffix = details.length ? ` (${details.join(', ')})` : '';
+        return {
+            text: `Pico: USB${suffix}${lockWarning}`,
+            title: 'PicoLume USB upload volume detected' + lockTooltip
+        };
+    }
+
+    if (mode === 'SERIAL') {
+        const suffix = serialPort ? ` (${serialPort})` : '';
+        return {
+            text: `Pico: Connected${suffix}${lockWarning}`,
+            title: 'PicoLume serial connection detected' + lockTooltip
+        };
+    }
+
+    return {
+        text: 'Pico: Connected' + lockWarning,
+        title: 'PicoLume device detected' + lockTooltip
+    };
+}
+
+/**
  * Shows a custom confirmation dialog instead of the native confirm().
  * @param {string} message - The message to display
  * @param {string} [title] - Optional custom title (defaults to "PicoLume Studio")
