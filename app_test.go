@@ -141,7 +141,7 @@ func TestParseColorInBinaryGeneration(t *testing.T) {
 		{
 			name: "valid hex color",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -152,7 +152,7 @@ func TestParseColorInBinaryGeneration(t *testing.T) {
 		{
 			name: "hex color without hash",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "00FF00"}}
@@ -163,7 +163,7 @@ func TestParseColorInBinaryGeneration(t *testing.T) {
 		{
 			name: "empty color defaults to white",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {}}
@@ -174,7 +174,7 @@ func TestParseColorInBinaryGeneration(t *testing.T) {
 		{
 			name: "invalid hex color handled gracefully",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#ZZZZZZ"}}
@@ -216,7 +216,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "single prop ID",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -228,7 +228,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "comma separated IDs",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1,3,5"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -240,7 +240,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "range of IDs",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1-5"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -252,7 +252,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "mixed ranges and IDs",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1,3-5,10"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -264,7 +264,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "empty IDs produces no events",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": ""}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -276,7 +276,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "invalid ID format handled gracefully",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "abc,1,xyz"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -288,7 +288,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "invalid range format handled gracefully",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "1-2-3,5"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -300,7 +300,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "reversed range handled gracefully",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "5-1,10"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -312,7 +312,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "IDs outside valid range (1-224) ignored",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": "0,225,300,1"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -324,7 +324,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 		{
 			name: "IDs with spaces",
 			projectJson: `{
-				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 				"propGroups": [{"id": "g1", "name": "Test", "ids": " 1 , 2 , 3 - 5 "}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -359,7 +359,7 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 // TestBinaryGenerationHeader tests that the binary header is correctly formatted
 func TestBinaryGenerationHeader(t *testing.T) {
 	projectJson := `{
-		"settings": {"ledCount": 164, "brightness": 80, "profiles": [], "patch": {}},
+		"settings": {"ledCount": 164, "brightness": 80, "profiles": [], "patch": {}, "showDuration": 1000},
 		"propGroups": [{"id": "g1", "name": "Test", "ids": "1"}],
 		"tracks": [{"type": "led", "groupId": "g1", "clips": [
 			{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
@@ -389,13 +389,13 @@ func TestBinaryGenerationHeader(t *testing.T) {
 		}
 	}
 
-	// Check version (bytes 4-5, should be 2)
+	// Check version (bytes 4-5, should be 3)
 	if len(data) < 6 {
 		t.Fatal("Data too short to contain version")
 	}
 	version := uint16(data[4]) | uint16(data[5])<<8
-	if version != 2 {
-		t.Errorf("Version = %d, want 2", version)
+	if version != 3 {
+		t.Errorf("Version = %d, want 3", version)
 	}
 
 	// Check event count (bytes 6-7)
@@ -441,7 +441,7 @@ func TestInvalidJSON(t *testing.T) {
 // TestAudioTracksIgnored verifies that audio tracks don't generate events
 func TestAudioTracksIgnored(t *testing.T) {
 	projectJson := `{
-		"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}},
+		"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
 		"propGroups": [{"id": "g1", "name": "Test", "ids": "1"}],
 		"tracks": [
 			{"type": "audio", "groupId": "", "clips": [

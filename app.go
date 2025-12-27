@@ -672,23 +672,76 @@ func (a *App) SaveBinary(projectJson string) string {
 	return fmt.Sprintf("Success! Exported %d events to %s", count, filename)
 }
 
-// ejectDrive safely ejects a USB drive on Windows using the Shell.Application COM object.
-// This ensures all cached writes are flushed and triggers the device's USB unplug callback.
+// ejectDrive attempts to safely remove a USB mass-storage volume on Windows.
+// It returns an error unless the volume actually disappears (verified by polling the drive root).
 // On non-Windows systems, this is a no-op.
 func ejectDrive(drivePath string) error {
 	if goruntime.GOOS != "windows" {
 		return nil // No-op on non-Windows
 	}
 
-	// Extract drive letter from path (e.g., "D:/" -> "D:")
-	driveLetter := strings.TrimSuffix(drivePath, "/")
-	driveLetter = strings.TrimSuffix(driveLetter, "\\")
+	driveLetter := filepath.VolumeName(drivePath) // e.g. "D:"
+	if driveLetter == "" {
+		return fmt.Errorf("could not determine drive letter from %q", drivePath)
+	}
+	driveRoot := driveLetter + `\`
 
-	// Use PowerShell to safely eject the drive via Shell.Application COM object
-	// Namespace(17) is the "My Computer" folder, ParseName gets the drive, Eject removes it
-	psScript := fmt.Sprintf(`(New-Object -comObject Shell.Application).Namespace(17).ParseName("%s").InvokeVerb("Eject")`, driveLetter)
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psScript)
-	return cmd.Run()
+	driveIsMounted := func() bool {
+		_, err := os.Stat(driveRoot)
+		return err == nil
+	}
+
+	// If the drive isn't mounted anymore, treat it as already ejected.
+	if !driveIsMounted() {
+		return nil
+	}
+
+	// Attempt 1: Shell.Application "Eject" verb (works for some removable drives).
+	{
+		psScript := fmt.Sprintf(`
+$ErrorActionPreference = 'Stop'
+$shell = New-Object -ComObject Shell.Application
+$item = $shell.Namespace(17).ParseName('%s')
+if ($null -eq $item) { throw 'Drive not found in Shell namespace' }
+$item.InvokeVerb('Eject')
+`, driveLetter)
+		cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			// Continue to other strategies, but preserve debug output.
+			_ = out
+		}
+	}
+
+	// Poll a short window for the mount to disappear.
+	{
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if !driveIsMounted() {
+				return nil
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+
+	// Attempt 2: mountvol remove mountpoint (often succeeds even when Shell verb doesn't).
+	{
+		cmd := exec.Command("mountvol", driveLetter, "/p")
+		if out, err := cmd.CombinedOutput(); err == nil {
+			_ = out
+		}
+	}
+
+	{
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if !driveIsMounted() {
+				return nil
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+
+	return fmt.Errorf("drive %s did not eject (still mounted at %s)", driveLetter, driveRoot)
 }
 
 // UploadToPico: Writes file and resets via Native Serial
@@ -773,9 +826,9 @@ func (a *App) UploadToPico(projectJson string) string {
 			// Eject succeeded - device will reboot via USB unplug callback
 			time.Sleep(1 * time.Second) // Give device time to process eject
 			return fmt.Sprintf("Success! Uploaded %d events. Device is reloading.", count)
+		} else {
+			a.emitUploadStatus(fmt.Sprintf("Eject failed (%s). Falling back to serial reset...", err.Error()))
 		}
-		// Eject failed, fall through to serial reset
-		fmt.Println("Eject failed, falling back to serial reset:", err)
 	}
 
 	// Fallback: Serial reset (for non-Windows or if eject failed)

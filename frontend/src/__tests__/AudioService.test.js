@@ -115,13 +115,16 @@ describe('Async Utilities', () => {
             const fn = vi.fn().mockRejectedValue(new Error('persistent failure'));
 
             const promise = withRetry(fn, { maxRetries: 2, baseDelayMs: 10 });
+            // Attach rejection handler immediately to avoid transient unhandled rejection warnings
+            // while we advance fake timers through the retry/backoff schedule.
+            const assertion = expect(promise).rejects.toThrow('persistent failure');
 
             // Advance through all retries
             await vi.advanceTimersByTimeAsync(500);
             await vi.advanceTimersByTimeAsync(500);
             await vi.advanceTimersByTimeAsync(500);
 
-            await expect(promise).rejects.toThrow('persistent failure');
+            await assertion;
             expect(fn).toHaveBeenCalledTimes(3); // Initial + 2 retries
         });
 
