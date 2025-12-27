@@ -615,14 +615,14 @@ classDiagram
 #### FR-EX-002: Upload to Device
 - **Description**: User can upload directly to Pico
 - **Trigger**: Click "Upload" button
-- **Preconditions**: Pico connected in config mode
+- **Preconditions**: Receiver is connected in USB upload/config mode (mass storage mounted)
 - **Flow**:
   1. Generate binary
   2. Detect Pico drive (skip bootloader mode)
   3. Write show.bin to device
   4. Wait for filesystem sync
-  5. **Windows**: Eject USB drive (triggers device reload via unplug callback)
-  6. **Fallback**: Send reset command via serial (non-Windows or if eject fails)
+  5. Send reset command via serial (`r`) to reload the device
+  6. If reset cannot be confirmed, prompt user to manually “Safely Eject” the drive before unplugging
 - **Postconditions**: Show loaded on device
 
 ### 5.6 Undo/Redo
@@ -738,6 +738,7 @@ flowchart TB
 #### 6.2.7 Status Bar
 - History indicator (undo count)
 - Keyboard shortcut hints
+- Pico connection indicator (e.g., Not detected / Bootloader / USB drive / Serial COM port)
 
 #### 6.2.8 Hamburger Menu
 A dropdown menu accessible via the hamburger icon (three horizontal lines) in the header bar. Provides consolidated access to all major application actions with keyboard shortcut hints.
@@ -1098,7 +1099,7 @@ Event Structure (48 bytes):
 ### 9.1 Device Detection
 
 PicoLume Studio detects Pico devices by:
-1. Scanning drives D-Z
+1. Scanning drives C-Z
 2. Skipping bootloader mode (INFO_UF2.TXT present)
 3. Looking for INDEX.HTM or show.bin
 
@@ -1107,7 +1108,7 @@ PicoLume Studio detects Pico devices by:
 | Parameter | Value |
 |-----------|-------|
 | Baud Rate | 115200 |
-| USB VID | 0x2E8A (Raspberry Pi) or 0x239A |
+| USB VID | 0x2E8A (Raspberry Pi), 0x239A (Adafruit), or 0x1B4F (SparkFun) |
 | Reset Command | 'r' (single byte) |
 
 ### 9.3 Upload Sequence
@@ -1126,23 +1127,15 @@ sequenceDiagram
     FileSystem-->>Studio: Pico drive found
     Studio->>FileSystem: Write show.bin
     Studio->>FileSystem: Sync (flush)
-
-    alt Windows (preferred)
-        Studio->>FileSystem: Eject USB drive
-        FileSystem-->>Pico: USB unplug event
-        Pico->>Pico: Cleanup FatFS & reboot
-    else Non-Windows / Eject failed
-        Studio->>Studio: Wait 3 seconds
-        Studio->>Serial: Open port
-        Studio->>Pico: Send 'r'
-        Pico->>Pico: Cleanup FatFS & reboot
-    end
+    Studio->>Serial: Open port
+    Studio->>Pico: Send 'r'
+    Pico->>Pico: Cleanup FatFS & reboot
 
     Pico->>Pico: Load show (with retry)
     Studio-->>User: Success message
 ```
 
-**Note:** On Windows, USB eject is the preferred method as it ensures all cached writes are flushed before the device reboots. The device firmware includes retry logic to handle any filesystem settling issues.
+**Note:** On Windows, programmatic USB eject is not reliable across all RP2040 boards. Studio prefers serial reset and prompts the user to Safely Eject if auto-reload cannot be confirmed.
 
 ---
 
@@ -1398,15 +1391,9 @@ sequenceDiagram
     App.go->>FileSystem: Scan drives
     App.go->>FileSystem: Write show.bin
     App.go->>FileSystem: Sync
-
-    alt Windows
-        App.go->>FileSystem: Eject USB (PowerShell)
-        FileSystem-->>App.go: ok (device reboots via unplug callback)
-    else Non-Windows / Eject failed
-        App.go->>Serial: Open port
-        App.go->>Serial: Write 'r'
-        Serial-->>App.go: ok
-    end
+    App.go->>Serial: Open port
+    App.go->>Serial: Write 'r'
+    Serial-->>App.go: ok
 
     App.go-->>Wails: success message
     Wails-->>Frontend: success message
@@ -1506,7 +1493,8 @@ picolume/studio/
 | 0.1.6 | Dec 2025 | Added retry/timeout logic for async audio operations (AudioService.js) |
 | 0.2.0 | Dec 2025 | Added theme system + website demo workflow; web demo supports `.lum` Save/Load (incl. embedded audio) |
 | 0.2.1 | Dec 2025 | Added light themes (Daylight/Lilac/Rose/Latte) + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
-| 0.2.2 | Dec 2025 | Improved upload reliability: Windows USB eject after upload, firmware filesystem cleanup on reset/eject, show.bin load retry logic |
+| 0.2.2 | Dec 2025 | Improved upload reliability: firmware filesystem cleanup on reset, show.bin load retry logic |
+| 0.2.3 | Dec 2025 | Upload reload via serial reset + manual safe-eject fallback; status bar Pico connection indicator; improved Pico-family serial VID detection |
 
 ---
 

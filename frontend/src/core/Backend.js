@@ -18,7 +18,8 @@ function createWailsBackend(app) {
         capabilities: {
             fileIO: true,
             exportBinary: true,
-            upload: true
+            upload: true,
+            picoStatus: true
         },
         async requestSavePath() {
             return await app.RequestSavePath();
@@ -34,6 +35,9 @@ function createWailsBackend(app) {
         },
         async uploadToPico(projectJson) {
             return await app.UploadToPico(projectJson);
+        },
+        async getPicoConnectionStatus() {
+            return await app.GetPicoConnectionStatus();
         }
     };
 }
@@ -104,7 +108,8 @@ function createDemoBackend() {
         capabilities: {
             fileIO: true,
             exportBinary: false,
-            upload: false
+            upload: false,
+            picoStatus: false
         },
         async requestSavePath() {
             const handle = await pickSaveHandle('myshow.lum');

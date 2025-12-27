@@ -1435,6 +1435,7 @@ body {
     line-height: 1.5;
     color: var(--ui-text-muted);
     margin-bottom: 20px;
+    white-space: pre-line;
 }
 #confirm-modal .confirm-actions {
     display: flex;

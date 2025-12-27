@@ -5,7 +5,7 @@
  */
 
 import { app } from './core/Application.js';
-import { CONFIG, getSnappedTime } from './utils.js';
+import { CONFIG, getSnappedTime, showConfirm } from './utils.js';
 import { getBackend } from './core/Backend.js';
 
 // Import legacy timeline functions (to be refactored later)
@@ -222,6 +222,22 @@ window.addEventListener('DOMContentLoaded', async () => {
             window.runtime.EventsOn('upload:status', (message) => {
                 if (!uploadInProgress) return;
                 setUploadStatus(message);
+            });
+            window.runtime.EventsOn('upload:manual-eject', async (payload) => {
+                if (!uploadInProgress) return;
+                const drive = payload?.drive ? String(payload.drive) : '';
+                const reason = payload?.reason ? String(payload.reason) : '';
+                const driveText = drive ? ` (${drive})` : '';
+                const message = [
+                    `Automatic reset did not complete${driveText}.`,
+                    reason ? `Reason: ${reason}` : '',
+                    '',
+                    'Before unplugging, please use Windows “Safely Remove/Eject” for the PicoLume drive so the show.bin write is fully flushed.',
+                    'Then unplug/replug the device (or press reset) to load the new show.',
+                ].filter(Boolean).join('\n');
+
+                // Use the existing confirm modal as an info dialog.
+                await showConfirm(message, 'Manual Eject Required');
             });
         }
     } catch { }
@@ -642,6 +658,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const statusEls = {
         project: document.getElementById('status-project'),
         dirty: document.getElementById('status-dirty'),
+        pico: document.getElementById('status-pico'),
         selection: document.getElementById('status-selection'),
         snap: document.getElementById('status-snap'),
         grid: document.getElementById('status-grid'),
@@ -692,6 +709,90 @@ window.addEventListener('DOMContentLoaded', async () => {
 
         if (statusEls.snap) statusEls.snap.textContent = `Snap: ${snapEnabled ? 'On' : 'Off'}`;
         if (statusEls.grid) statusEls.grid.textContent = `Grid: ${formatGridSize(gridSize)}`;
+    };
+
+    // ==========================================
+    // PICO CONNECTION STATUS (Status Bar)
+    // ==========================================
+
+    let picoStatusText = 'Pico: Not detected';
+    let picoStatusTitle = 'No PicoLume device detected';
+
+    const formatPicoStatus = (status) => {
+        if (!status?.connected) {
+            return {
+                text: 'Pico: Not detected',
+                title: 'No PicoLume device detected'
+            };
+        }
+
+        const usbDrive = status.usbDrive || '';
+        const serialPort = status.serialPort || '';
+        const mode = String(status.mode || '').toUpperCase();
+
+        if (mode === 'BOOTLOADER') {
+            return {
+                text: usbDrive ? `Pico: Bootloader (${usbDrive})` : 'Pico: Bootloader',
+                title: 'Pico is in UF2 bootloader mode'
+            };
+        }
+
+        if (mode === 'USB' || mode === 'USB+SERIAL') {
+            const details = [];
+            if (usbDrive) details.push(usbDrive);
+            if (serialPort) details.push(serialPort);
+            const suffix = details.length ? ` (${details.join(', ')})` : '';
+            return {
+                text: `Pico: USB${suffix}`,
+                title: 'PicoLume USB upload volume detected'
+            };
+        }
+
+        if (mode === 'SERIAL') {
+            const suffix = serialPort ? ` (${serialPort})` : '';
+            return {
+                text: `Pico: Connected${suffix}`,
+                title: 'PicoLume serial connection detected'
+            };
+        }
+
+        return {
+            text: 'Pico: Connected',
+            title: 'PicoLume device detected'
+        };
+    };
+
+    const renderPicoStatus = () => {
+        if (!statusEls.pico) return;
+        statusEls.pico.textContent = picoStatusText;
+        statusEls.pico.title = picoStatusTitle;
+    };
+
+    const startPicoStatusPolling = () => {
+        if (!projectService?.backend?.capabilities?.picoStatus) return;
+        if (typeof projectService.backend.getPicoConnectionStatus !== 'function') return;
+        if (!statusEls.pico) return;
+
+        let inflight = false;
+        const tick = async () => {
+            if (inflight) return;
+            inflight = true;
+            try {
+                const status = await projectService.backend.getPicoConnectionStatus();
+                const formatted = formatPicoStatus(status);
+                picoStatusText = formatted.text;
+                picoStatusTitle = formatted.title;
+                renderPicoStatus();
+            } catch {
+                // Ignore transient errors (e.g., enumerator failures)
+            } finally {
+                inflight = false;
+            }
+        };
+
+        // Prime immediately, then poll.
+        tick();
+        window.setInterval(tick, 1500);
     };
 
     const refreshUIForProject = () => {
@@ -927,6 +1028,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('app:selection-changed', updateStatusBar);
     window.addEventListener('app:grid-changed', updateStatusBar);
     updateStatusBar();
+    renderPicoStatus();
+    startPicoStatusPolling();
 
     // ==========================================
     // KEYBOARD NAVIGATION FOR TIMELINE (Accessibility)

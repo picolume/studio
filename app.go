@@ -11,9 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	goruntime "runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -114,6 +112,21 @@ func (a *App) emitUploadStatus(message string) {
 		return
 	}
 	runtime.EventsEmit(a.ctx, "upload:status", message)
+}
+
+type UploadManualEject struct {
+	Drive  string `json:"drive"`  // e.g. "E:/"
+	Reason string `json:"reason"` // human-readable reason why manual action is needed
+}
+
+func (a *App) emitUploadManualEject(drive, reason string) {
+	if a == nil || a.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "upload:manual-eject", UploadManualEject{
+		Drive:  drive,
+		Reason: reason,
+	})
 }
 
 // ==========================================================
@@ -672,76 +685,27 @@ func (a *App) SaveBinary(projectJson string) string {
 	return fmt.Sprintf("Success! Exported %d events to %s", count, filename)
 }
 
-// ejectDrive attempts to safely remove a USB mass-storage volume on Windows.
-// It returns an error unless the volume actually disappears (verified by polling the drive root).
-// On non-Windows systems, this is a no-op.
-func ejectDrive(drivePath string) error {
-	if goruntime.GOOS != "windows" {
-		return nil // No-op on non-Windows
+func isKnownRP2040VID(vid string) bool {
+	v := strings.ToUpper(strings.TrimSpace(vid))
+	if v == "" {
+		return false
 	}
+	// Match substring so we handle both "2E8A" and "VID_2E8A".
+	return strings.Contains(v, "2E8A") || // Raspberry Pi
+		strings.Contains(v, "239A") || // Adafruit
+		strings.Contains(v, "1B4F") // SparkFun
+}
 
-	driveLetter := filepath.VolumeName(drivePath) // e.g. "D:"
-	if driveLetter == "" {
-		return fmt.Errorf("could not determine drive letter from %q", drivePath)
+func isPicoLikeUSBSerialPort(p *enumerator.PortDetails) bool {
+	if p == nil || !p.IsUSB {
+		return false
 	}
-	driveRoot := driveLetter + `\`
-
-	driveIsMounted := func() bool {
-		_, err := os.Stat(driveRoot)
-		return err == nil
+	if isKnownRP2040VID(p.VID) {
+		return true
 	}
-
-	// If the drive isn't mounted anymore, treat it as already ejected.
-	if !driveIsMounted() {
-		return nil
-	}
-
-	// Attempt 1: Shell.Application "Eject" verb (works for some removable drives).
-	{
-		psScript := fmt.Sprintf(`
-$ErrorActionPreference = 'Stop'
-$shell = New-Object -ComObject Shell.Application
-$item = $shell.Namespace(17).ParseName('%s')
-if ($null -eq $item) { throw 'Drive not found in Shell namespace' }
-$item.InvokeVerb('Eject')
-`, driveLetter)
-		cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			// Continue to other strategies, but preserve debug output.
-			_ = out
-		}
-	}
-
-	// Poll a short window for the mount to disappear.
-	{
-		deadline := time.Now().Add(5 * time.Second)
-		for time.Now().Before(deadline) {
-			if !driveIsMounted() {
-				return nil
-			}
-			time.Sleep(200 * time.Millisecond)
-		}
-	}
-
-	// Attempt 2: mountvol remove mountpoint (often succeeds even when Shell verb doesn't).
-	{
-		cmd := exec.Command("mountvol", driveLetter, "/p")
-		if out, err := cmd.CombinedOutput(); err == nil {
-			_ = out
-		}
-	}
-
-	{
-		deadline := time.Now().Add(5 * time.Second)
-		for time.Now().Before(deadline) {
-			if !driveIsMounted() {
-				return nil
-			}
-			time.Sleep(200 * time.Millisecond)
-		}
-	}
-
-	return fmt.Errorf("drive %s did not eject (still mounted at %s)", driveLetter, driveRoot)
+	// Some environments omit VID/PID; fall back to product string if available.
+	product := strings.ToUpper(p.Product)
+	return strings.Contains(product, "PICO") || strings.Contains(product, "PICOLUME")
 }
 
 // UploadToPico: Writes file and resets via Native Serial
@@ -814,62 +778,102 @@ func (a *App) UploadToPico(projectJson string) string {
 	}
 	f.Close()
 
-	// --- TRIGGER RESET VIA EJECT (preferred) or SERIAL (fallback) ---
-
-	// Try Windows eject first - this is the most reliable method
-	// It ensures all cached writes are flushed and triggers the device's USB unplug callback
-	if goruntime.GOOS == "windows" {
-		a.emitUploadStatus("Ejecting USB drive (triggering device reload)...")
-		time.Sleep(500 * time.Millisecond) // Brief pause for filesystem to settle
-
-		if err := ejectDrive(targetDrive); err == nil {
-			// Eject succeeded - device will reboot via USB unplug callback
-			time.Sleep(1 * time.Second) // Give device time to process eject
-			return fmt.Sprintf("Success! Uploaded %d events. Device is reloading.", count)
-		} else {
-			a.emitUploadStatus(fmt.Sprintf("Eject failed (%s). Falling back to serial reset...", err.Error()))
+	// --- TRIGGER DEVICE RELOAD ---
+	// Prefer serial reset (works even when Windows refuses to "eject" a non-removable MSC device).
+	confirmDriveDropsAsync := func(driveRoot string, grace time.Duration) {
+		if driveRoot == "" {
+			return
 		}
+		go func() {
+			deadline := time.Now().Add(grace)
+			for time.Now().Before(deadline) {
+				if _, err := os.Stat(driveRoot); err != nil {
+					return
+				}
+				time.Sleep(250 * time.Millisecond)
+			}
+			a.emitUploadManualEject(driveRoot, "Device did not disconnect/reload automatically after the reset command.")
+		}()
 	}
 
-	// Fallback: Serial reset (for non-Windows or if eject failed)
-	a.emitUploadStatus("Scanning for PicoLume serial port (auto-reset)...")
-	ports, err := enumerator.GetDetailedPortsList()
-	if err != nil {
-		return "File saved to " + targetDrive + ", but Serial scan failed."
-	}
+	trySerialReset := func() error {
+		a.emitUploadStatus("Scanning for PicoLume serial port (auto-reset)...")
+		ports, err := enumerator.GetDetailedPortsList()
+		if err != nil {
+			return err
+		}
 
-	targetPort := ""
-	for _, port := range ports {
-		if port.IsUSB {
-			vid := strings.ToUpper(port.VID)
-			if strings.Contains(vid, "2E8A") || strings.Contains(vid, "239A") {
-				targetPort = port.Name
-				break
+		isCandidate := func(p *enumerator.PortDetails) bool {
+			return isPicoLikeUSBSerialPort(p)
+		}
+
+		var candidates []*enumerator.PortDetails
+		for _, p := range ports {
+			if isCandidate(p) {
+				candidates = append(candidates, p)
 			}
 		}
+
+		if len(candidates) == 0 {
+			return fmt.Errorf("no suitable USB serial ports found")
+		}
+
+		driveLetter := filepath.VolumeName(targetDrive)
+		driveRoot := driveLetter + `\`
+
+		const resetAttemptsPerPort = 3
+		const resetAttemptDelay = 350 * time.Millisecond
+
+		a.emitUploadStatus("Resetting PicoLume device via serial...")
+		time.Sleep(350 * time.Millisecond)
+
+		for _, candidate := range candidates {
+			for attempt := 1; attempt <= resetAttemptsPerPort; attempt++ {
+				a.emitUploadStatus(fmt.Sprintf("Resetting via %s (attempt %d/%d)...", candidate.Name, attempt, resetAttemptsPerPort))
+
+				mode := &serial.Mode{BaudRate: 115200}
+				s, err := serial.Open(candidate.Name, mode)
+				if err != nil {
+					time.Sleep(resetAttemptDelay)
+					continue
+				}
+				// Some USB CDC implementations only deliver data after DTR is asserted.
+				// Ignore errors here (not all backends support toggling modem lines).
+				_ = s.SetDTR(true)
+				_ = s.SetRTS(true)
+				time.Sleep(250 * time.Millisecond)
+
+				_, werr := s.Write([]byte("r"))
+				if werr == nil {
+					_, _ = s.Write([]byte("\n"))
+				}
+				time.Sleep(250 * time.Millisecond)
+				_ = s.Close()
+				if werr != nil {
+					time.Sleep(resetAttemptDelay)
+					continue
+				}
+
+				// We successfully sent the reset command. Windows can be slow to drop the USB mount,
+				// so treat the write as success and confirm disconnect asynchronously.
+				confirmDriveDropsAsync(driveRoot, 20*time.Second)
+				return nil
+			}
+
+			// If it didn't reboot, try the next candidate port.
+		}
+
+		return fmt.Errorf("serial reset attempted but device did not reboot")
 	}
 
-	if targetPort == "" {
-		return fmt.Sprintf("Success! Saved to %s. (Auto-reset skipped: No COM port)", targetDrive)
+	serialErr := trySerialReset()
+	if serialErr == nil {
+		return fmt.Sprintf("Success! Uploaded %d events. Device is reloading.", count)
 	}
 
-	// Wait for OS to finish background tasks before rebooting
-	a.emitUploadStatus("Resetting PicoLume device...")
-	time.Sleep(3 * time.Second)
-
-	mode := &serial.Mode{BaudRate: 115200}
-	port, err := serial.Open(targetPort, mode)
-	if err != nil {
-		return fmt.Sprintf("Success! Saved to %s. (Reset failed: %s)", targetDrive, targetPort)
-	}
-	defer port.Close()
-
-	_, err = port.Write([]byte("r"))
-	if err != nil {
-		return fmt.Sprintf("Success! Saved to %s. (Reset failed: Write error)", targetDrive)
-	}
-
-	return fmt.Sprintf("Success! Uploaded %d events to %s.", count, targetDrive)
+	a.emitUploadManualEject(targetDrive, fmt.Sprintf("Auto-reset failed (%s).", serialErr.Error()))
+	a.emitUploadStatus("Auto-reset failed; please safely eject the drive before unplugging.")
+	return fmt.Sprintf("Success! Uploaded %d events to %s. Manual eject required.", count, targetDrive)
 }
 
 type LoadResponse struct {
@@ -877,6 +881,13 @@ type LoadResponse struct {
 	AudioFiles  map[string]string `json:"audioFiles"`
 	FilePath    string            `json:"filePath"`
 	Error       string            `json:"error"`
+}
+
+type PicoConnectionStatus struct {
+	Connected  bool   `json:"connected"`
+	Mode       string `json:"mode"`       // "USB", "BOOTLOADER", "SERIAL", "USB+SERIAL", "NONE"
+	USBDrive   string `json:"usbDrive"`   // e.g. "E:/"
+	SerialPort string `json:"serialPort"` // e.g. "COM5"
 }
 
 func (a *App) LoadProject() LoadResponse {
@@ -1001,4 +1012,70 @@ func (a *App) LoadProject() LoadResponse {
 	}
 
 	return response
+}
+
+// GetPicoConnectionStatus provides lightweight device presence info for the status bar.
+func (a *App) GetPicoConnectionStatus() PicoConnectionStatus {
+	status := PicoConnectionStatus{
+		Connected:  false,
+		Mode:       "NONE",
+		USBDrive:   "",
+		SerialPort: "",
+	}
+
+	// USB drive scan (Windows-only path semantics, but Stat works elsewhere too if mounted).
+	usbDrive := ""
+	usbMode := ""
+	for _, drive := range "CDEFGHIJKLMNOPQRSTUVWXYZ" {
+		driveRoot := string(drive) + ":/"
+		if _, err := os.Stat(driveRoot); err != nil {
+			continue
+		}
+
+		// Bootloader mode is exposed as a UF2 volume.
+		if _, err := os.Stat(driveRoot + "INFO_UF2.TXT"); err == nil {
+			usbDrive = driveRoot
+			usbMode = "BOOTLOADER"
+			break
+		}
+
+		// Receiver USB upload volume.
+		if _, err := os.Stat(driveRoot + "INDEX.HTM"); err == nil {
+			usbDrive = driveRoot
+			usbMode = "USB"
+			break
+		}
+		if _, err := os.Stat(driveRoot + "show.bin"); err == nil {
+			usbDrive = driveRoot
+			usbMode = "USB"
+			break
+		}
+	}
+
+	if usbDrive != "" {
+		status.USBDrive = usbDrive
+		status.Mode = usbMode
+		status.Connected = true
+	}
+
+	// Serial port scan (for reset + normal run mode).
+	if ports, err := enumerator.GetDetailedPortsList(); err == nil {
+		for _, port := range ports {
+			if !isPicoLikeUSBSerialPort(port) {
+				continue
+			}
+			{
+				status.SerialPort = port.Name
+				status.Connected = true
+				if status.Mode == "NONE" {
+					status.Mode = "SERIAL"
+				} else if status.Mode == "USB" {
+					status.Mode = "USB+SERIAL"
+				}
+				break
+			}
+		}
+	}
+
+	return status
 }
