@@ -31,7 +31,18 @@ function createWailsBackend(app) {
             return await app.LoadProject();
         },
         async saveBinary(projectJson) {
-            return await app.SaveBinary(projectJson);
+            // Use JS binary generator, then save via Go's native file dialog
+            try {
+                const { generateBinaryBytes } = await import('./BinaryGenerator.js');
+                const project = JSON.parse(projectJson);
+                const { bytes } = generateBinaryBytes(project);
+
+                // Convert to base64 for transfer to Go
+                const base64 = btoa(String.fromCharCode(...bytes));
+                return await app.SaveBinaryData(base64);
+            } catch (err) {
+                return `Error: ${err?.message || err}`;
+            }
         },
         async uploadToPico(projectJson) {
             return await app.UploadToPico(projectJson);

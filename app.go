@@ -659,6 +659,8 @@ func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[
 	return "Saved"
 }
 
+// SaveBinary is deprecated - use SaveBinaryData instead.
+// Kept for backwards compatibility.
 func (a *App) SaveBinary(projectJson string) string {
 	data, count, err := generateBinaryBytes(projectJson)
 	if err != nil {
@@ -683,6 +685,34 @@ func (a *App) SaveBinary(projectJson string) string {
 	}
 
 	return fmt.Sprintf("Success! Exported %d events to %s", count, filename)
+}
+
+// SaveBinaryData saves pre-generated binary data (base64 encoded) using native file dialog.
+// Binary generation is now handled in JavaScript for consistency.
+func (a *App) SaveBinaryData(base64Data string) string {
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return "Error decoding binary data: " + err.Error()
+	}
+
+	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		DefaultFilename: "show.bin",
+		Title:           "Export Show Binary",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Binary Files (*.bin)", Pattern: "*.bin"},
+		},
+	})
+
+	if err != nil || filename == "" {
+		return "Cancelled"
+	}
+
+	err = os.WriteFile(filename, data, 0644)
+	if err != nil {
+		return "Error saving file: " + err.Error()
+	}
+
+	return "OK"
 }
 
 func isKnownRP2040VID(vid string) bool {
