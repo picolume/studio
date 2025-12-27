@@ -227,17 +227,31 @@ window.addEventListener('DOMContentLoaded', async () => {
                 if (!uploadInProgress) return;
                 const drive = payload?.drive ? String(payload.drive) : '';
                 const reason = payload?.reason ? String(payload.reason) : '';
+
+                // Parse structured error codes from backend.
+                let title = 'Manual Eject Required';
+                let explanation = '';
+
+                if (reason.startsWith('PORT_LOCKED:')) {
+                    const port = reason.split(':')[1] || 'serial port';
+                    title = 'Serial Port In Use';
+                    explanation = `Another application is using ${port}.\n\nClose any other application that utilizes the serial port (i.e. Arduino IDE, PuTTY, Serial Monitor...) then try uploading again.`;
+                } else if (reason === 'RESET_FAILED') {
+                    explanation = 'The device did not respond to the reset command.';
+                } else if (reason) {
+                    explanation = reason;
+                }
+
                 const driveText = drive ? ` (${drive})` : '';
                 const message = [
-                    `Automatic reset did not complete${driveText}.`,
-                    reason ? `Reason: ${reason}` : '',
-                    '',
-                    'Before unplugging, please use Windows “Safely Remove/Eject” for the PicoLume drive so the show.bin write is fully flushed.',
-                    'Then unplug/replug the device (or press reset) to load the new show.',
+                    `Upload complete${driveText}, but auto-reset failed.`,
+                    ' ',
+                    explanation,
+                    ' ',
+                    'Alternatively, you can Safely eject the Pico drive. This will flush and load the show.bin file',
                 ].filter(Boolean).join('\n');
 
-                // Use the existing confirm modal as an info dialog.
-                await showConfirm(message, 'Manual Eject Required');
+                await showConfirm(message, title);
             });
         }
     } catch { }
@@ -729,6 +743,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         const usbDrive = status.usbDrive || '';
         const serialPort = status.serialPort || '';
         const mode = String(status.mode || '').toUpperCase();
+        const portLocked = status.serialPortLocked === true;
+
+        // Warning suffix for locked port
+        const lockWarning = portLocked ? ' [PORT BUSY]' : '';
+        const lockTooltip = portLocked
+            ? '\n\nWarning: Serial port is in use by another application (Arduino IDE, PuTTY, etc.). Auto-reset after upload will fail.'
+            : '';
 
         if (mode === 'BOOTLOADER') {
             return {
@@ -743,22 +764,22 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (serialPort) details.push(serialPort);
             const suffix = details.length ? ` (${details.join(', ')})` : '';
             return {
-                text: `Pico: USB${suffix}`,
-                title: 'PicoLume USB upload volume detected'
+                text: `Pico: USB${suffix}${lockWarning}`,
+                title: 'PicoLume USB upload volume detected' + lockTooltip
             };
         }
 
         if (mode === 'SERIAL') {
             const suffix = serialPort ? ` (${serialPort})` : '';
             return {
-                text: `Pico: Connected${suffix}`,
-                title: 'PicoLume serial connection detected'
+                text: `Pico: Connected${suffix}${lockWarning}`,
+                title: 'PicoLume serial connection detected' + lockTooltip
             };
         }
 
         return {
-            text: 'Pico: Connected',
-            title: 'PicoLume device detected'
+            text: 'Pico: Connected' + lockWarning,
+            title: 'PicoLume device detected' + lockTooltip
         };
     };
 

@@ -708,6 +708,21 @@ func isPicoLikeUSBSerialPort(p *enumerator.PortDetails) bool {
 	return strings.Contains(product, "PICO") || strings.Contains(product, "PICOLUME")
 }
 
+// isPortLockedError checks if a serial port error indicates the port is held by another application.
+func isPortLockedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	// Windows: "Access is denied", "The process cannot access the file"
+	// Linux/Mac: "resource busy", "device or resource busy"
+	return strings.Contains(errStr, "access") ||
+		strings.Contains(errStr, "denied") ||
+		strings.Contains(errStr, "busy") ||
+		strings.Contains(errStr, "in use") ||
+		strings.Contains(errStr, "cannot access")
+}
+
 // UploadToPico: Writes file and resets via Native Serial
 func (a *App) UploadToPico(projectJson string) string {
 	a.emitUploadStatus("Generating show.bin...")
@@ -824,6 +839,9 @@ func (a *App) UploadToPico(projectJson string) string {
 		const resetAttemptsPerPort = 3
 		const resetAttemptDelay = 350 * time.Millisecond
 
+		// Track if we encountered a port lock error for better messaging.
+		var lockedPort string
+
 		a.emitUploadStatus("Resetting PicoLume device via serial...")
 		time.Sleep(350 * time.Millisecond)
 
@@ -834,6 +852,9 @@ func (a *App) UploadToPico(projectJson string) string {
 				mode := &serial.Mode{BaudRate: 115200}
 				s, err := serial.Open(candidate.Name, mode)
 				if err != nil {
+					if isPortLockedError(err) {
+						lockedPort = candidate.Name
+					}
 					time.Sleep(resetAttemptDelay)
 					continue
 				}
@@ -863,7 +884,12 @@ func (a *App) UploadToPico(projectJson string) string {
 			// If it didn't reboot, try the next candidate port.
 		}
 
-		return fmt.Errorf("serial reset attempted but device did not reboot")
+		// Provide specific error message if port was locked by another application.
+		if lockedPort != "" {
+			return fmt.Errorf("PORT_LOCKED:%s", lockedPort)
+		}
+
+		return fmt.Errorf("RESET_FAILED")
 	}
 
 	serialErr := trySerialReset()
@@ -871,7 +897,8 @@ func (a *App) UploadToPico(projectJson string) string {
 		return fmt.Sprintf("Success! Uploaded %d events. Device is reloading.", count)
 	}
 
-	a.emitUploadManualEject(targetDrive, fmt.Sprintf("Auto-reset failed (%s).", serialErr.Error()))
+	// Pass structured error code to frontend for clean messaging.
+	a.emitUploadManualEject(targetDrive, serialErr.Error())
 	a.emitUploadStatus("Auto-reset failed; please safely eject the drive before unplugging.")
 	return fmt.Sprintf("Success! Uploaded %d events to %s. Manual eject required.", count, targetDrive)
 }
@@ -884,10 +911,11 @@ type LoadResponse struct {
 }
 
 type PicoConnectionStatus struct {
-	Connected  bool   `json:"connected"`
-	Mode       string `json:"mode"`       // "USB", "BOOTLOADER", "SERIAL", "USB+SERIAL", "NONE"
-	USBDrive   string `json:"usbDrive"`   // e.g. "E:/"
-	SerialPort string `json:"serialPort"` // e.g. "COM5"
+	Connected        bool   `json:"connected"`
+	Mode             string `json:"mode"`             // "USB", "BOOTLOADER", "SERIAL", "USB+SERIAL", "NONE"
+	USBDrive         string `json:"usbDrive"`         // e.g. "E:/"
+	SerialPort       string `json:"serialPort"`       // e.g. "COM5"
+	SerialPortLocked bool   `json:"serialPortLocked"` // true if port is held by another application
 }
 
 func (a *App) LoadProject() LoadResponse {
@@ -1064,16 +1092,26 @@ func (a *App) GetPicoConnectionStatus() PicoConnectionStatus {
 			if !isPicoLikeUSBSerialPort(port) {
 				continue
 			}
-			{
-				status.SerialPort = port.Name
-				status.Connected = true
-				if status.Mode == "NONE" {
-					status.Mode = "SERIAL"
-				} else if status.Mode == "USB" {
-					status.Mode = "USB+SERIAL"
-				}
-				break
+			status.SerialPort = port.Name
+			status.Connected = true
+			if status.Mode == "NONE" {
+				status.Mode = "SERIAL"
+			} else if status.Mode == "USB" {
+				status.Mode = "USB+SERIAL"
 			}
+
+			// Check if the port is locked by another application.
+			// Try a brief open to detect if another app (Arduino IDE, etc.) has the port.
+			mode := &serial.Mode{BaudRate: 115200}
+			s, err := serial.Open(port.Name, mode)
+			if err != nil {
+				if isPortLockedError(err) {
+					status.SerialPortLocked = true
+				}
+			} else {
+				_ = s.Close()
+			}
+			break
 		}
 	}
 
