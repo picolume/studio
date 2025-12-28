@@ -11,15 +11,160 @@ import {
     DEFAULT_PALETTES
 } from '../core/StateManager.js';
 
+const COLLAPSED_STORAGE_KEY = 'picolume:inspector:collapsed';
+
+// Default collapsed states for each section
+const DEFAULT_COLLAPSED = {
+    hardwareProfiles: false,  // expanded
+    colorPalettes: true,      // collapsed (less frequently used)
+    propGroups: false         // expanded
+};
+
 export class InspectorRenderer {
     constructor(deps) {
         this.deps = deps;
+        this._collapsedSections = this._loadCollapsedState();
     }
 
     get stateManager() { return this.deps.stateManager; }
     get timelineController() { return this.deps.timelineController; }
     get elements() { return this.deps.elements; }
     get ui() { return this.deps.ui; } // For toast methods
+
+    /**
+     * Load collapsed section state from localStorage
+     */
+    _loadCollapsedState() {
+        try {
+            const stored = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+            if (stored) {
+                return { ...DEFAULT_COLLAPSED, ...JSON.parse(stored) };
+            }
+        } catch (e) {
+            // Ignore parse errors
+        }
+        return { ...DEFAULT_COLLAPSED };
+    }
+
+    /**
+     * Save collapsed section state to localStorage
+     */
+    _saveCollapsedState() {
+        try {
+            localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(this._collapsedSections));
+        } catch (e) {
+            // Ignore storage errors
+        }
+    }
+
+    /**
+     * Toggle a section's collapsed state
+     */
+    _toggleSection(sectionKey) {
+        this._collapsedSections[sectionKey] = !this._collapsedSections[sectionKey];
+        this._saveCollapsedState();
+    }
+
+    /**
+     * Create a collapsible section with header and content
+     * @param {HTMLElement} container - Parent container
+     * @param {string} sectionKey - Key for localStorage persistence
+     * @param {string} title - Section title
+     * @param {HTMLElement|null} warningElement - Optional warning indicator element
+     * @returns {{ header: HTMLElement, content: HTMLElement }} - Header and content elements
+     */
+    _createCollapsibleSection(container, sectionKey, title, warningElement = null) {
+        const isCollapsed = this._collapsedSections[sectionKey] ?? false;
+
+        // Header row (clickable)
+        const header = document.createElement('div');
+        header.className = "flex items-center gap-2 mb-2 cursor-pointer select-none group";
+        header.setAttribute('role', 'button');
+        header.setAttribute('aria-expanded', String(!isCollapsed));
+        header.tabIndex = 0;
+
+        // Chevron indicator
+        const chevron = document.createElement('span');
+        chevron.className = "text-[10px] text-[var(--ui-text-subtle)] group-hover:text-cyan-400 transition-transform duration-200";
+        chevron.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        chevron.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)';
+        header.appendChild(chevron);
+
+        // Title
+        const titleSpan = document.createElement('span');
+        titleSpan.className = "text-xs font-bold text-cyan-400 uppercase group-hover:text-cyan-300 transition-colors";
+        titleSpan.textContent = title;
+        header.appendChild(titleSpan);
+
+        // Warning indicator (if provided)
+        if (warningElement) {
+            header.appendChild(warningElement);
+        }
+
+        // Click handler
+        const toggleCollapse = () => {
+            this._toggleSection(sectionKey);
+            const nowCollapsed = this._collapsedSections[sectionKey];
+            chevron.style.transform = nowCollapsed ? 'rotate(0deg)' : 'rotate(90deg)';
+            header.setAttribute('aria-expanded', String(!nowCollapsed));
+            content.style.maxHeight = nowCollapsed ? '0px' : `${content.scrollHeight}px`;
+            content.style.opacity = nowCollapsed ? '0' : '1';
+            content.style.marginBottom = nowCollapsed ? '0' : '1rem';
+            // After animation, remove max-height constraint for dynamic content
+            if (!nowCollapsed) {
+                setTimeout(() => {
+                    if (!this._collapsedSections[sectionKey]) {
+                        content.style.maxHeight = 'none';
+                    }
+                }, 200);
+            }
+        };
+
+        header.onclick = toggleCollapse;
+        header.onkeydown = (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleCollapse();
+            }
+        };
+
+        container.appendChild(header);
+
+        // Content container with animation
+        const content = document.createElement('div');
+        content.className = "overflow-hidden transition-all duration-200 ease-out";
+        content.style.maxHeight = isCollapsed ? '0px' : 'none';
+        content.style.opacity = isCollapsed ? '0' : '1';
+        content.style.marginBottom = isCollapsed ? '0' : '1rem';
+        container.appendChild(content);
+
+        return { header, content };
+    }
+
+    _formatPropLabel(key) {
+        const raw = String(key ?? '').trim();
+        if (!raw) return '';
+
+        const withSpaces = raw
+            .replace(/[_-]+/g, ' ')
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/([A-Za-z])([0-9])/g, '$1 $2')
+            .replace(/([0-9])([A-Za-z])/g, '$1 $2')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const acronyms = new Set(['id', 'ids', 'led', 'rgb', 'ui']);
+        return withSpaces
+            .split(' ')
+            .map(word => {
+                if (!word) return '';
+                if (/^[0-9]+$/.test(word)) return word;
+                const lower = word.toLowerCase();
+                if (acronyms.has(lower)) return lower.toUpperCase();
+                return lower.charAt(0).toUpperCase() + lower.slice(1);
+            })
+            .join(' ');
+    }
 
     render(clipId) {
         const container = this.elements.inspector || document.getElementById('inspector-content');
@@ -148,30 +293,31 @@ export class InspectorRenderer {
         const conflicts = findProfileOverlaps(profiles);
         const hasConflicts = conflicts.length > 0;
 
-        // Header with optional warning indicator
-        const header = document.createElement('div');
-        header.className = "text-xs font-bold text-cyan-400 mb-2 uppercase flex items-center gap-2";
-        header.innerHTML = 'Hardware Profiles';
+        // Create warning indicator if conflicts exist
+        let warningElement = null;
         if (hasConflicts) {
-            const warning = document.createElement('span');
-            warning.className = "text-red-500 cursor-help";
-            warning.innerHTML = '⚠';
-            warning.title = `Prop ID conflicts detected:\n${formatProfileOverlaps(conflicts, profiles)}\n\nExport/Upload will be blocked until resolved.`;
-            header.appendChild(warning);
+            warningElement = document.createElement('span');
+            warningElement.className = "text-red-500 cursor-help";
+            warningElement.innerHTML = '⚠';
+            warningElement.title = `Prop ID conflicts detected:\n${formatProfileOverlaps(conflicts, profiles)}\n\nExport/Upload will be blocked until resolved.`;
         }
-        container.appendChild(header);
+
+        // Create collapsible section
+        const { content: sectionContent } = this._createCollapsibleSection(
+            container, 'hardwareProfiles', 'Hardware Profiles', warningElement
+        );
 
         // Show conflict details if present
         if (hasConflicts) {
             const conflictBox = document.createElement('div');
             conflictBox.className = "bg-red-900/30 border border-red-500/50 rounded p-2 mb-2 text-xs text-red-300";
             conflictBox.innerHTML = `<strong>Conflict:</strong> ${formatProfileOverlaps(conflicts, profiles).replace(/\n/g, '<br>')}`;
-            container.appendChild(conflictBox);
+            sectionContent.appendChild(conflictBox);
         }
 
         const list = document.createElement('div');
         list.className = "space-y-2 mb-2 relative";
-        container.appendChild(list);
+        sectionContent.appendChild(list);
 
         let draggingProfileId = null;
         const interactiveSelector = 'input, textarea, select, button, a, [contenteditable="true"]';
@@ -402,7 +548,7 @@ export class InspectorRenderer {
         });
 
         const addBtn = document.createElement('button');
-        addBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] mb-4";
+        addBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)]";
         addBtn.innerHTML = "<i class='fas fa-plus mr-1 text-[10px] relative -top-px'></i> Add Profile";
         addBtn.onclick = () => {
             this.stateManager?.update(draft => {
@@ -414,14 +560,17 @@ export class InspectorRenderer {
             });
             this.render(null);
         };
-        container.appendChild(addBtn);
+        sectionContent.appendChild(addBtn);
     }
 
     _renderColorPalettes(container, project) {
         // Ensure palettes exist (migration for older projects)
         const palettes = project?.settings?.palettes || [...DEFAULT_PALETTES];
 
-        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Color Palettes</div>`);
+        // Create collapsible section
+        const { content: sectionContent } = this._createCollapsibleSection(
+            container, 'colorPalettes', 'Color Palettes'
+        );
 
         const list = document.createElement('div');
         list.className = "space-y-2 mb-2";
@@ -486,11 +635,11 @@ export class InspectorRenderer {
             list.appendChild(card);
         });
 
-        container.appendChild(list);
+        sectionContent.appendChild(list);
 
         // Add palette button
         const addBtn = document.createElement('button');
-        addBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] mb-4";
+        addBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)]";
         addBtn.innerHTML = "<i class='fas fa-plus mr-1 text-[10px] relative -top-px'></i> Add Palette";
         addBtn.onclick = () => {
             const newPalette = createPalette('My Palette', ['#FFFFFF', '#FF0000', '#00FF00', '#0000FF']);
@@ -505,7 +654,7 @@ export class InspectorRenderer {
             // Open editor for new palette
             setTimeout(() => this._openPaletteModal(newPalette.id), 50);
         };
-        container.appendChild(addBtn);
+        sectionContent.appendChild(addBtn);
     }
 
     /**
@@ -585,7 +734,7 @@ export class InspectorRenderer {
                 const colorInput = document.createElement('input');
                 colorInput.type = 'color';
                 colorInput.value = color;
-                colorInput.className = "w-10 h-8 bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded cursor-pointer p-0";
+                colorInput.className = "w-10 h-[30px] rounded cursor-pointer";
                 colorInput.oninput = (e) => {
                     workingPalette.colors[idx] = e.target.value;
                     hexInput.value = e.target.value.toUpperCase();
@@ -905,12 +1054,16 @@ export class InspectorRenderer {
     }
 
     _renderPropGroups(container, project) {
-        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Prop Groups</div>`);
         const propGroups = (project.propGroups || []);
+
+        // Create collapsible section
+        const { content: sectionContent } = this._createCollapsibleSection(
+            container, 'propGroups', 'Prop Groups'
+        );
 
         const list = document.createElement('div');
         list.className = "space-y-2 mb-2 relative";
-        container.appendChild(list);
+        sectionContent.appendChild(list);
 
         let draggingGroupId = null;
         const interactiveSelector = 'input, textarea, select, button, a, [contenteditable="true"]';
@@ -1093,7 +1246,7 @@ export class InspectorRenderer {
         });
 
         const addGrpBtn = document.createElement('button');
-        addGrpBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] mb-4";
+        addGrpBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)]";
         addGrpBtn.innerHTML = "<i class='fas fa-plus mr-1 text-[10px] relative -top-px'></i> Add Group";
         addGrpBtn.onclick = () => {
             this.stateManager?.update(draft => {
@@ -1103,7 +1256,7 @@ export class InspectorRenderer {
             });
             this.render(null);
         };
-        container.appendChild(addGrpBtn);
+        sectionContent.appendChild(addGrpBtn);
     }
 
     _renderClipProperties(container, clipId, project) {
@@ -1129,13 +1282,20 @@ export class InspectorRenderer {
             window.dispatchEvent(new CustomEvent('app:timeline-changed'));
         };
 
-        this._addInput(container, "Start (MM:SS.ss)", formatTime(clip.startTime), e => {
+        // Timing section
+        const timingSection = document.createElement('div');
+        timingSection.className = "bg-[var(--ui-toolbar-bg)] p-3 rounded border border-[var(--ui-border)] mb-4";
+        timingSection.innerHTML = `<div class="text-xs font-bold text-cyan-400 uppercase mb-3">Timing</div>`;
+
+        this._addInput(timingSection, "Start (MM:SS.ss)", formatTime(clip.startTime), e => {
             updateClip({ startTime: parseTime(e.target.value) });
         });
 
-        this._addInput(container, "Duration (MM:SS.ss)", formatTime(clip.duration), e => {
+        this._addInput(timingSection, "Duration (MM:SS.ss)", formatTime(clip.duration), e => {
             updateClip({ duration: parseTime(e.target.value) });
         });
+
+        container.appendChild(timingSection);
 
         const sliderSpecByKey = {
             rate: { min: 1, max: 30, step: 1, valueLabel: v => `${Math.round(v)} /s` },
@@ -1147,30 +1307,41 @@ export class InspectorRenderer {
             amount: { min: 0, max: 1, step: 0.01, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
         };
 
-        // Generic props
-        Object.keys(clip.props).forEach(key => {
-            if (['audioSrcPath', 'name', 'volume'].includes(key)) return;
+        // Effect properties section
+        const propKeys = Object.keys(clip.props).filter(key => !['audioSrcPath', 'name', 'volume'].includes(key));
+        if (propKeys.length > 0) {
+            const propsSection = document.createElement('div');
+            propsSection.className = "bg-[var(--ui-toolbar-bg)] p-3 rounded border border-[var(--ui-border)] mb-4";
+            propsSection.innerHTML = `<div class="text-xs font-bold text-cyan-400 uppercase mb-3">Effect Properties</div>`;
 
-            const value = clip.props[key];
-            const sliderSpec = (typeof value === 'number') ? sliderSpecByKey[key] : null;
+            propKeys.forEach(key => {
+                const value = clip.props[key];
+                const sliderSpec = (typeof value === 'number') ? sliderSpecByKey[key] : null;
+                const label = this._formatPropLabel(key);
 
-            if (sliderSpec) {
-                this._addSlider(container, key, value, sliderSpec, (nextVal) => {
-                    const prevProps = { ...clip.props, [key]: nextVal };
-                    updateClip({ props: prevProps }, { skipHistory: true });
-                });
-                return;
-            }
+                if (sliderSpec) {
+                    this._addSlider(propsSection, label, value, sliderSpec, (nextVal) => {
+                        const prevProps = { ...clip.props, [key]: nextVal };
+                        updateClip({ props: prevProps }, { skipHistory: true });
+                    });
+                    return;
+                }
 
-            this._addInput(container, key, value, e => {
-                const next = (e.target.type === 'number') ? parseFloat(e.target.value) : e.target.value;
-                const prevProps = { ...clip.props };
-                prevProps[key] = next;
-                updateClip({ props: prevProps });
-            }, typeof value === 'number' ? 'number' : undefined);
-        });
+                this._addInput(propsSection, label, value, e => {
+                    const next = (e.target.type === 'number') ? parseFloat(e.target.value) : e.target.value;
+                    const prevProps = { ...clip.props };
+                    prevProps[key] = next;
+                    updateClip({ props: prevProps });
+                }, typeof value === 'number' ? 'number' : undefined);
+            });
 
-        const del = document.createElement('button'); del.innerText = "Delete Clip"; del.className = "w-full bg-red-900 hover:bg-red-800 text-red-100 py-1 rounded text-xs mt-4";
+            container.appendChild(propsSection);
+        }
+
+        // Delete button - styled to match app conventions
+        const del = document.createElement('button');
+        del.innerHTML = "<i class='fas fa-trash-alt mr-2'></i>Delete Clip";
+        del.className = "w-full py-1.5 bg-red-900/80 hover:bg-red-700 border border-red-700/50 text-red-100 rounded text-xs font-medium transition-colors";
         del.onclick = () => {
             if (this.timelineController?.deleteClip) {
                 this.timelineController.deleteClip(clipId);
@@ -1233,14 +1404,15 @@ export class InspectorRenderer {
     }
 
     _addInput(parent, lbl, val, cb, type) {
-        const d = document.createElement('div'); d.className = "mb-2"; d.innerHTML = `<label class="block text-xs text-[var(--ui-text-muted)] mb-1">${lbl}</label>`;
+        const d = document.createElement('div'); d.className = "mb-3"; d.innerHTML = `<label class="block text-xs text-[var(--ui-text-muted)] mb-1.5">${lbl}</label>`;
         const inp = document.createElement('input');
 
         const isColor = (typeof val === 'string' && val.startsWith('#')) || type === 'color';
 
         if (isColor) {
             inp.type = 'color';
-            inp.className = "w-full h-8 bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded cursor-pointer p-0";
+            inp.className = "w-full h-[30px] rounded cursor-pointer";
+            inp.style.cssText = "padding: 0; border: none; -webkit-appearance: none; appearance: none;";
         } else if (typeof val === 'number' || type === 'number') {
             inp.type = 'number';
             inp.step = '0.1';
@@ -1262,11 +1434,17 @@ export class InspectorRenderer {
             const swatchContainer = document.createElement('div');
             swatchContainer.className = "mt-2";
 
+            const paletteLabel = document.createElement('label');
+            paletteLabel.className = "block text-xs text-[var(--ui-text-muted)] mb-1";
+            paletteLabel.textContent = "Palette";
+            swatchContainer.appendChild(paletteLabel);
+
             // Palette selector row
             const selectorRow = document.createElement('div');
             selectorRow.className = "flex items-center gap-2 mb-2";
 
             const paletteSelect = document.createElement('select');
+            paletteSelect.setAttribute('aria-label', 'Palette');
             paletteSelect.className = "flex-1 bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-1 py-1 outline-none cursor-pointer";
             palettes.forEach((p, idx) => {
                 const opt = document.createElement('option');
@@ -1287,7 +1465,7 @@ export class InspectorRenderer {
                 const palette = palettes[paletteIdx] || palettes[0];
                 (palette.colors || []).forEach(color => {
                     const swatch = document.createElement('button');
-                    swatch.className = "w-7 h-7 rounded border border-[var(--ui-border)] cursor-pointer hover:scale-110 hover:border-cyan-400 transition-all";
+                    swatch.className = "w-5 h-5 rounded border border-[var(--ui-border)] cursor-pointer hover:scale-110 hover:border-cyan-400 transition-all";
                     swatch.style.backgroundColor = color;
                     swatch.title = color;
                     swatch.onclick = (e) => {
@@ -1311,9 +1489,9 @@ export class InspectorRenderer {
 
     _addSlider(parent, lbl, val, spec, onValue) {
         const d = document.createElement('div');
-        d.className = "mb-3";
+        d.className = "mb-4";
         d.innerHTML = `
-            <div class="flex items-baseline justify-between mb-1">
+            <div class="flex items-baseline justify-between mb-1.5">
                 <label class="block text-xs text-[var(--ui-text-muted)]">${lbl}</label>
                 <span class="text-xs text-[var(--ui-text-subtle)] font-mono" data-role="value"></span>
             </div>
@@ -1328,7 +1506,7 @@ export class InspectorRenderer {
         inp.max = String(spec.max);
         inp.step = String(spec.step ?? 0.1);
         inp.value = String(val ?? spec.min);
-        inp.className = "flex-1 h-1 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-cyan-500";
+        inp.className = "flex-1 h-2 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-cyan-500";
 
         const valueEl = d.querySelector('[data-role=\"value\"]');
         const formatValue = (n) => {

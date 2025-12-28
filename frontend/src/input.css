@@ -1975,6 +1975,29 @@ body {
     background: var(--accent);
 }
 
+/* Color Input - Remove browser chrome */
+input[type="color"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+    cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+    border: none;
+}
+input[type="color"]::-webkit-color-swatch {
+    border: none !important;
+    border-radius: 4px;
+}
+input[type="color"]::-moz-color-swatch {
+    border: none !important;
+    border-radius: 4px;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     :root { --palette-width: 200px; --inspector-width: 240px; --header-width: 180px; }
