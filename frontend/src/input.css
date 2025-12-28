@@ -2003,6 +2003,9 @@ input[type="color"]::-moz-color-swatch {
     width: min(900px, 95vw);
     height: auto;
     max-height: 85vh;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
 }
 
 .inspector-body {
@@ -2010,9 +2013,18 @@ input[type="color"]::-moz-color-swatch {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
+    overflow: visible;
+    flex: 0 0 auto;
+}
+
+#inspector-modal .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#inspector-modal .inspector-table th {
+    top: 44px;
 }
 
 .inspector-input {
@@ -2217,6 +2229,11 @@ input[type="color"]::-moz-color-swatch {
 .inspector-warning i {
     margin-top: 2px;
     flex-shrink: 0;
+}
+
+.inspector-warning span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .inspector-warning.error i { color: #ef4444; }
