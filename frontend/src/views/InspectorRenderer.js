@@ -1,4 +1,4 @@
-import { formatTime, parseTime, parseIdString } from '../utils.js';
+import { formatTime, parseTime, parseIdString, validateIdString, findProfileOverlaps, formatProfileOverlaps } from '../utils.js';
 import {
     LED_TYPES,
     LED_TYPE_LABELS,
@@ -137,8 +137,32 @@ export class InspectorRenderer {
     }
 
     _renderHardwareProfiles(container, project) {
-        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Hardware Profiles</div>`);
         const profiles = (project?.settings?.profiles || []);
+
+        // Check for profile conflicts
+        const conflicts = findProfileOverlaps(profiles);
+        const hasConflicts = conflicts.length > 0;
+
+        // Header with optional warning indicator
+        const header = document.createElement('div');
+        header.className = "text-xs font-bold text-cyan-400 mb-2 uppercase flex items-center gap-2";
+        header.innerHTML = 'Hardware Profiles';
+        if (hasConflicts) {
+            const warning = document.createElement('span');
+            warning.className = "text-red-500 cursor-help";
+            warning.innerHTML = '⚠';
+            warning.title = `Prop ID conflicts detected:\n${formatProfileOverlaps(conflicts, profiles)}\n\nExport/Upload will be blocked until resolved.`;
+            header.appendChild(warning);
+        }
+        container.appendChild(header);
+
+        // Show conflict details if present
+        if (hasConflicts) {
+            const conflictBox = document.createElement('div');
+            conflictBox.className = "bg-red-900/30 border border-red-500/50 rounded p-2 mb-2 text-xs text-red-300";
+            conflictBox.innerHTML = `<strong>Conflict:</strong> ${formatProfileOverlaps(conflicts, profiles).replace(/\n/g, '<br>')}`;
+            container.appendChild(conflictBox);
+        }
 
         const list = document.createElement('div');
         list.className = "space-y-2 mb-2 relative";
@@ -281,6 +305,7 @@ export class InspectorRenderer {
                     if (prof) { prof.name = e.target.value; draft.isDirty = true; }
                 }, { skipHistory: true });
             };
+            pName.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); pName.blur(); } };
             header.appendChild(pName);
 
             const actions = document.createElement('div');
@@ -322,15 +347,35 @@ export class InspectorRenderer {
             card.appendChild(specRow);
 
             // Summary info row 2: Assigned IDs
+            const idsContainer = document.createElement('div');
+            idsContainer.className = "mt-2";
+
             const idsRow = document.createElement('div');
-            idsRow.className = "flex items-center gap-2 mt-2";
+            idsRow.className = "flex items-center gap-2";
             idsRow.innerHTML = `<span class="text-xs text-[var(--ui-text-subtle)]">Props:</span>`;
 
             const idInp = document.createElement('input');
             idInp.className = "bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] rounded px-2 py-1 flex-1 outline-none border border-[var(--ui-border)] font-mono";
             idInp.value = p.assignedIds || "";
             idInp.placeholder = "1-10, 15";
+
+            const idError = document.createElement('div');
+            idError.className = "text-xs text-red-400 mt-1 hidden";
+
+            const updateValidation = (value) => {
+                const validation = validateIdString(value);
+                if (!validation.valid) {
+                    idInp.classList.add('border-red-500');
+                    idError.textContent = validation.message;
+                    idError.classList.remove('hidden');
+                } else {
+                    idInp.classList.remove('border-red-500');
+                    idError.classList.add('hidden');
+                }
+            };
+
             idInp.oninput = (e) => {
+                updateValidation(e.target.value);
                 this.stateManager?.update(draft => {
                     const prof = (draft.project.settings.profiles || []).find(x => x.id === p.id);
                     if (prof) {
@@ -340,8 +385,13 @@ export class InspectorRenderer {
                     }
                 }, { skipHistory: true });
             };
+            idInp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); idInp.blur(); } };
+            idInp.onblur = () => { this.render(null); }; // Re-render to update conflict display
+
             idsRow.appendChild(idInp);
-            card.appendChild(idsRow);
+            idsContainer.appendChild(idsRow);
+            idsContainer.appendChild(idError);
+            card.appendChild(idsContainer);
 
             list.appendChild(card);
         });
@@ -517,6 +567,7 @@ export class InspectorRenderer {
         input.placeholder = placeholder;
         input.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500";
         input.oninput = (e) => onChange(e.target.value);
+        input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
         wrapper.appendChild(input);
         container.appendChild(wrapper);
     }
@@ -729,6 +780,7 @@ export class InspectorRenderer {
                 // Trigger timeline update safely? Actually names of prop groups only affect dropdowns on timeline, so yes.
                 window.dispatchEvent(new CustomEvent('app:timeline-changed'));
             };
+            gName.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); gName.blur(); } };
             const del = document.createElement('button');
             del.innerHTML = "<i class='fas fa-times'></i>";
             del.className = "text-[var(--ui-text-subtle)] hover:text-red-500 shrink-0";
@@ -741,16 +793,37 @@ export class InspectorRenderer {
             };
             row1.appendChild(gName); row1.appendChild(del); card.appendChild(row1);
 
-            const row2 = document.createElement('div'); row2.innerHTML = `<span class="text-xs text-[var(--ui-text-subtle)] mr-2">IDs:</span>`;
-            const ids = document.createElement('input'); ids.className = "bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] rounded px-1 py-0.5 flex-1 outline-none border border-[var(--ui-border)]";
+            const idsContainer = document.createElement('div');
+            const row2 = document.createElement('div');
+            row2.className = "flex items-center";
+            row2.innerHTML = `<span class="text-xs text-[var(--ui-text-subtle)] mr-2">IDs:</span>`;
+            const ids = document.createElement('input');
+            ids.className = "bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] rounded px-1 py-0.5 flex-1 outline-none border border-[var(--ui-border)]";
             ids.value = grp.ids || "";
+
+            const idsError = document.createElement('div');
+            idsError.className = "text-xs text-red-400 mt-1 hidden";
+
             ids.oninput = e => {
+                const validation = validateIdString(e.target.value);
+                if (!validation.valid) {
+                    ids.classList.add('border-red-500');
+                    idsError.textContent = validation.message;
+                    idsError.classList.remove('hidden');
+                } else {
+                    ids.classList.remove('border-red-500');
+                    idsError.classList.add('hidden');
+                }
                 this.stateManager?.update(draft => {
                     const g = (draft.project.propGroups || []).find(x => x.id === grp.id);
                     if (g) { g.ids = e.target.value; draft.isDirty = true; }
                 }, { skipHistory: true });
             };
-            row2.appendChild(ids); card.appendChild(row2);
+            ids.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); ids.blur(); } };
+            row2.appendChild(ids);
+            idsContainer.appendChild(row2);
+            idsContainer.appendChild(idsError);
+            card.appendChild(idsContainer);
             list.appendChild(card);
         });
 

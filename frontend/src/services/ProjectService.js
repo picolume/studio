@@ -11,7 +11,7 @@
 
 import { createInitialState } from '../core/StateManager.js';
 import { getBackend } from '../core/Backend.js';
-import { showConfirm } from '../utils.js';
+import { showConfirm, findProfileOverlaps, formatProfileOverlaps } from '../utils.js';
 
 export class ProjectService {
     constructor(stateManager, audioService, backend = getBackend()) {
@@ -184,6 +184,18 @@ export class ProjectService {
             }
 
             const project = this.stateManager.get('project');
+
+            // Check for profile overlaps before export
+            const profiles = project?.settings?.profiles || [];
+            const conflicts = findProfileOverlaps(profiles);
+            if (conflicts.length > 0) {
+                const message = formatProfileOverlaps(conflicts, profiles);
+                return {
+                    success: false,
+                    message: `Cannot export: Hardware profile conflicts detected.\n\n${message}\n\nPlease fix overlapping prop assignments in Settings before exporting.`
+                };
+            }
+
             const result = await this.backend.saveBinary(
                 JSON.stringify(project)
             );
@@ -212,6 +224,18 @@ export class ProjectService {
             }
 
             const project = this.stateManager.get('project');
+
+            // Check for profile overlaps before upload
+            const profiles = project?.settings?.profiles || [];
+            const conflicts = findProfileOverlaps(profiles);
+            if (conflicts.length > 0) {
+                const message = formatProfileOverlaps(conflicts, profiles);
+                return {
+                    success: false,
+                    message: `Cannot upload: Hardware profile conflicts detected.\n\n${message}\n\nPlease fix overlapping prop assignments in Settings before uploading.`
+                };
+            }
+
             const result = await this.backend.uploadToPico(
                 JSON.stringify(project)
             );

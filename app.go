@@ -723,7 +723,8 @@ func isKnownRP2040VID(vid string) bool {
 	// Match substring so we handle both "2E8A" and "VID_2E8A".
 	return strings.Contains(v, "2E8A") || // Raspberry Pi
 		strings.Contains(v, "239A") || // Adafruit
-		strings.Contains(v, "1B4F") // SparkFun
+		strings.Contains(v, "1B4F") || // SparkFun
+		strings.Contains(v, "1209") // pid.codes (open-source hardware community VID)
 }
 
 func isPicoLikeUSBSerialPort(p *enumerator.PortDetails) bool {

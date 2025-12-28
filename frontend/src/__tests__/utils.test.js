@@ -3,11 +3,14 @@ import {
     hexToRgb,
     rgbToHex,
     parseIdString,
+    validateIdString,
     formatTime,
     parseTime,
     clamp,
     pseudoRandom,
-    formatPicoStatus
+    formatPicoStatus,
+    findProfileOverlaps,
+    formatProfileOverlaps
 } from '../utils.js';
 
 describe('Color Utilities', () => {
@@ -331,6 +334,212 @@ describe('formatPicoStatus', () => {
         it('should handle empty mode', () => {
             const result = formatPicoStatus({ connected: true, mode: '' });
             expect(result.text).toBe('Pico: Connected');
+        });
+    });
+});
+
+describe('Profile Overlap Detection', () => {
+    describe('findProfileOverlaps', () => {
+        it('should return empty array when no profiles', () => {
+            expect(findProfileOverlaps(null)).toEqual([]);
+            expect(findProfileOverlaps([])).toEqual([]);
+            expect(findProfileOverlaps(undefined)).toEqual([]);
+        });
+
+        it('should return empty array when no overlaps', () => {
+            const profiles = [
+                { id: 'p1', assignedIds: '1-10' },
+                { id: 'p2', assignedIds: '11-20' }
+            ];
+            expect(findProfileOverlaps(profiles)).toEqual([]);
+        });
+
+        it('should detect single overlap', () => {
+            const profiles = [
+                { id: 'p1', assignedIds: '1-10' },
+                { id: 'p2', assignedIds: '10-20' }
+            ];
+            const conflicts = findProfileOverlaps(profiles);
+            expect(conflicts).toHaveLength(1);
+            expect(conflicts[0].propId).toBe(10);
+            expect(conflicts[0].profiles).toContain('p1');
+            expect(conflicts[0].profiles).toContain('p2');
+        });
+
+        it('should detect multiple overlaps', () => {
+            const profiles = [
+                { id: 'p1', assignedIds: '1-15' },
+                { id: 'p2', assignedIds: '10-20' }
+            ];
+            const conflicts = findProfileOverlaps(profiles);
+            expect(conflicts).toHaveLength(6); // 10, 11, 12, 13, 14, 15
+            const conflictIds = conflicts.map(c => c.propId).sort((a, b) => a - b);
+            expect(conflictIds).toEqual([10, 11, 12, 13, 14, 15]);
+        });
+
+        it('should detect overlaps across three profiles', () => {
+            const profiles = [
+                { id: 'p1', assignedIds: '1-10' },
+                { id: 'p2', assignedIds: '5-15' },
+                { id: 'p3', assignedIds: '8-12' }
+            ];
+            const conflicts = findProfileOverlaps(profiles);
+            // IDs 5-10 conflict between p1 and p2
+            // IDs 8-10 also conflict with p3
+            // IDs 11-12 conflict between p2 and p3
+            expect(conflicts.length).toBeGreaterThan(0);
+
+            // Check that prop 8 has multiple profiles in conflict
+            const conflict8 = conflicts.find(c => c.propId === 8);
+            expect(conflict8).toBeDefined();
+            expect(conflict8.profiles.length).toBeGreaterThanOrEqual(2);
+        });
+
+        it('should handle profiles with no assignedIds', () => {
+            const profiles = [
+                { id: 'p1', assignedIds: '1-10' },
+                { id: 'p2' }, // no assignedIds
+                { id: 'p3', assignedIds: '5-8' }
+            ];
+            const conflicts = findProfileOverlaps(profiles);
+            expect(conflicts).toHaveLength(4); // 5, 6, 7, 8
+        });
+
+        it('should handle comma-separated IDs with overlap', () => {
+            const profiles = [
+                { id: 'p1', assignedIds: '1,3,5,7' },
+                { id: 'p2', assignedIds: '5,6,7,8' }
+            ];
+            const conflicts = findProfileOverlaps(profiles);
+            expect(conflicts).toHaveLength(2); // 5 and 7
+            const conflictIds = conflicts.map(c => c.propId).sort((a, b) => a - b);
+            expect(conflictIds).toEqual([5, 7]);
+        });
+    });
+
+    describe('formatProfileOverlaps', () => {
+        it('should return empty string for no conflicts', () => {
+            expect(formatProfileOverlaps([], [])).toBe('');
+            expect(formatProfileOverlaps(null, [])).toBe('');
+        });
+
+        it('should format single conflict with profile names', () => {
+            const conflicts = [{ propId: 5, profiles: ['p1', 'p2'] }];
+            const profiles = [
+                { id: 'p1', name: 'Profile A' },
+                { id: 'p2', name: 'Profile B' }
+            ];
+            const result = formatProfileOverlaps(conflicts, profiles);
+            expect(result).toContain('Props 5');
+            expect(result).toContain('Profile A');
+            expect(result).toContain('Profile B');
+        });
+
+        it('should format range of conflicts compactly', () => {
+            const conflicts = [
+                { propId: 1, profiles: ['p1', 'p2'] },
+                { propId: 2, profiles: ['p1', 'p2'] },
+                { propId: 3, profiles: ['p1', 'p2'] },
+                { propId: 5, profiles: ['p1', 'p2'] }
+            ];
+            const profiles = [
+                { id: 'p1', name: 'A' },
+                { id: 'p2', name: 'B' }
+            ];
+            const result = formatProfileOverlaps(conflicts, profiles);
+            expect(result).toContain('1-3');
+            expect(result).toContain('5');
+        });
+
+        it('should fall back to profile ID when name missing', () => {
+            const conflicts = [{ propId: 10, profiles: ['p1', 'p2'] }];
+            const profiles = [
+                { id: 'p1', name: 'Named Profile' },
+                { id: 'p2' } // no name
+            ];
+            const result = formatProfileOverlaps(conflicts, profiles);
+            expect(result).toContain('Named Profile');
+            expect(result).toContain('p2');
+        });
+
+        it('should group conflicts by profile pairs', () => {
+            const conflicts = [
+                { propId: 1, profiles: ['p1', 'p2'] },
+                { propId: 2, profiles: ['p1', 'p2'] },
+                { propId: 10, profiles: ['p2', 'p3'] }
+            ];
+            const profiles = [
+                { id: 'p1', name: 'A' },
+                { id: 'p2', name: 'B' },
+                { id: 'p3', name: 'C' }
+            ];
+            const result = formatProfileOverlaps(conflicts, profiles);
+            // Should have two lines: one for A/B overlap, one for B/C overlap
+            const lines = result.split('\n');
+            expect(lines).toHaveLength(2);
+        });
+    });
+});
+
+describe('ID String Validation', () => {
+    describe('validateIdString', () => {
+        it('should accept empty input', () => {
+            expect(validateIdString('')).toEqual({ valid: true, message: '' });
+            expect(validateIdString(null)).toEqual({ valid: true, message: '' });
+            expect(validateIdString('   ')).toEqual({ valid: true, message: '' });
+        });
+
+        it('should accept valid single IDs', () => {
+            expect(validateIdString('1')).toEqual({ valid: true, message: '' });
+            expect(validateIdString('224')).toEqual({ valid: true, message: '' });
+            expect(validateIdString('100')).toEqual({ valid: true, message: '' });
+        });
+
+        it('should accept valid ranges', () => {
+            expect(validateIdString('1-10')).toEqual({ valid: true, message: '' });
+            expect(validateIdString('1-224')).toEqual({ valid: true, message: '' });
+        });
+
+        it('should accept valid comma-separated lists', () => {
+            expect(validateIdString('1, 3, 5')).toEqual({ valid: true, message: '' });
+            expect(validateIdString('1-10, 15, 20-25')).toEqual({ valid: true, message: '' });
+        });
+
+        it('should reject letters', () => {
+            const result = validateIdString('abc');
+            expect(result.valid).toBe(false);
+            expect(result.message).toContain('Invalid characters');
+            expect(result.message).toContain('a');
+        });
+
+        it('should reject special characters', () => {
+            const result = validateIdString('1@2#3');
+            expect(result.valid).toBe(false);
+            expect(result.message).toContain('Invalid characters');
+        });
+
+        it('should reject mixed valid/invalid', () => {
+            const result = validateIdString('1-10, hello, 15');
+            expect(result.valid).toBe(false);
+            expect(result.message).toContain('Invalid characters');
+        });
+
+        it('should reject IDs below 1', () => {
+            const result = validateIdString('0');
+            expect(result.valid).toBe(false);
+            expect(result.message).toContain('1 or greater');
+        });
+
+        it('should reject IDs above 224', () => {
+            const result = validateIdString('225');
+            expect(result.valid).toBe(false);
+            expect(result.message).toContain('224 or less');
+        });
+
+        it('should reject ranges that exceed bounds', () => {
+            const result = validateIdString('220-230');
+            expect(result.valid).toBe(false);
+            expect(result.message).toContain('224 or less');
         });
     });
 });

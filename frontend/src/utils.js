@@ -84,7 +84,56 @@ export function pseudoRandom(seed) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
 }
 
-// --- NEW: Helper to parse "1-5, 8, 10-12" into an array of IDs ---
+/**
+ * Validate an ID string for invalid characters.
+ * @param {string} str - ID specification like "1-18" or "1,3,5"
+ * @returns {{ valid: boolean, message: string }} - Validation result
+ */
+export function validateIdString(str) {
+    if (!str || !str.trim()) {
+        return { valid: true, message: '' };
+    }
+
+    // Check for invalid characters (only allow digits, commas, hyphens, spaces)
+    const invalidChars = str.replace(/[\d,\-\s]/g, '');
+    if (invalidChars.length > 0) {
+        return {
+            valid: false,
+            message: `Invalid characters: ${[...new Set(invalidChars)].join(', ')}`
+        };
+    }
+
+    // Check for out-of-range IDs
+    const ids = parseIdString(str);
+    const parts = str.split(',').map(p => p.trim()).filter(Boolean);
+    for (const part of parts) {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(Number);
+            if (!isNaN(start) && !isNaN(end)) {
+                if (start < 1 || end < 1) {
+                    return { valid: false, message: 'IDs must be 1 or greater' };
+                }
+                if (start > 224 || end > 224) {
+                    return { valid: false, message: 'IDs must be 224 or less' };
+                }
+            }
+        } else {
+            const num = parseInt(part);
+            if (!isNaN(num)) {
+                if (num < 1) {
+                    return { valid: false, message: 'IDs must be 1 or greater' };
+                }
+                if (num > 224) {
+                    return { valid: false, message: 'IDs must be 224 or less' };
+                }
+            }
+        }
+    }
+
+    return { valid: true, message: '' };
+}
+
+// Helper to parse "1-5, 8, 10-12" into an array of IDs
 export function parseIdString(str) {
     const ids = new Set();
     if (!str) return [];
@@ -106,6 +155,100 @@ export function parseIdString(str) {
         }
     });
     return Array.from(ids).sort((a, b) => a - b);
+}
+
+/**
+ * Find prop ID overlaps between hardware profiles.
+ * @param {Array} profiles - Array of profile objects with id and assignedIds
+ * @returns {Array<{propId: number, profiles: string[]}>} - Conflicts found
+ */
+export function findProfileOverlaps(profiles) {
+    const propToProfile = new Map(); // propId -> first profile id that claims it
+    const conflicts = []; // { propId, profiles: [profileId1, profileId2, ...] }
+
+    for (const profile of profiles || []) {
+        if (!profile?.assignedIds) continue;
+
+        const ids = parseIdString(profile.assignedIds);
+        for (const id of ids) {
+            const existing = propToProfile.get(id);
+            if (existing && existing !== profile.id) {
+                // Find or create conflict entry for this prop
+                let conflict = conflicts.find(c => c.propId === id);
+                if (!conflict) {
+                    conflict = { propId: id, profiles: [existing] };
+                    conflicts.push(conflict);
+                }
+                if (!conflict.profiles.includes(profile.id)) {
+                    conflict.profiles.push(profile.id);
+                }
+            } else if (!existing) {
+                propToProfile.set(id, profile.id);
+            }
+        }
+    }
+
+    return conflicts;
+}
+
+/**
+ * Format profile overlap conflicts into a human-readable message.
+ * @param {Array} conflicts - Output from findProfileOverlaps
+ * @param {Array} profiles - Array of profile objects (to get names)
+ * @returns {string} - Formatted message
+ */
+export function formatProfileOverlaps(conflicts, profiles) {
+    if (!conflicts?.length) return '';
+
+    const profileNameMap = new Map();
+    for (const p of profiles || []) {
+        profileNameMap.set(p.id, p.name || p.id);
+    }
+
+    // Group by profile pairs for cleaner output
+    const pairMap = new Map(); // "profileA,profileB" -> [propIds]
+    for (const c of conflicts) {
+        const key = c.profiles.sort().join(',');
+        if (!pairMap.has(key)) pairMap.set(key, []);
+        pairMap.get(key).push(c.propId);
+    }
+
+    const lines = [];
+    for (const [key, propIds] of pairMap) {
+        const profileIds = key.split(',');
+        const names = profileIds.map(id => profileNameMap.get(id) || id).join(' and ');
+        const idList = formatIdList(propIds);
+        lines.push(`Props ${idList} assigned to both ${names}`);
+    }
+
+    return lines.join('\n');
+}
+
+/**
+ * Format array of IDs into compact range notation.
+ * @param {number[]} ids - Array of prop IDs
+ * @returns {string} - Formatted string like "1-5, 8, 10-12"
+ */
+function formatIdList(ids) {
+    if (!ids?.length) return '';
+    const sorted = [...ids].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0];
+    let end = sorted[0];
+
+    for (let i = 1; i <= sorted.length; i++) {
+        if (i < sorted.length && sorted[i] === end + 1) {
+            end = sorted[i];
+        } else {
+            ranges.push(start === end ? String(start) : `${start}-${end}`);
+            if (i < sorted.length) {
+                start = sorted[i];
+                end = sorted[i];
+            }
+        }
+    }
+
+    return ranges.join(', ');
 }
 
 export function formatTime(ms) {
