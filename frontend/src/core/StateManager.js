@@ -51,6 +51,62 @@ export const COLOR_ORDER_LABELS = Object.freeze({
 });
 
 /**
+ * Built-in color palettes
+ */
+export const DEFAULT_PALETTES = Object.freeze([
+    {
+        id: 'pal_rainbow',
+        name: 'Rainbow',
+        builtin: true,
+        colors: ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3']
+    },
+    {
+        id: 'pal_warm',
+        name: 'Warm',
+        builtin: true,
+        colors: ['#FF0000', '#FF4500', '#FF8C00', '#FFA500', '#FFD700', '#FFFF00']
+    },
+    {
+        id: 'pal_cool',
+        name: 'Cool',
+        builtin: true,
+        colors: ['#00FFFF', '#00CED1', '#1E90FF', '#0000FF', '#4169E1', '#9400D3']
+    },
+    {
+        id: 'pal_fire',
+        name: 'Fire',
+        builtin: true,
+        colors: ['#FF0000', '#FF2200', '#FF4400', '#FF6600', '#FF8800', '#FFAA00']
+    },
+    {
+        id: 'pal_ocean',
+        name: 'Ocean',
+        builtin: true,
+        colors: ['#001F3F', '#003366', '#0066CC', '#0099FF', '#00CCFF', '#66FFFF']
+    },
+    {
+        id: 'pal_forest',
+        name: 'Forest',
+        builtin: true,
+        colors: ['#006400', '#228B22', '#32CD32', '#7CFC00', '#ADFF2F', '#9ACD32']
+    }
+]);
+
+/**
+ * Create a new custom palette
+ * @param {string} name - Palette name
+ * @param {string[]} colors - Array of hex color strings
+ */
+export function createPalette(name, colors = ['#FFFFFF', '#000000']) {
+    return {
+        id: 'pal_' + Date.now(),
+        name,
+        builtin: false,
+        colors: [...colors]
+    };
+}
+
+/**
  * Create a default hardware profile
  * @param {string} id - Unique profile ID
  * @param {string} name - Display name
@@ -575,7 +631,8 @@ export function createInitialState() {
                     createDefaultProfile('p_default', 'Standard Prop', 164, '1-224')
                 ],
                 patch: {},
-                fieldLayout: {} // propId -> { x, y } positions for field preview
+                fieldLayout: {}, // propId -> { x, y } positions for field preview
+                palettes: [...DEFAULT_PALETTES] // Color palettes (built-in + custom)
             },
             propGroups: [
                 { id: 'g_all', name: 'All Props', ids: '1-18' },

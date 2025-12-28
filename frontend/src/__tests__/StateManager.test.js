@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StateManager, createInitialState } from '../core/StateManager.js';
+import { StateManager, createInitialState, DEFAULT_PALETTES, createPalette } from '../core/StateManager.js';
 
 describe('StateManager', () => {
     let manager;
@@ -350,5 +350,113 @@ describe('createInitialState', () => {
         expect(state.project.tracks).toHaveLength(2);
         expect(state.project.tracks[0].type).toBe('audio');
         expect(state.project.tracks[1].type).toBe('led');
+    });
+
+    it('should have color palettes', () => {
+        const state = createInitialState();
+
+        expect(state.project.settings.palettes).toBeDefined();
+        expect(Array.isArray(state.project.settings.palettes)).toBe(true);
+        expect(state.project.settings.palettes.length).toBeGreaterThan(0);
+    });
+});
+
+describe('Color Palettes', () => {
+    describe('DEFAULT_PALETTES', () => {
+        it('should have expected built-in palettes', () => {
+            expect(DEFAULT_PALETTES).toBeDefined();
+            expect(Array.isArray(DEFAULT_PALETTES)).toBe(true);
+            expect(DEFAULT_PALETTES.length).toBeGreaterThanOrEqual(6);
+        });
+
+        it('should have valid palette structure', () => {
+            for (const palette of DEFAULT_PALETTES) {
+                expect(palette).toHaveProperty('id');
+                expect(palette).toHaveProperty('name');
+                expect(palette).toHaveProperty('colors');
+                expect(palette).toHaveProperty('builtin');
+                expect(palette.builtin).toBe(true);
+                expect(Array.isArray(palette.colors)).toBe(true);
+                expect(palette.colors.length).toBeGreaterThan(0);
+            }
+        });
+
+        it('should have Rainbow palette', () => {
+            const rainbow = DEFAULT_PALETTES.find(p => p.name === 'Rainbow');
+            expect(rainbow).toBeDefined();
+            expect(rainbow.colors).toContain('#FF0000');
+            expect(rainbow.colors).toContain('#00FF00');
+            expect(rainbow.colors).toContain('#0000FF');
+        });
+
+        it('should have Warm palette', () => {
+            const warm = DEFAULT_PALETTES.find(p => p.name === 'Warm');
+            expect(warm).toBeDefined();
+            expect(warm.colors.length).toBeGreaterThan(0);
+        });
+
+        it('should have Cool palette', () => {
+            const cool = DEFAULT_PALETTES.find(p => p.name === 'Cool');
+            expect(cool).toBeDefined();
+            expect(cool.colors.length).toBeGreaterThan(0);
+        });
+
+        it('should have unique palette IDs', () => {
+            const ids = DEFAULT_PALETTES.map(p => p.id);
+            const uniqueIds = new Set(ids);
+            expect(uniqueIds.size).toBe(ids.length);
+        });
+
+        it('should have valid hex colors', () => {
+            const hexRegex = /^#[0-9A-Fa-f]{6}$/;
+            for (const palette of DEFAULT_PALETTES) {
+                for (const color of palette.colors) {
+                    expect(color).toMatch(hexRegex);
+                }
+            }
+        });
+    });
+
+    describe('createPalette', () => {
+        it('should create a palette with given name', () => {
+            const palette = createPalette('My Custom');
+            expect(palette.name).toBe('My Custom');
+        });
+
+        it('should create palette with given colors', () => {
+            const colors = ['#FF0000', '#00FF00', '#0000FF'];
+            const palette = createPalette('Test', colors);
+            expect(palette.colors).toEqual(colors);
+        });
+
+        it('should create palette with default colors if none provided', () => {
+            const palette = createPalette('Default Test');
+            expect(palette.colors).toEqual(['#FFFFFF', '#000000']);
+        });
+
+        it('should generate unique ID', async () => {
+            const palette1 = createPalette('A');
+            // Small delay to ensure Date.now() returns a different value
+            await new Promise(resolve => setTimeout(resolve, 1));
+            const palette2 = createPalette('B');
+            expect(palette1.id).not.toBe(palette2.id);
+        });
+
+        it('should mark custom palettes as not builtin', () => {
+            const palette = createPalette('Custom');
+            expect(palette.builtin).toBe(false);
+        });
+
+        it('should have ID starting with pal_', () => {
+            const palette = createPalette('Test');
+            expect(palette.id.startsWith('pal_')).toBe(true);
+        });
+
+        it('should not mutate input colors array', () => {
+            const colors = ['#FF0000', '#00FF00'];
+            const palette = createPalette('Test', colors);
+            palette.colors.push('#0000FF');
+            expect(colors).toHaveLength(2);
+        });
     });
 });

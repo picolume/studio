@@ -6,7 +6,9 @@ import {
     COLOR_ORDER_LABELS,
     createDefaultProfile,
     migrateProfile,
-    clampProfileValue
+    clampProfileValue,
+    createPalette,
+    DEFAULT_PALETTES
 } from '../core/StateManager.js';
 
 export class InspectorRenderer {
@@ -131,6 +133,9 @@ export class InspectorRenderer {
 
         // Hardware Profiles
         this._renderHardwareProfiles(container, project);
+
+        // Color Palettes
+        this._renderColorPalettes(container, project);
 
         // Groups
         this._renderPropGroups(container, project);
@@ -410,6 +415,266 @@ export class InspectorRenderer {
             this.render(null);
         };
         container.appendChild(addBtn);
+    }
+
+    _renderColorPalettes(container, project) {
+        // Ensure palettes exist (migration for older projects)
+        const palettes = project?.settings?.palettes || [...DEFAULT_PALETTES];
+
+        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Color Palettes</div>`);
+
+        const list = document.createElement('div');
+        list.className = "space-y-2 mb-2";
+
+        palettes.forEach((palette) => {
+            const card = document.createElement('div');
+            card.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded border border-[var(--ui-border)]";
+
+            // Header row: name + actions
+            const header = document.createElement('div');
+            header.className = "flex items-center gap-2 mb-2 min-w-0";
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = "text-sm font-medium text-[var(--ui-text-strong)] flex-1 truncate";
+            nameSpan.textContent = palette.name;
+            if (palette.builtin) {
+                nameSpan.innerHTML += ' <span class="text-[10px] text-[var(--ui-text-subtle)] font-normal">(built-in)</span>';
+            }
+            header.appendChild(nameSpan);
+
+            const actions = document.createElement('div');
+            actions.className = "flex items-center gap-2 shrink-0";
+
+            // Edit button
+            const editBtn = document.createElement('button');
+            editBtn.innerHTML = "<i class='fas fa-edit'></i>";
+            editBtn.className = "text-[var(--ui-text-subtle)] hover:text-cyan-400 transition-colors";
+            editBtn.title = palette.builtin ? "Duplicate and edit" : "Edit palette";
+            editBtn.onclick = () => this._openPaletteModal(palette.id);
+            actions.appendChild(editBtn);
+
+            // Delete button (only for custom palettes)
+            if (!palette.builtin) {
+                const del = document.createElement('button');
+                del.innerHTML = "<i class='fas fa-times'></i>";
+                del.className = "text-[var(--ui-text-subtle)] hover:text-red-500 transition-colors";
+                del.title = "Delete palette";
+                del.onclick = () => {
+                    this.stateManager?.update(draft => {
+                        draft.project.settings.palettes = (draft.project.settings.palettes || []).filter(p => p.id !== palette.id);
+                        draft.isDirty = true;
+                    });
+                    this.render(null);
+                };
+                actions.appendChild(del);
+            }
+            header.appendChild(actions);
+            card.appendChild(header);
+
+            // Color swatches
+            const swatches = document.createElement('div');
+            swatches.className = "flex flex-wrap gap-1";
+            (palette.colors || []).forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = "w-5 h-5 rounded border border-[var(--ui-border)] cursor-pointer hover:scale-110 transition-transform";
+                swatch.style.backgroundColor = color;
+                swatch.title = color;
+                swatches.appendChild(swatch);
+            });
+            card.appendChild(swatches);
+
+            list.appendChild(card);
+        });
+
+        container.appendChild(list);
+
+        // Add palette button
+        const addBtn = document.createElement('button');
+        addBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] mb-4";
+        addBtn.innerHTML = "<i class='fas fa-plus mr-1 text-[10px] relative -top-px'></i> Add Palette";
+        addBtn.onclick = () => {
+            const newPalette = createPalette('My Palette', ['#FFFFFF', '#FF0000', '#00FF00', '#0000FF']);
+            this.stateManager?.update(draft => {
+                if (!draft.project.settings.palettes) {
+                    draft.project.settings.palettes = [...DEFAULT_PALETTES];
+                }
+                draft.project.settings.palettes.push(newPalette);
+                draft.isDirty = true;
+            });
+            this.render(null);
+            // Open editor for new palette
+            setTimeout(() => this._openPaletteModal(newPalette.id), 50);
+        };
+        container.appendChild(addBtn);
+    }
+
+    /**
+     * Open palette editor modal
+     */
+    _openPaletteModal(paletteId) {
+        const palettes = this.stateManager?.get('project.settings.palettes') || [];
+        const palette = palettes.find(p => p?.id === paletteId);
+        if (!palette) return;
+
+        // If it's a built-in palette, we'll create a copy
+        const isBuiltin = palette.builtin;
+        let workingPalette = isBuiltin
+            ? { ...palette, id: 'pal_' + Date.now(), name: palette.name + ' (Custom)', builtin: false, colors: [...palette.colors] }
+            : { ...palette, colors: [...palette.colors] };
+
+        const overlay = document.createElement('div');
+        overlay.className = "fixed inset-0 bg-[var(--overlay-bg)] flex items-center justify-center z-[2100] p-6";
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Edit Color Palette');
+
+        const close = () => {
+            overlay.remove();
+            this.render(null);
+        };
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) close();
+        };
+
+        const panel = document.createElement('div');
+        panel.className = "bg-[var(--ui-panel-bg)] border border-[var(--ui-border)] rounded-lg shadow-2xl w-full max-w-md";
+
+        // Header
+        const header = document.createElement('div');
+        header.className = "flex items-center justify-between p-4 border-b border-[var(--ui-border)]";
+        header.innerHTML = `<h2 class="text-sm font-bold text-[var(--ui-text-strong)]">${isBuiltin ? 'Duplicate Palette' : 'Edit Palette'}</h2>`;
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = "<i class='fas fa-times'></i>";
+        closeBtn.className = "text-[var(--ui-text-subtle)] hover:text-[var(--ui-text)] transition-colors";
+        closeBtn.onclick = close;
+        header.appendChild(closeBtn);
+        panel.appendChild(header);
+
+        // Body
+        const body = document.createElement('div');
+        body.className = "p-4 space-y-4";
+
+        // Palette name
+        const nameWrapper = document.createElement('div');
+        nameWrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">Palette Name</label>`;
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = workingPalette.name;
+        nameInput.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500";
+        nameInput.oninput = (e) => { workingPalette.name = e.target.value; };
+        nameInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); } };
+        nameWrapper.appendChild(nameInput);
+        body.appendChild(nameWrapper);
+
+        // Colors section
+        const colorsLabel = document.createElement('div');
+        colorsLabel.className = "text-xs text-[var(--ui-text-subtle)] mb-2";
+        colorsLabel.textContent = "Colors";
+        body.appendChild(colorsLabel);
+
+        const colorsContainer = document.createElement('div');
+        colorsContainer.className = "space-y-2";
+
+        const renderColors = () => {
+            colorsContainer.innerHTML = '';
+            workingPalette.colors.forEach((color, idx) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center gap-2";
+
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.value = color;
+                colorInput.className = "w-10 h-8 bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded cursor-pointer p-0";
+                colorInput.oninput = (e) => {
+                    workingPalette.colors[idx] = e.target.value;
+                    hexInput.value = e.target.value.toUpperCase();
+                };
+
+                const hexInput = document.createElement('input');
+                hexInput.type = 'text';
+                hexInput.value = color.toUpperCase();
+                hexInput.className = "flex-1 bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500 font-mono";
+                hexInput.oninput = (e) => {
+                    let val = e.target.value.trim();
+                    if (!val.startsWith('#')) val = '#' + val;
+                    if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                        workingPalette.colors[idx] = val.toUpperCase();
+                        colorInput.value = val;
+                    }
+                };
+                hexInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); hexInput.blur(); } };
+
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = "<i class='fas fa-times'></i>";
+                delBtn.className = "text-[var(--ui-text-subtle)] hover:text-red-500 transition-colors px-1";
+                delBtn.title = "Remove color";
+                delBtn.onclick = () => {
+                    if (workingPalette.colors.length > 1) {
+                        workingPalette.colors.splice(idx, 1);
+                        renderColors();
+                    }
+                };
+
+                row.appendChild(colorInput);
+                row.appendChild(hexInput);
+                row.appendChild(delBtn);
+                colorsContainer.appendChild(row);
+            });
+
+            // Add color button
+            const addColorBtn = document.createElement('button');
+            addColorBtn.className = "w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-dashed border-[var(--ui-border)] rounded text-xs text-[var(--ui-text-subtle)] hover:border-cyan-500 hover:text-cyan-400 transition-colors";
+            addColorBtn.innerHTML = "<i class='fas fa-plus mr-1'></i> Add Color";
+            addColorBtn.onclick = () => {
+                workingPalette.colors.push('#FFFFFF');
+                renderColors();
+            };
+            colorsContainer.appendChild(addColorBtn);
+        };
+
+        renderColors();
+        body.appendChild(colorsContainer);
+
+        panel.appendChild(body);
+
+        // Footer
+        const footer = document.createElement('div');
+        footer.className = "flex justify-end gap-2 p-4 border-t border-[var(--ui-border)]";
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.className = "px-4 py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] text-[var(--ui-text)] rounded text-sm transition-colors hover:bg-[var(--ui-toolbar-hover-bg)]";
+        cancelBtn.onclick = close;
+        footer.appendChild(cancelBtn);
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = isBuiltin ? "Create Copy" : "Save";
+        saveBtn.className = "px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-sm transition-colors";
+        saveBtn.onclick = () => {
+            this.stateManager?.update(draft => {
+                if (!draft.project.settings.palettes) {
+                    draft.project.settings.palettes = [...DEFAULT_PALETTES];
+                }
+                if (isBuiltin) {
+                    // Add as new palette
+                    draft.project.settings.palettes.push(workingPalette);
+                } else {
+                    // Update existing
+                    const idx = draft.project.settings.palettes.findIndex(p => p.id === paletteId);
+                    if (idx >= 0) {
+                        draft.project.settings.palettes[idx] = workingPalette;
+                    }
+                }
+                draft.isDirty = true;
+            });
+            close();
+        };
+        footer.appendChild(saveBtn);
+
+        panel.appendChild(footer);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
     }
 
     /**
@@ -971,7 +1236,9 @@ export class InspectorRenderer {
         const d = document.createElement('div'); d.className = "mb-2"; d.innerHTML = `<label class="block text-xs text-[var(--ui-text-muted)] mb-1">${lbl}</label>`;
         const inp = document.createElement('input');
 
-        if ((typeof val === 'string' && val.startsWith('#')) || type === 'color') {
+        const isColor = (typeof val === 'string' && val.startsWith('#')) || type === 'color';
+
+        if (isColor) {
             inp.type = 'color';
             inp.className = "w-full h-8 bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded cursor-pointer p-0";
         } else if (typeof val === 'number' || type === 'number') {
@@ -987,7 +1254,59 @@ export class InspectorRenderer {
         inp.setAttribute('value', safeVal); inp.value = safeVal;
         inp.oninput = cb;
         inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } };
-        d.appendChild(inp); parent.appendChild(d);
+        d.appendChild(inp);
+
+        // Add palette swatches for color inputs
+        if (isColor) {
+            const palettes = this.stateManager?.get('project.settings.palettes') || DEFAULT_PALETTES;
+            const swatchContainer = document.createElement('div');
+            swatchContainer.className = "mt-2";
+
+            // Palette selector row
+            const selectorRow = document.createElement('div');
+            selectorRow.className = "flex items-center gap-2 mb-2";
+
+            const paletteSelect = document.createElement('select');
+            paletteSelect.className = "flex-1 bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-1 py-1 outline-none cursor-pointer";
+            palettes.forEach((p, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = p.name + (p.builtin ? '' : ' *');
+                paletteSelect.appendChild(opt);
+            });
+
+            selectorRow.appendChild(paletteSelect);
+            swatchContainer.appendChild(selectorRow);
+
+            // Swatches container (shows selected palette)
+            const swatchesDiv = document.createElement('div');
+            swatchesDiv.className = "flex flex-wrap gap-1";
+
+            const renderSwatches = (paletteIdx) => {
+                swatchesDiv.innerHTML = '';
+                const palette = palettes[paletteIdx] || palettes[0];
+                (palette.colors || []).forEach(color => {
+                    const swatch = document.createElement('button');
+                    swatch.className = "w-7 h-7 rounded border border-[var(--ui-border)] cursor-pointer hover:scale-110 hover:border-cyan-400 transition-all";
+                    swatch.style.backgroundColor = color;
+                    swatch.title = color;
+                    swatch.onclick = (e) => {
+                        e.preventDefault();
+                        inp.value = color;
+                        cb({ target: { value: color, type: 'color' } });
+                    };
+                    swatchesDiv.appendChild(swatch);
+                });
+            };
+
+            paletteSelect.onchange = (e) => renderSwatches(parseInt(e.target.value));
+            renderSwatches(0);
+
+            swatchContainer.appendChild(swatchesDiv);
+            d.appendChild(swatchContainer);
+        }
+
+        parent.appendChild(d);
     }
 
     _addSlider(parent, lbl, val, spec, onValue) {
