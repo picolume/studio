@@ -573,11 +573,129 @@ export class InspectorRenderer {
         );
 
         const list = document.createElement('div');
-        list.className = "space-y-2 mb-2";
+        list.className = "space-y-2 mb-2 relative";
+        sectionContent.appendChild(list);
+
+        // Drag-and-drop state and helpers
+        let draggingPaletteId = null;
+        const interactiveSelector = 'input, textarea, select, button, a, [contenteditable="true"]';
+        const isInteractiveDragTarget = (target) => {
+            if (!target || !(target instanceof Element)) return false;
+            return Boolean(target.closest(interactiveSelector));
+        };
+        const isDragFromInteractiveArea = (evt, cardEl) => {
+            const path = typeof evt.composedPath === 'function' ? evt.composedPath() : [];
+            for (const node of path) {
+                if (!(node instanceof Element)) continue;
+                if (node === cardEl) break;
+                if (node.matches(interactiveSelector)) return true;
+            }
+            return false;
+        };
+
+        let dropTargetEl = null;
+        const clearDropIndicators = () => {
+            dropTargetEl?.classList.remove('dnd-drop-target');
+            dropTargetEl = null;
+            list.classList.remove('dnd-drop-end');
+        };
+
+        const getDragAfterElement = (y) => {
+            const items = [...list.querySelectorAll('[data-palette-id]')];
+            const INSERT_BEFORE_FRACTION = 0.75;
+            let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+            for (const child of items) {
+                if (child.dataset.paletteId === draggingPaletteId) continue;
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height * INSERT_BEFORE_FRACTION;
+                if (offset < 0 && offset > closest.offset) closest = { offset, element: child };
+            }
+            return closest.element;
+        };
+
+        list.addEventListener('dragover', (e) => {
+            if (!draggingPaletteId) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            const afterEl = getDragAfterElement(e.clientY);
+            if (!afterEl) {
+                if (!list.classList.contains('dnd-drop-end')) {
+                    clearDropIndicators();
+                    list.classList.add('dnd-drop-end');
+                }
+                return;
+            }
+            if (list.classList.contains('dnd-drop-end') || afterEl !== dropTargetEl) {
+                clearDropIndicators();
+                dropTargetEl = afterEl;
+                dropTargetEl?.classList.add('dnd-drop-target');
+            }
+        });
+
+        list.addEventListener('drop', (e) => {
+            if (!draggingPaletteId) return;
+            e.preventDefault();
+
+            const afterEl = getDragAfterElement(e.clientY);
+            const insertBeforeId = afterEl?.dataset?.paletteId || null;
+            const draggedId = draggingPaletteId;
+
+            this.stateManager?.update(draft => {
+                const arr = (draft.project.settings.palettes || []).slice();
+                const fromIndex = arr.findIndex(p => p?.id === draggedId);
+                if (fromIndex < 0) return;
+
+                const toIndexRaw = insertBeforeId
+                    ? arr.findIndex(p => p?.id === insertBeforeId)
+                    : arr.length;
+                if (toIndexRaw < 0) return;
+
+                const [item] = arr.splice(fromIndex, 1);
+                const toIndex = fromIndex < toIndexRaw ? (toIndexRaw - 1) : toIndexRaw;
+                arr.splice(toIndex, 0, item);
+
+                draft.project.settings.palettes = arr;
+                draft.isDirty = true;
+            });
+
+            draggingPaletteId = null;
+            clearDropIndicators();
+            this.render(null);
+        });
 
         palettes.forEach((palette) => {
             const card = document.createElement('div');
-            card.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded border border-[var(--ui-border)]";
+            card.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded border border-[var(--ui-border)] relative group overflow-hidden cursor-grab active:cursor-grabbing";
+            card.dataset.paletteId = palette.id;
+            card.title = "Drag to reorder";
+            card.draggable = false;
+            card.addEventListener('pointerdown', (e) => {
+                card.draggable = !isInteractiveDragTarget(e.target);
+            }, { capture: true });
+            card.addEventListener('pointerup', () => {
+                card.draggable = false;
+            }, { capture: true });
+            card.addEventListener('pointercancel', () => {
+                card.draggable = false;
+            }, { capture: true });
+            card.addEventListener('dragstart', (e) => {
+                if (!card.draggable || isDragFromInteractiveArea(e, card)) {
+                    e.preventDefault();
+                    card.draggable = false;
+                    return;
+                }
+                draggingPaletteId = palette.id;
+                card.classList.add('dnd-dragging');
+                clearDropIndicators();
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', palette.id);
+            });
+            card.addEventListener('dragend', () => {
+                draggingPaletteId = null;
+                card.classList.remove('dnd-dragging');
+                clearDropIndicators();
+                card.draggable = false;
+            });
 
             // Header row: name + actions
             const header = document.createElement('div');
@@ -634,8 +752,6 @@ export class InspectorRenderer {
 
             list.appendChild(card);
         });
-
-        sectionContent.appendChild(list);
 
         // Add palette button
         const addBtn = document.createElement('button');
@@ -1308,7 +1424,10 @@ export class InspectorRenderer {
         };
 
         // Effect properties section
-        const propKeys = Object.keys(clip.props).filter(key => !['audioSrcPath', 'name', 'volume'].includes(key));
+        // Filter out helper props like *PaletteIdx (used to track palette selection)
+        const propKeys = Object.keys(clip.props).filter(key =>
+            !['audioSrcPath', 'name', 'volume'].includes(key) && !key.endsWith('PaletteIdx')
+        );
         if (propKeys.length > 0) {
             const propsSection = document.createElement('div');
             propsSection.className = "bg-[var(--ui-toolbar-bg)] p-3 rounded border border-[var(--ui-border)] mb-4";
@@ -1327,12 +1446,23 @@ export class InspectorRenderer {
                     return;
                 }
 
+                // For color properties, pass palette tracking options
+                const isColor = typeof value === 'string' && value.startsWith('#');
+                const paletteOpts = isColor ? {
+                    paletteIdx: clip.props[`${key}PaletteIdx`] ?? 0,
+                    onPaletteChange: (newIdx) => {
+                        const prevProps = { ...clip.props };
+                        prevProps[`${key}PaletteIdx`] = newIdx;
+                        updateClip({ props: prevProps }, { skipHistory: true });
+                    }
+                } : undefined;
+
                 this._addInput(propsSection, label, value, e => {
                     const next = (e.target.type === 'number') ? parseFloat(e.target.value) : e.target.value;
                     const prevProps = { ...clip.props };
                     prevProps[key] = next;
                     updateClip({ props: prevProps });
-                }, typeof value === 'number' ? 'number' : undefined);
+                }, typeof value === 'number' ? 'number' : undefined, paletteOpts);
             });
 
             container.appendChild(propsSection);
@@ -1403,7 +1533,7 @@ export class InspectorRenderer {
         d.appendChild(inp); parent.appendChild(d);
     }
 
-    _addInput(parent, lbl, val, cb, type) {
+    _addInput(parent, lbl, val, cb, type, opts = {}) {
         const d = document.createElement('div'); d.className = "mb-3"; d.innerHTML = `<label class="block text-xs text-[var(--ui-text-muted)] mb-1.5">${lbl}</label>`;
         const inp = document.createElement('input');
 
@@ -1449,7 +1579,7 @@ export class InspectorRenderer {
             palettes.forEach((p, idx) => {
                 const opt = document.createElement('option');
                 opt.value = idx;
-                opt.textContent = p.name + (p.builtin ? '' : ' *');
+                opt.textContent = p.name;
                 paletteSelect.appendChild(opt);
             });
 
@@ -1477,8 +1607,19 @@ export class InspectorRenderer {
                 });
             };
 
-            paletteSelect.onchange = (e) => renderSwatches(parseInt(e.target.value));
-            renderSwatches(0);
+            // Use stored palette index if provided, default to 0
+            const initialPaletteIdx = opts.paletteIdx ?? 0;
+            paletteSelect.value = String(initialPaletteIdx);
+
+            paletteSelect.onchange = (e) => {
+                const newIdx = parseInt(e.target.value, 10);
+                renderSwatches(newIdx);
+                // Persist palette selection if callback provided
+                if (typeof opts.onPaletteChange === 'function') {
+                    opts.onPaletteChange(newIdx);
+                }
+            };
+            renderSwatches(initialPaletteIdx);
 
             swatchContainer.appendChild(swatchesDiv);
             d.appendChild(swatchContainer);

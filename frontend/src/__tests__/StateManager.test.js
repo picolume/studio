@@ -366,7 +366,7 @@ describe('Color Palettes', () => {
         it('should have expected built-in palettes', () => {
             expect(DEFAULT_PALETTES).toBeDefined();
             expect(Array.isArray(DEFAULT_PALETTES)).toBe(true);
-            expect(DEFAULT_PALETTES.length).toBeGreaterThanOrEqual(6);
+            expect(DEFAULT_PALETTES.length).toBeGreaterThanOrEqual(5);
         });
 
         it('should have valid palette structure', () => {

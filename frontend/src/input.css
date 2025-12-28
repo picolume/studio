@@ -1297,8 +1297,8 @@ body {
     opacity: 0.75;
 }
 .dnd-drop-target {
-    /* Indicate insertion point (above this card). */
-    box-shadow: 0 -2px 0 0 var(--accent);
+    /* Indicate insertion point (above this card). Uses inset shadow to avoid clipping by overflow-hidden parents. */
+    box-shadow: inset 0 2px 0 0 var(--accent);
 }
 .dnd-drop-end::after {
     content: "";

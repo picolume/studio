@@ -73,12 +73,6 @@ export const DEFAULT_PALETTES = Object.freeze([
         colors: ['#00FFFF', '#00CED1', '#1E90FF', '#0000FF', '#4169E1', '#9400D3']
     },
     {
-        id: 'pal_fire',
-        name: 'Fire',
-        builtin: true,
-        colors: ['#FF0000', '#FF2200', '#FF4400', '#FF6600', '#FF8800', '#FFAA00']
-    },
-    {
         id: 'pal_ocean',
         name: 'Ocean',
         builtin: true,
