@@ -366,7 +366,7 @@ describe('Color Palettes', () => {
         it('should have expected built-in palettes', () => {
             expect(DEFAULT_PALETTES).toBeDefined();
             expect(Array.isArray(DEFAULT_PALETTES)).toBe(true);
-            expect(DEFAULT_PALETTES.length).toBeGreaterThanOrEqual(5);
+            expect(DEFAULT_PALETTES.length).toBeGreaterThanOrEqual(4);
         });
 
         it('should have valid palette structure', () => {
@@ -379,14 +379,6 @@ describe('Color Palettes', () => {
                 expect(Array.isArray(palette.colors)).toBe(true);
                 expect(palette.colors.length).toBeGreaterThan(0);
             }
-        });
-
-        it('should have Rainbow palette', () => {
-            const rainbow = DEFAULT_PALETTES.find(p => p.name === 'Rainbow');
-            expect(rainbow).toBeDefined();
-            expect(rainbow.colors).toContain('#FF0000');
-            expect(rainbow.colors).toContain('#00FF00');
-            expect(rainbow.colors).toContain('#0000FF');
         });
 
         it('should have Warm palette', () => {

@@ -1495,6 +1495,8 @@ picolume/studio/
 | 0.2.1 | Dec 2025 | Added light themes (Daylight/Lilac/Rose/Latte) + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
 | 0.2.2 | Dec 2025 | Improved upload reliability: firmware filesystem cleanup on reset, show.bin load retry logic |
 | 0.2.3 | Dec 2025 | Upload reload via serial reset + manual safe-eject fallback; status bar Pico connection indicator; improved Pico-family serial VID detection |
+| 0.2.3 | Dec 2025 | Added drag-and-drop reordering for color palette cards in Inspector (matches hardware profiles and prop groups behavior) |
+| 0.2.3 | Dec 2025 | Fixed drop indicator line being clipped during drag operations (uses inset box-shadow to avoid parent overflow clipping) |
 
 ---
 

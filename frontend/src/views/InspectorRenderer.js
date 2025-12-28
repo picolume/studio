@@ -16,7 +16,7 @@ const COLLAPSED_STORAGE_KEY = 'picolume:inspector:collapsed';
 // Default collapsed states for each section
 const DEFAULT_COLLAPSED = {
     hardwareProfiles: false,  // expanded
-    colorPalettes: true,      // collapsed (less frequently used)
+    colorPalettes: false,     // expanded
     propGroups: false         // expanded
 };
 

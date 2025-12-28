@@ -42,7 +42,7 @@ export const COLOR_ORDERS = Object.freeze({
 });
 
 export const COLOR_ORDER_LABELS = Object.freeze({
-    [COLOR_ORDERS.GRB]: 'GRB (WS2812B default)',
+    [COLOR_ORDERS.GRB]: 'GRB',
     [COLOR_ORDERS.RGB]: 'RGB',
     [COLOR_ORDERS.BRG]: 'BRG',
     [COLOR_ORDERS.RBG]: 'RBG',
@@ -54,12 +54,6 @@ export const COLOR_ORDER_LABELS = Object.freeze({
  * Built-in color palettes
  */
 export const DEFAULT_PALETTES = Object.freeze([
-    {
-        id: 'pal_rainbow',
-        name: 'Rainbow',
-        builtin: true,
-        colors: ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3']
-    },
     {
         id: 'pal_warm',
         name: 'Warm',
@@ -117,7 +111,7 @@ export function createDefaultProfile(id, name, ledCount, assignedIds) {
         // Firmware-critical fields (written to show.bin)
         ledCount,
         ledType: LED_TYPES.WS2812B,
-        colorOrder: COLOR_ORDERS.GRB,
+        colorOrder: COLOR_ORDERS.RGB,
         brightnessCap: 255,
 
         // Informational fields (for documentation/UI only)
@@ -144,7 +138,7 @@ export function migrateProfile(profile) {
 
         // Add firmware fields with defaults if missing
         ledType: profile.ledType ?? LED_TYPES.WS2812B,
-        colorOrder: profile.colorOrder ?? COLOR_ORDERS.GRB,
+        colorOrder: profile.colorOrder ?? COLOR_ORDERS.RGB,
         brightnessCap: profile.brightnessCap ?? 255,
 
         // Add informational fields with defaults if missing
