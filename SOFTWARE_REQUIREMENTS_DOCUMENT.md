@@ -1,6 +1,6 @@
 # PicoLume Studio - Software Requirements Document
 
-**Version:** 0.2.1
+**Version:** 0.2.2
 **Last Updated:** December 2025
 **Author:** PicoLume Project
 **License:** GNU General Public License v3.0
@@ -333,7 +333,7 @@ classDiagram
 ```javascript
 {
     project: {
-        version: '0.2.1',
+        version: '0.2.2',
         name: "My Show",
         duration: 60000,  // milliseconds
         settings: {
@@ -998,7 +998,7 @@ myshow.lum
 
 ```json
 {
-  "version": "0.2.1",
+  "version": "0.2.2",
   "name": "My Show",
   "duration": 60000,
   "settings": {
@@ -1522,10 +1522,10 @@ picolume/studio/
 | 0.2.0 | Dec 2025 | Added theme system + website demo workflow; web demo supports `.lum` Save/Load (incl. embedded audio) |
 | 0.2.1 | Dec 2025 | Added light themes (Daylight/Lilac/Rose/Latte) + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
 | 0.2.2 | Dec 2025 | Improved upload reliability: firmware filesystem cleanup on reset, show.bin load retry logic |
-| 0.2.3 | Dec 2025 | Upload reload via serial reset + manual safe-eject fallback; status bar Pico connection indicator; improved Pico-family serial VID detection |
-| 0.2.3 | Dec 2025 | Added drag-and-drop reordering for color palette cards in Inspector (matches hardware profiles and prop groups behavior) |
-| 0.2.3 | Dec 2025 | Fixed drop indicator line being clipped during drag operations (uses inset box-shadow to avoid parent overflow clipping) |
-| 0.2.3 | Dec 2025 | Added Binary Inspector tool for inspecting/validating show.bin files (FR-BI-001); accessible via hamburger menu |
+| 0.2.2 | Dec 2025 | Upload reload via serial reset + manual safe-eject fallback; status bar Pico connection indicator; improved Pico-family serial VID detection |
+| 0.2.2 | Dec 2025 | Added drag-and-drop reordering for color palette cards in Inspector (matches hardware profiles and prop groups behavior) |
+| 0.2.2 | Dec 2025 | Fixed drop indicator line being clipped during drag operations (uses inset box-shadow to avoid parent overflow clipping) |
+| 0.2.2 | Dec 2025 | Added Binary Inspector tool for inspecting/validating show.bin files (FR-BI-001); accessible via hamburger menu |
 
 ---
 
