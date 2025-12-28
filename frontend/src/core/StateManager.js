@@ -85,9 +85,10 @@ export const DEFAULT_PALETTES = Object.freeze([
  * @param {string} name - Palette name
  * @param {string[]} colors - Array of hex color strings
  */
+let paletteIdCounter = 0;
 export function createPalette(name, colors = ['#FFFFFF', '#000000']) {
     return {
-        id: 'pal_' + Date.now(),
+        id: `pal_${Date.now()}_${(paletteIdCounter++).toString(36)}`,
         name,
         builtin: false,
         colors: [...colors]

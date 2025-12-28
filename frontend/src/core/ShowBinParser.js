@@ -239,17 +239,57 @@ export function validateShowBin(parsed) {
         warnings.push({ type: 'info', message: `File uses version ${header.version}. V3 features not available.` });
     }
 
-    // Check for overlapping events (simplified - just warns about same start times)
-    const sortedEvents = [...events].sort((a, b) => a.start - b.start);
-    for (let i = 0; i < sortedEvents.length - 1; i++) {
-        const curr = sortedEvents[i];
-        const next = sortedEvents[i + 1];
-        if (curr.start + curr.dur > next.start) {
+    // Check for overlapping events that target at least one of the same props.
+    // Multiple tracks/groups can legitimately overlap in time as long as their prop masks do not intersect.
+    const masksIntersect = (a, b) => {
+        for (let i = 0; i < 7; i++) {
+            const aw = (a?.[i] ?? 0) >>> 0;
+            const bw = (b?.[i] ?? 0) >>> 0;
+            if ((aw & bw) !== 0) return true;
+        }
+        return false;
+    };
+
+    const intersectCount = (a, b) => {
+        let count = 0;
+        for (let i = 0; i < 7; i++) {
+            const aw = (a?.[i] ?? 0) >>> 0;
+            const bw = (b?.[i] ?? 0) >>> 0;
+            count += popcnt32(aw & bw);
+        }
+        return count;
+    };
+
+    const sortedEvents = [...events].sort((a, b) => (a.start - b.start) || (a.index - b.index));
+    const active = [];
+    for (const next of sortedEvents) {
+        const nextStart = next.start ?? 0;
+        const nextEnd = (next.start ?? 0) + (next.dur ?? 0);
+
+        for (let i = active.length - 1; i >= 0; i--) {
+            if (active[i].end <= nextStart) {
+                active.splice(i, 1);
+            }
+        }
+
+        for (const curr of active) {
+            const currHasMask = curr.event?.propMask && (curr.event.propMask.length > 0);
+            const nextHasMask = next?.propMask && (next.propMask.length > 0);
+
+            if (currHasMask && nextHasMask && !masksIntersect(curr.event.propMask, next.propMask)) {
+                continue;
+            }
+
+            const shared = (currHasMask && nextHasMask) ? intersectCount(curr.event.propMask, next.propMask) : null;
+            const sharedText = shared === null ? '' : ` and share ${shared} prop${shared === 1 ? '' : 's'}`;
+
             warnings.push({
                 type: 'warn',
-                message: `Events ${curr.index} and ${next.index} overlap (${curr.start + curr.dur}ms > ${next.start}ms)`
+                message: `Events ${curr.event.index} and ${next.index} overlap (${curr.end}ms > ${nextStart}ms)${sharedText}`
             });
         }
+
+        active.push({ event: next, end: nextEnd });
     }
 
     // Check for events with 0 duration or no props
