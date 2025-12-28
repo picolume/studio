@@ -30,7 +30,7 @@ export class ProjectService {
     async save(path = null, forceSaveAs = false, silent = false) {
         try {
             if (!this.backend?.capabilities?.fileIO) {
-                return { success: false, message: 'Save is not available in the web demo' };
+                return { success: false, message: 'Save is not available in the online version' };
             }
 
             let targetPath = path || this.stateManager.get('filePath');
@@ -83,7 +83,7 @@ export class ProjectService {
     async load() {
         try {
             if (!this.backend?.capabilities?.fileIO) {
-                return { success: false, message: 'Load is not available in the web demo' };
+                return { success: false, message: 'Load is not available in the online version' };
             }
 
             const result = await this.backend.loadProject();
@@ -180,7 +180,7 @@ export class ProjectService {
     async exportBinary() {
         try {
             if (!this.backend?.capabilities?.exportBinary) {
-                return { success: false, message: 'Export is not available in the web demo' };
+                return { success: false, message: 'Export is not available in the online version' };
             }
 
             const project = this.stateManager.get('project');
@@ -220,7 +220,7 @@ export class ProjectService {
     async uploadToDevice() {
         try {
             if (!this.backend?.capabilities?.upload) {
-                return { success: false, message: 'Upload is not available in the web demo' };
+                return { success: false, message: 'Upload is not available in the online version' };
             }
 
             const project = this.stateManager.get('project');

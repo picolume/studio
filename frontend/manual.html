@@ -555,10 +555,12 @@
             <div class="nav-section">
                 <div class="nav-section-title">Configuration</div>
                 <a href="#profiles" class="nav-link">Hardware Profiles</a>
+                <a href="#palettes" class="nav-link">Color Palettes</a>
                 <a href="#groups" class="nav-link">Prop Groups</a>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Creation</div>
+                <a href="#timeline" class="nav-link">Timeline Controls</a>
                 <a href="#tracks" class="nav-link">Working with Tracks</a>
                 <a href="#effects" class="nav-link">Effects Reference</a>
                 <a href="#audio" class="nav-link">Audio Sync</a>
@@ -620,8 +622,9 @@
                 <li><strong>Header Toolbar:</strong> Project actions (New/Save/Save As/Open), Undo/Redo, playback controls, master volume, and <strong>Upload/Export</strong>.</li>
                 <li><strong>Effect Palette (Left):</strong> A library of all available lighting patterns. These are "Smart Clips" that adapt to any duration you set.</li>
                 <li><strong>Timeline (Center):</strong> The main workspace. Top tracks render *above* bottom tracks visually (bottom track = highest priority).</li>
-                <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click a clip. Time values use <code>MM:SS.ss</code> format (e.g., "05:23.45" for 5 minutes, 23.45 seconds).</li>
+                <li><strong>Inspector (Right):</strong> Context-aware panel. It shows <strong>Project Settings</strong> when nothing is selected, and <strong>Clip Properties</strong> when you click a clip. Time values use <code>MM:SS.ss</code> format (e.g., "05:23.45" for 5 minutes, 23.45 seconds). Sections can be collapsed by clicking their headers.</li>
                 <li><strong>Preview Canvas (Top Center):</strong> A real-time simulation of your show. Use the <strong>preview mode buttons</strong> to switch between Track/Field/Off, and drag the <strong>resize handle</strong> under the preview to change its height.</li>
+                <li><strong>Status Bar (Bottom):</strong> Shows project name (with <strong>●</strong> when unsaved), Pico device connection status, current selection info, snap/grid settings, and keyboard shortcut hints.</li>
             </ul>
         </section>
 
@@ -635,16 +638,17 @@
             <h3>Field View</h3>
             <p><strong>Field View</strong> displays your props as rings arranged on a field. Each ring shows a sampled slice of the effect so you can quickly see how different props will look at the same moment.</p>
             <ul>
-                <li><strong>Auto layout:</strong> Props are arranged automatically when no saved position exists.</li>
-                <li><strong>Drag to reposition:</strong> Click and drag a prop to place it. Positions are saved into the project.</li>
+                <li><strong>Auto layout:</strong> Props are arranged automatically in a grid when no saved position exists.</li>
+                <li><strong>Drag to reposition:</strong> Click and drag any prop ring to place it where you want. This lets you mirror your real-world stage layout.</li>
+                <li><strong>Positions saved:</strong> Custom positions are stored in the project file and restored when you reopen.</li>
             </ul>
 
             <h3>Off</h3>
-            <p><strong>Off</strong> disables preview rendering (useful on low-power machines).</p>
+            <p><strong>Off</strong> disables preview rendering. Useful on low-power machines or when you want maximum timeline space.</p>
 
             <div class="callout">
                 <h4>Resizing the Preview</h4>
-                <p>Drag the horizontal handle directly under the preview canvas to make the preview taller or shorter. The app remembers your preview height and pane visibility.</p>
+                <p>Drag the horizontal handle directly under the preview canvas to adjust height (80px–600px range). The app remembers your preview height between sessions.</p>
             </div>
         </section>
 
@@ -741,6 +745,52 @@
             </div>
         </section>
 
+        <section id="palettes">
+            <h2>Color Palettes</h2>
+            <p>Color Palettes are named collections of colors that make it easy to maintain a consistent color scheme across your show. When editing an effect's color property, you can quickly pick from any palette instead of manually entering hex codes.</p>
+
+            <h3>Built-in Palettes</h3>
+            <p>Studio includes four built-in palettes to get you started:</p>
+            <ul>
+                <li><strong>Warm:</strong> Reds, oranges, and yellows</li>
+                <li><strong>Cool:</strong> Cyans, blues, and violets</li>
+                <li><strong>Ocean:</strong> Deep navy to bright cyan gradient</li>
+                <li><strong>Forest:</strong> Dark green to lime gradient</li>
+            </ul>
+            <p>Built-in palettes cannot be deleted, but you can duplicate them to create customized versions.</p>
+
+            <h3>Creating a Custom Palette</h3>
+            <p>In the <strong>Color Palettes</strong> section of the Inspector (when no clip is selected):</p>
+            <ol>
+                <li>Click <strong>+ Add Palette</strong>.</li>
+                <li>A new palette opens in the editor with default colors.</li>
+                <li><strong>Name:</strong> Enter a descriptive name (e.g., "Team Colors", "Halloween").</li>
+                <li><strong>Colors:</strong> Click any swatch to change its color, or use the <strong>+</strong> button to add more colors.</li>
+                <li>Click <strong>Save</strong> to confirm your changes.</li>
+            </ol>
+
+            <h3>Editing Palettes</h3>
+            <ul>
+                <li><strong>Custom palettes:</strong> Click the edit icon to modify colors or rename.</li>
+                <li><strong>Built-in palettes:</strong> Clicking edit will create a duplicate that you can customize.</li>
+                <li><strong>Delete:</strong> Custom palettes can be deleted using the <strong>&times;</strong> button. Built-in palettes cannot be deleted.</li>
+            </ul>
+
+            <h3>Using Palettes with Effects</h3>
+            <p>When you select a clip and view its properties in the Inspector, any color property will show:</p>
+            <ol>
+                <li>A <strong>Palette</strong> dropdown to select which palette to use.</li>
+                <li>Color swatches from the selected palette for quick selection.</li>
+                <li>A color picker for custom colors not in any palette.</li>
+            </ol>
+            <p>The palette selection is remembered per-property, so different colors on the same effect can use different palettes.</p>
+
+            <div class="callout">
+                <h4>Tip: Consistent Theming</h4>
+                <p>Create a custom palette with your event's brand colors at the start of a project. This makes it easy to apply consistent colors across all effects without remembering hex codes.</p>
+            </div>
+        </section>
+
         <section id="groups">
             <h2>Prop Groups</h2>
             <p>Prop Groups are logical collections of hardware IDs. While Profiles define *what* the hardware is, Groups define *how you select them* in the timeline.</p>
@@ -764,28 +814,90 @@
             </ol>
         </section>
 
+        <section id="timeline">
+            <h2>Timeline Controls</h2>
+            <p>The timeline is the central workspace for arranging your light show. These controls help you navigate and edit precisely.</p>
+
+            <h3>Playhead &amp; Scrubbing</h3>
+            <p>The playhead (vertical line) shows the current playback position. To move it:</p>
+            <ul>
+                <li><strong>Click</strong> anywhere on the ruler (top of the timeline) to jump to that time.</li>
+                <li><strong>Drag</strong> across the ruler to scrub through the show in real-time.</li>
+                <li>The current time is displayed in the header as <code>MM:SS.ss</code>.</li>
+            </ul>
+
+            <h3>Zoom</h3>
+            <p>Zoom in to make precise edits, or zoom out to see the full show:</p>
+            <ul>
+                <li><strong>Ctrl + Scroll</strong> (or <strong>Cmd + Scroll</strong> on Mac) anywhere on the timeline to zoom in/out.</li>
+                <li>Zoom range is 10% to 200%.</li>
+            </ul>
+
+            <h3>Grid &amp; Snap</h3>
+            <p>The grid provides visual timing guides and enables snap-to-grid behavior:</p>
+            <ul>
+                <li><strong>Snap checkbox:</strong> When enabled, clips align to grid lines when dragging or resizing.</li>
+                <li><strong>Grid size dropdown:</strong> Choose from <code>1s</code>, <code>1/2s</code>, <code>1/4s</code>, or <code>1/8s</code> intervals.</li>
+                <li>Keyboard nudging (arrow keys) also respects the grid size when snap is enabled.</li>
+            </ul>
+
+            <h3>Project Duration</h3>
+            <p>The total project length determines the timeline's scrollable width. To change it:</p>
+            <ol>
+                <li>Click on empty space in the timeline (or press <kbd>Esc</kbd>) to deselect all clips.</li>
+                <li>In the Inspector, find the <strong>Duration</strong> field under Project Settings.</li>
+                <li>Enter the desired duration in <code>MM:SS.ss</code> format.</li>
+            </ol>
+
+            <div class="callout">
+                <h4>Status Bar</h4>
+                <p>The bar at the bottom of the screen shows: project name (with <strong>●</strong> if unsaved), Pico connection status, current selection, snap/grid settings, and keyboard hints.</p>
+            </div>
+        </section>
+
         <section id="tracks">
             <h2>Working with Tracks</h2>
             <p>The timeline allows you to layer effects. The system processes tracks from top to bottom, meaning effects on lower tracks effectively "paint over" effects on upper tracks if they target the same props.</p>
-            
+
             <h3>LED Tracks</h3>
-            <p>To add lighting, click <strong>+ LED Track</strong>. Important: Check the <strong>Target Group</strong> dropdown in the track header to ensure you are sending effects to the correct props.</p>
+            <p>To add lighting, click <strong>+ LED Track</strong>. Each LED track has:</p>
+            <ul>
+                <li><strong>Track label:</strong> Double-click to rename (e.g., "Verse 1", "Chorus Accent").</li>
+                <li><strong>Target Group dropdown:</strong> Select which prop group receives this track's effects.</li>
+                <li><strong>Delete button:</strong> Remove the track and all its clips.</li>
+            </ul>
             <p>Drag effects from the Palette onto an LED track lane to create a clip. You can drag clips left/right to change time, and drag their ends to change duration.</p>
-            
+
             <h3>Audio Tracks</h3>
-            <p>Click <strong>+ Audio Track</strong> to add a lane for music. Click the folder icon on the track header to load an MP3 or WAV file. Use this visual waveform to line up your effects with the beat.</p>
+            <p>Click <strong>+ Audio Track</strong> to add a lane for music. Audio tracks have:</p>
+            <ul>
+                <li><strong>Track label:</strong> Double-click to rename.</li>
+                <li><strong>Folder icon:</strong> Click to browse for an audio file (MP3, WAV, or OGG).</li>
+                <li><strong>Drag &amp; drop:</strong> Drag audio files directly from your file explorer onto the track.</li>
+            </ul>
+            <p>Use the visual waveform to align lighting effects with beats and musical cues.</p>
             <p><strong>Track rules:</strong> Audio clips can only live on Audio tracks. Lighting clips can only live on LED tracks.</p>
 
-            <h3>Reordering & Moving</h3>
+            <h3>Reordering &amp; Moving</h3>
             <ul>
                 <li><strong>Reorder tracks:</strong> Drag a track header up/down.</li>
-                <li><strong>Move clips between tracks:</strong> Drag selected clips onto another track of the same type.</li>
+                <li><strong>Move clips between tracks:</strong> Drag selected clips onto another track of the same type (LED to LED, or Audio to Audio).</li>
+            </ul>
+
+            <h3>Clip Operations</h3>
+            <ul>
+                <li><strong>Select:</strong> Click a clip. Hold <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> to add to selection.</li>
+                <li><strong>Move:</strong> Drag selected clips, or use arrow keys to nudge by grid size.</li>
+                <li><strong>Resize:</strong> Drag clip edges, or use <kbd>Shift</kbd>+Arrow keys. Minimum duration is 100ms.</li>
+                <li><strong>Copy/Paste:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>C</kbd> / <kbd>V</kbd>. Pasted clips maintain relative positions.</li>
+                <li><strong>Duplicate:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>D</kbd>. Creates copies immediately after originals.</li>
+                <li><strong>Delete:</strong> <kbd>Delete</kbd> or <kbd>Backspace</kbd>.</li>
             </ul>
 
             <div class="callout">
                 <h4>Productivity Tips</h4>
-                <p><strong>Snap:</strong> Enable the "Snap" checkbox to align clips to the grid (e.g., 1 second).<br>
-                <strong>Multi-Select:</strong> Hold <kbd>Ctrl</kbd> (or <kbd>Cmd</kbd>) and click multiple clips to move/delete/duplicate them together.</p>
+                <p><strong>Snap:</strong> Enable the "Snap" checkbox to align clips to the grid.<br>
+                <strong>Multi-Select:</strong> Hold <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> and click multiple clips to operate on them together.</p>
             </div>
         </section>
 
@@ -803,6 +915,8 @@
                 <li><strong>Delete Selected:</strong> <kbd>Delete</kbd> (or <kbd>Backspace</kbd>)</li>
                 <li><strong>Confirm Input:</strong> <kbd>Enter</kbd> (applies the value in text fields)</li>
                 <li><strong>Clear Selection / Close Modal:</strong> <kbd>Esc</kbd></li>
+                <li><strong>Toggle Theme (Light/Dark):</strong> <kbd>Alt</kbd>+<kbd>T</kbd></li>
+                <li><strong>Zoom Timeline:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Scroll</kbd></li>
             </ul>
 
             <h3>Timeline Clip Navigation</h3>

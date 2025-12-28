@@ -6,7 +6,6 @@
 
 import { app } from './core/Application.js';
 import { CONFIG, getSnappedTime, showConfirm, formatPicoStatus } from './utils.js';
-import { getBackend } from './core/Backend.js';
 
 // Import legacy timeline functions (to be refactored later)
 import {
@@ -42,24 +41,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     errorHandler = app.errorHandler;
 
     const els = app.elements;
-
-    // ==========================================
-    // DEMO BADGE (web demo only)
-    // ==========================================
-
-    try {
-        const backend = getBackend();
-        if (backend?.kind === 'demo') {
-            const titleEl = document.getElementById('app-title');
-            if (titleEl && !document.getElementById('app-demo-badge')) {
-                const badge = document.createElement('span');
-                badge.id = 'app-demo-badge';
-                badge.textContent = 'DEMO';
-                badge.className = 'ml-2 text-xs font-semibold tracking-widest text-cyan-400 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded px-2 py-0.5 align-middle';
-                titleEl.appendChild(badge);
-            }
-        }
-    } catch { }
 
     // ==========================================
     // THEME
@@ -729,6 +710,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const renderPicoStatus = () => {
         if (!statusEls.pico) return;
+        // Hide the Pico status entirely in the online version (no hardware access)
+        if (!projectService?.backend?.capabilities?.picoStatus) {
+            statusEls.pico.style.display = 'none';
+            // Also hide the separator before the Pico status
+            const picoSep = document.getElementById('status-pico-sep');
+            if (picoSep) picoSep.style.display = 'none';
+            return;
+        }
         statusEls.pico.textContent = picoStatusText;
         statusEls.pico.title = picoStatusTitle;
     };
@@ -827,18 +816,29 @@ window.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    // Make the app title a clickable link to picolume.com in the online version
+    const appTitle = document.getElementById('app-title');
+    if (appTitle && projectService?.backend?.kind === 'online') {
+        appTitle.style.cursor = 'pointer';
+        appTitle.title = 'Visit picolume.com';
+        appTitle.addEventListener('click', () => {
+            window.open('https://picolume.com', '_blank', 'noopener,noreferrer');
+        });
+    }
+
     if (els.btnUpload) {
+        // Disable upload button in online version (no hardware access)
+        if (!projectService?.backend?.capabilities?.upload) {
+            els.btnUpload.disabled = true;
+            els.btnUpload.title = 'Upload requires the desktop app';
+            els.btnUpload.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
         els.btnUpload.onclick = async () => {
             if (uploadInProgress) return;
 
             if (!projectService?.backend?.capabilities?.upload) {
-                const result = await projectService.uploadToDevice();
-                if (result.success) {
-                    errorHandler.success(result.message);
-                } else {
-                    errorHandler.handle(result.message);
-                }
-                return;
+                return; // Button is disabled, but guard anyway
             }
 
             setUploadUiBusy(true);

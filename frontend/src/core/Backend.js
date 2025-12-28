@@ -1,7 +1,7 @@
 /**
  * Backend adapter for PicoLume Studio.
  *
- * Studio runs under Wails (window.go.main.App.*). The website demo runs in a
+ * Studio runs under Wails (window.go.main.App.*). The online version runs in a
  * plain browser and must not hard-depend on Wails being present.
  */
 
@@ -53,7 +53,7 @@ function createWailsBackend(app) {
     };
 }
 
-function createDemoBackend() {
+function createOnlineBackend() {
     const saveHandleByName = new Map();
 
     async function pickSaveHandle(suggestedName = 'myshow.lum') {
@@ -115,7 +115,7 @@ function createDemoBackend() {
     }
 
     return {
-        kind: 'demo',
+        kind: 'online',
         capabilities: {
             fileIO: true,
             exportBinary: true,
@@ -239,7 +239,7 @@ function createDemoBackend() {
             }
         },
         async uploadToPico() {
-            return 'Not available in web demo';
+            return 'Not available in online version';
         }
     };
 }
@@ -248,5 +248,5 @@ export function getBackend() {
     if (hasWailsBackend()) {
         return createWailsBackend(window.go.main.App);
     }
-    return createDemoBackend();
+    return createOnlineBackend();
 }
