@@ -22,6 +22,8 @@ import {
     getPreviewRenderer
 } from './timeline.js';
 
+import { initBinaryInspector } from './ui/BinaryInspector.js';
+
 // Global references for legacy code compatibility
 let stateManager, audioService, projectService, timelineController, undoController, errorHandler;
 
@@ -351,6 +353,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (e.target === aboutModal) setAboutOpen(false);
     });
 
+    // Initialize binary inspector modal
+    const binaryInspector = initBinaryInspector();
+
     loadUILayout();
     applyLayout();
 
@@ -607,6 +612,9 @@ window.addEventListener('DOMContentLoaded', async () => {
                 break;
             case 'about':
                 setAboutOpen(true);
+                break;
+            case 'inspect':
+                binaryInspector?.open();
                 break;
             case 'manual':
                 e.preventDefault();

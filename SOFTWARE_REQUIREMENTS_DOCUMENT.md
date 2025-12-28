@@ -645,6 +645,33 @@ classDiagram
 - **Flow**: Inverse of undo
 - **Postconditions**: State restored
 
+### 5.7 Binary Inspector
+
+#### FR-BI-001: Inspect Binary File
+- **Description**: User can inspect and validate exported show.bin files
+- **Trigger**: Click "Inspect Binary" in hamburger menu
+- **Preconditions**: None
+- **Flow**:
+  1. Open Binary Inspector modal
+  2. User drops or selects a .bin file
+  3. Parse V3 binary format (header, PropConfig LUT, events)
+  4. Display file statistics (event count, duration, configured props, file size)
+  5. Display header information (magic, version, event count)
+  6. Display PropConfig for selected prop (LED count, type, color order, brightness)
+  7. Display events table (start, duration, effect, colors, speed, width, prop count)
+  8. Run validation checks and display warnings
+  9. Allow filtering events by prop
+  10. Allow export to JSON or CSV
+- **Postconditions**: User can verify binary file contents and identify issues
+
+**Inspector Features:**
+- Drag-and-drop file loading
+- Prop selector for PropConfig and event filtering
+- Validation warnings for: version mismatch, overlapping events, zero-duration events, events targeting no props, unconfigured props being targeted
+- JSON export (structured format with all parsed data)
+- CSV export (events table for spreadsheet analysis)
+- Modal resets when closed (clears loaded file and state)
+
 ---
 
 ## 6. User Interface Requirements
@@ -751,6 +778,7 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 | Save | `fa-save` | Ctrl+S | Save current project |
 | Save As... | `fa-file-export` | Ctrl+Shift+S | Save to new location |
 | Export Binary | `fa-download` | - | Export .bin file |
+| Inspect Binary | `fa-microscope` | - | Open Binary Inspector modal |
 | Upload to Device | `fa-microchip` | - | Upload to Pico |
 | Themes (submenu) | `fa-palette` | - | Select application theme |
 | Project Settings | `fa-cog` | - | Open settings in inspector |
@@ -1497,6 +1525,7 @@ picolume/studio/
 | 0.2.3 | Dec 2025 | Upload reload via serial reset + manual safe-eject fallback; status bar Pico connection indicator; improved Pico-family serial VID detection |
 | 0.2.3 | Dec 2025 | Added drag-and-drop reordering for color palette cards in Inspector (matches hardware profiles and prop groups behavior) |
 | 0.2.3 | Dec 2025 | Fixed drop indicator line being clipped during drag operations (uses inset box-shadow to avoid parent overflow clipping) |
+| 0.2.3 | Dec 2025 | Added Binary Inspector tool for inspecting/validating show.bin files (FR-BI-001); accessible via hamburger menu |
 
 ---
 

@@ -568,6 +568,7 @@
             <div class="nav-section">
                 <div class="nav-section-title">Output</div>
                 <a href="#export" class="nav-link">Upload &amp; Export</a>
+                <a href="#inspector" class="nav-link">Binary Inspector</a>
             </div>
         </div>
         <div class="nav-footer">
@@ -1110,6 +1111,57 @@
 
             <h3>Option B: Manual Export</h3>
             <p>If automatic upload fails, click <strong>Export</strong> to download the <code>show.bin</code> file. You can then manually drag and drop this file onto the Pico's USB drive.</p>
+        </section>
+
+        <section id="inspector">
+            <h2>Binary Inspector</h2>
+            <p>The Binary Inspector is a diagnostic tool for examining and validating <code>show.bin</code> files. It parses the binary format and displays all the data in a human-readable form, helping you verify that exports are correct before deploying to hardware.</p>
+
+            <h3>Opening the Inspector</h3>
+            <ol>
+                <li>Open the hamburger menu (top right).</li>
+                <li>Click <strong>Inspect Binary</strong>.</li>
+                <li>A modal window opens with a drop zone.</li>
+            </ol>
+
+            <h3>Loading a File</h3>
+            <ul>
+                <li><strong>Drag &amp; drop:</strong> Drag a <code>.bin</code> file directly onto the drop zone.</li>
+                <li><strong>Click to browse:</strong> Click the drop zone to open a file picker.</li>
+            </ul>
+            <p>Once loaded, the inspector parses the file and displays all available information.</p>
+
+            <h3>What You'll See</h3>
+            <ul>
+                <li><strong>Statistics:</strong> Event count, total duration, configured props, and file size.</li>
+                <li><strong>Header:</strong> Magic bytes (should be "PICO"), version number, and event count from the header.</li>
+                <li><strong>PropConfig:</strong> Select a prop from the dropdown to view its LED count, LED type, color order, and brightness cap.</li>
+                <li><strong>Events Table:</strong> All events with index, start time, duration, effect name, colors, speed, width, and prop count.</li>
+            </ul>
+
+            <h3>Validation Warnings</h3>
+            <p>The inspector automatically runs validation checks and displays warnings for common issues:</p>
+            <ul>
+                <li><strong>Version mismatch:</strong> File uses an older format version.</li>
+                <li><strong>Overlapping events:</strong> Two events that run at the same time.</li>
+                <li><strong>Zero-duration events:</strong> Events with no duration won't display.</li>
+                <li><strong>No props targeted:</strong> Events that don't affect any props.</li>
+                <li><strong>Unconfigured props:</strong> Events targeting props with 0 LEDs configured.</li>
+            </ul>
+
+            <h3>Filtering Events</h3>
+            <p>Use the <strong>"Filter by selected prop"</strong> checkbox to show only events that target the currently selected prop. This helps debug issues with specific hardware.</p>
+
+            <h3>Exporting Data</h3>
+            <ul>
+                <li><strong>Export JSON:</strong> Downloads a structured JSON file with all parsed data (header, propConfigs, events).</li>
+                <li><strong>Export CSV:</strong> Downloads a CSV file of the events table for spreadsheet analysis.</li>
+            </ul>
+
+            <div class="callout">
+                <h4>When to Use</h4>
+                <p>Use the Binary Inspector when props aren't behaving as expected after upload. Check that: (1) the correct props are targeted by events, (2) PropConfigs match your hardware, and (3) there are no validation warnings.</p>
+            </div>
         </section>
 
         <footer>

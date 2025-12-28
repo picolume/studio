@@ -115,6 +115,9 @@
                     <button class="hamburger-item" role="menuitem" data-action="upload">
                         <i class="fas fa-microchip"></i><span>Upload to Device</span>
                     </button>
+                    <button class="hamburger-item" role="menuitem" data-action="inspect">
+                        <i class="fas fa-search"></i><span>Inspect Binary</span>
+                    </button>
                     <div class="hamburger-divider" role="separator"></div>
 
                     <div class="hamburger-submenu" role="none">
@@ -361,6 +364,128 @@
 
                 <p class="about-note">This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3.</p>
                 <p class="about-note">Full license text is available in <span class="about-mono">studio/LICENSE.txt</span>.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="inspector-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="inspector-title" aria-hidden="true">
+        <div class="modal-panel modal-panel--wide">
+            <div class="modal-header">
+                <div class="modal-title" id="inspector-title">Binary Inspector</div>
+                <button id="btn-inspector-close" class="btn btn--icon" title="Close (Esc)" aria-label="Close inspector">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="inspector-body">
+                <!-- File Input -->
+                <div class="inspector-input" id="inspector-drop-zone">
+                    <div class="inspector-input-content">
+                        <i class="fas fa-file-import inspector-input-icon"></i>
+                        <div class="inspector-input-text">
+                            <strong>Drop show.bin file here</strong>
+                            <span>or click to browse</span>
+                        </div>
+                        <input type="file" id="inspector-file" accept=".bin,application/octet-stream" class="inspector-file-input" />
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="inspector-status" id="inspector-status">
+                    <span class="inspector-status-dot"></span>
+                    <span id="inspector-status-text">Select or drop a file...</span>
+                </div>
+
+                <!-- Error Display -->
+                <div id="inspector-error" class="inspector-error" style="display: none;"></div>
+
+                <!-- Stats Grid -->
+                <div class="inspector-stats" id="inspector-stats" style="display: none;">
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-events">0</div>
+                        <div class="inspector-stat-label">Events</div>
+                    </div>
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-duration">0:00</div>
+                        <div class="inspector-stat-label">Duration</div>
+                    </div>
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-props">0</div>
+                        <div class="inspector-stat-label">Props</div>
+                    </div>
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-size">0 KB</div>
+                        <div class="inspector-stat-label">Size</div>
+                    </div>
+                </div>
+
+                <!-- Header & PropConfig -->
+                <div class="inspector-grid" id="inspector-details" style="display: none;">
+                    <div class="inspector-panel">
+                        <div class="inspector-panel-header">
+                            <i class="fas fa-file-code"></i> Header
+                        </div>
+                        <div class="inspector-panel-content" id="inspector-header"></div>
+                    </div>
+                    <div class="inspector-panel">
+                        <div class="inspector-panel-header">
+                            <i class="fas fa-microchip"></i> PropConfig
+                            <select id="inspector-prop-select" class="inspector-prop-select">
+                                <option value="1">Prop 1</option>
+                            </select>
+                        </div>
+                        <div class="inspector-panel-content" id="inspector-propconfig"></div>
+                    </div>
+                </div>
+
+                <!-- Validation Warnings -->
+                <div class="inspector-panel" id="inspector-validation" style="display: none;">
+                    <div class="inspector-panel-header">
+                        <i class="fas fa-triangle-exclamation"></i> Validation
+                        <span class="inspector-badge" id="inspector-validation-count">0</span>
+                    </div>
+                    <div class="inspector-panel-content">
+                        <ul class="inspector-warnings" id="inspector-warnings"></ul>
+                    </div>
+                </div>
+
+                <!-- Events Table -->
+                <div class="inspector-panel" id="inspector-events-panel" style="display: none;">
+                    <div class="inspector-panel-header">
+                        <i class="fas fa-list"></i> Events
+                        <div class="inspector-toolbar">
+                            <label class="inspector-checkbox">
+                                <input type="checkbox" id="inspector-filter-prop" checked />
+                                Only selected prop
+                            </label>
+                            <button class="btn btn--small" id="btn-inspector-export-json" title="Export as JSON">
+                                <i class="fas fa-file-code"></i> JSON
+                            </button>
+                            <button class="btn btn--small" id="btn-inspector-export-csv" title="Export as CSV">
+                                <i class="fas fa-file-csv"></i> CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="inspector-table-container">
+                        <table class="inspector-table" id="inspector-events-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Start</th>
+                                    <th>Duration</th>
+                                    <th>Effect</th>
+                                    <th>Color 1</th>
+                                    <th>Color 2</th>
+                                    <th>Speed</th>
+                                    <th>Width</th>
+                                    <th>Props</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inspector-events-tbody">
+                                <tr><td colspan="9" class="inspector-empty">No events</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
