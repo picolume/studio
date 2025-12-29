@@ -9,6 +9,9 @@ import { AudioService } from '../services/AudioService.js';
 import { ProjectService } from '../services/ProjectService.js';
 import { UndoController } from '../controllers/UndoController.js';
 import { TimelineController } from '../controllers/TimelineController.js';
+import { ThemeManager } from '../controllers/ThemeManager.js';
+import { KeyboardController } from '../controllers/KeyboardController.js';
+import { MenuController } from '../controllers/MenuController.js';
 import { ErrorHandler } from './ErrorHandler.js';
 
 export class Application {
@@ -24,6 +27,9 @@ export class Application {
         // Controllers
         this.undoController = null;
         this.timelineController = null;
+        this.themeManager = null;
+        this.keyboardController = null;
+        this.menuController = null;
 
         // UI Elements
         this.elements = {};
@@ -53,6 +59,9 @@ export class Application {
             // 4. Initialize controllers
             this.undoController = new UndoController(this.stateManager, this.errorHandler);
             this.timelineController = new TimelineController(this.stateManager, this.errorHandler);
+            this.themeManager = new ThemeManager();
+            this.keyboardController = new KeyboardController(this.stateManager, this.errorHandler);
+            this.menuController = new MenuController();
 
             // 5. Cache DOM elements
             this._cacheElements();
@@ -256,6 +265,9 @@ export class Application {
         switch (name) {
             case 'undo': return this.undoController;
             case 'timeline': return this.timelineController;
+            case 'theme': return this.themeManager;
+            case 'keyboard': return this.keyboardController;
+            case 'menu': return this.menuController;
             default: return null;
         }
     }

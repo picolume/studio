@@ -43,102 +43,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     errorHandler = app.errorHandler;
 
     const els = app.elements;
-
-    // ==========================================
-    // THEME
-    // ==========================================
-
-    const UI_THEME_KEY = 'picolume:theme';
-    const UI_LAST_DARK_THEME_KEY = 'picolume:last-dark-theme';
-    const UI_LAST_LIGHT_THEME_KEY = 'picolume:last-light-theme';
-    const DEFAULT_THEME = 'standard';
-    const LIGHT_THEMES = new Set(['daylight', 'lilac', 'rose', 'latte']);
-    const THEMES = new Set(['standard', 'daylight', 'lilac', 'rose', 'latte', 'aurora', 'nord', 'solarized', 'gruvbox', 'hc-dark', 'crimson', 'graphite', 'forest']);
-
-    const btnThemeToggle = document.getElementById('btn-theme-toggle');
-
-    const getCurrentTheme = () => document.documentElement.dataset.theme || DEFAULT_THEME;
-
-    const loadLastDarkTheme = () => {
-        try {
-            const raw = localStorage.getItem(UI_LAST_DARK_THEME_KEY);
-            if (raw && THEMES.has(raw) && !LIGHT_THEMES.has(raw)) return raw;
-        } catch { }
-        return DEFAULT_THEME;
-    };
-
-    const loadLastLightTheme = () => {
-        try {
-            const raw = localStorage.getItem(UI_LAST_LIGHT_THEME_KEY);
-            if (raw && LIGHT_THEMES.has(raw)) return raw;
-        } catch { }
-        return 'daylight';
-    };
-
-    const syncThemeToggleUI = (theme) => {
-        if (!btnThemeToggle) return;
-        const isLight = LIGHT_THEMES.has(theme);
-        btnThemeToggle.setAttribute('aria-pressed', String(isLight));
-        btnThemeToggle.title = isLight ? 'Switch to dark theme (Alt+T)' : 'Switch to light theme (Alt+T)';
-
-        const icon = btnThemeToggle.querySelector('i');
-        if (icon) {
-            icon.className = isLight ? 'fas fa-moon' : 'fas fa-circle-half-stroke';
-            icon.setAttribute('aria-hidden', 'true');
-        }
-    };
-
-    const setTheme = (theme) => {
-        const resolved = THEMES.has(theme) ? theme : DEFAULT_THEME;
-        document.documentElement.dataset.theme = resolved;
-
-        try {
-            localStorage.setItem(UI_THEME_KEY, resolved);
-        } catch { }
-
-        if (LIGHT_THEMES.has(resolved)) {
-            try { localStorage.setItem(UI_LAST_LIGHT_THEME_KEY, resolved); } catch { }
-        } else {
-            try { localStorage.setItem(UI_LAST_DARK_THEME_KEY, resolved); } catch { }
-        }
-
-        document.querySelectorAll('.hamburger-theme-item[data-action="theme"]').forEach(btn => {
-            const isActive = btn.dataset.theme === resolved;
-            btn.setAttribute('aria-checked', String(isActive));
-            btn.classList.toggle('is-active', isActive);
-        });
-
-        syncThemeToggleUI(resolved);
-
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
-        try { renderPreview(); } catch { }
-    };
-
-    const loadTheme = () => {
-        try {
-            const raw = localStorage.getItem(UI_THEME_KEY);
-            if (raw) return raw;
-        } catch { }
-        return DEFAULT_THEME;
-    };
-
-    setTheme(loadTheme());
-
-    const toggleLightDark = () => {
-        const current = getCurrentTheme();
-        if (LIGHT_THEMES.has(current)) {
-            setTheme(loadLastDarkTheme());
-            return;
-        }
-        try { localStorage.setItem(UI_LAST_DARK_THEME_KEY, current); } catch { }
-        setTheme(loadLastLightTheme());
-    };
-
-    btnThemeToggle?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleLightDark();
-    });
+    const themeManager = app.themeManager;
+    const keyboardController = app.keyboardController;
+    const menuController = app.menuController;
 
     // ==========================================
     // LAYOUT TOGGLES (Palette / Preview / Inspector)
@@ -255,12 +162,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         previewOpen: true,
         inspectorOpen: true,
         previewHeight: null, // null = use default, otherwise custom height in px
-    };
-
-    const isTypingTarget = (el) => {
-        if (!el) return false;
-        const tag = (el.tagName || '').toLowerCase();
-        return tag === 'input' || tag === 'textarea' || el.isContentEditable;
     };
 
     const loadUILayout = () => {
@@ -539,90 +440,32 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ==========================================
-    // HAMBURGER MENU
+    // INITIALIZE CONTROLLERS
     // ==========================================
 
-    const btnHamburger = document.getElementById('btn-hamburger');
-    const hamburgerDropdown = document.getElementById('hamburger-dropdown');
-
-    const setHamburgerOpen = (open) => {
-        if (!btnHamburger || !hamburgerDropdown) return;
-        btnHamburger.setAttribute('aria-expanded', String(open));
-        hamburgerDropdown.setAttribute('aria-hidden', String(!open));
-    };
-
-    const toggleHamburger = () => {
-        const isOpen = btnHamburger?.getAttribute('aria-expanded') === 'true';
-        setHamburgerOpen(!isOpen);
-    };
-
-    btnHamburger?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleHamburger();
-    });
-
-    // Close hamburger menu when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('#hamburger-menu')) {
-            setHamburgerOpen(false);
+    // Initialize ThemeManager
+    themeManager.init({
+        toggleButton: document.getElementById('btn-theme-toggle'),
+        onThemeChange: () => {
+            window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+            try { renderPreview(); } catch { }
         }
     });
 
-    // Close hamburger menu on Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && btnHamburger?.getAttribute('aria-expanded') === 'true') {
-            setHamburgerOpen(false);
-        }
-    });
-
-    // Handle hamburger menu item clicks
-    hamburgerDropdown?.addEventListener('click', (e) => {
-        const item = e.target.closest('.hamburger-item');
-        if (!item) return;
-
-        const action = item.dataset.action;
-
-        if (item.dataset.keepOpen === 'true') {
-            return;
-        }
-
-        setHamburgerOpen(false);
-
-        switch (action) {
-            case 'new':
-                els.btnNew?.click();
-                break;
-            case 'open':
-                els.btnOpen?.click();
-                break;
-            case 'save':
-                els.btnSave?.click();
-                break;
-            case 'save-as':
-                els.btnSaveAs?.click();
-                break;
-            case 'export':
-                els.btnExportBin?.click();
-                break;
-            case 'upload':
-                els.btnUpload?.click();
-                break;
-            case 'settings':
-                els.btnSettings?.click();
-                break;
-            case 'about':
-                setAboutOpen(true);
-                break;
-            case 'inspect':
-                binaryInspector?.open();
-                break;
-            case 'manual':
-                e.preventDefault();
-                setManualOpen(true);
-                break;
-            case 'theme':
-                setTheme(item.dataset.theme);
-                break;
+    // Initialize MenuController with action handlers
+    menuController.init({
+        actionHandlers: {
+            'new': () => els.btnNew?.click(),
+            'open': () => els.btnOpen?.click(),
+            'save': () => els.btnSave?.click(),
+            'save-as': () => els.btnSaveAs?.click(),
+            'export': () => els.btnExportBin?.click(),
+            'upload': () => els.btnUpload?.click(),
+            'settings': () => els.btnSettings?.click(),
+            'about': () => setAboutOpen(true),
+            'inspect': () => binaryInspector?.open(),
+            'manual': () => setManualOpen(true),
+            'theme': (themeName) => themeManager.setTheme(themeName)
         }
     });
 
@@ -895,104 +738,27 @@ window.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    // Keyboard shortcuts
-    window.addEventListener('keydown', (e) => {
-        // Esc: Close about
-        if (e.key === 'Escape' && aboutModal?.getAttribute('aria-hidden') === 'false') {
-            e.preventDefault();
-            setAboutOpen(false);
-            return;
-        }
-        // Esc: Close manual
-        if (e.key === 'Escape' && manualModal?.getAttribute('aria-hidden') === 'false') {
-            e.preventDefault();
-            setManualOpen(false);
-            return;
-        }
-        // Alt+1/2/3: Toggle panes
-        if (!isTypingTarget(document.activeElement) && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            if (e.key === '1') { e.preventDefault(); togglePane('palette'); return; }
-            if (e.key === '2') { e.preventDefault(); togglePane('preview'); return; }
-            if (e.key === '3') { e.preventDefault(); togglePane('inspector'); return; }
-            if (e.key.toLowerCase() === 't') { e.preventDefault(); toggleLightDark(); return; }
-        }
-        // Ctrl+Z / Cmd+Z: Undo
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-            e.preventDefault();
-            undoController.undo();
-            buildTimeline();
-            updateSelectionUI();
-        }
-        // Ctrl+Shift+Z / Cmd+Shift+Z: Redo
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
-            e.preventDefault();
-            undoController.redo();
-            buildTimeline();
-            updateSelectionUI();
-        }
-        // Ctrl+S / Cmd+S: Save
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && !e.shiftKey) {
-            e.preventDefault();
-            els.btnSave?.click();
-            return;
-        }
-        // Ctrl+Shift+S / Cmd+Shift+S: Save As
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && e.shiftKey) {
-            e.preventDefault();
-            els.btnSaveAs?.click();
-            return;
-        }
-        // Ctrl+N / Cmd+N: New Project
-        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-            e.preventDefault();
-            els.btnNew?.click();
-            return;
-        }
-        // Ctrl+O / Cmd+O: Open Project
-        if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-            e.preventDefault();
-            els.btnOpen?.click();
-            return;
-        }
-        // Delete: Delete selected
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (!isTypingTarget(document.activeElement)) {
-                e.preventDefault();
-                timelineController.deleteSelected();
-                buildTimeline();
-                updateSelectionUI();
+    // Initialize KeyboardController
+    keyboardController.init({
+        undoController,
+        timelineController,
+        themeManager,
+        elements: els,
+        modalChecks: [
+            {
+                isOpen: () => aboutModal?.getAttribute('aria-hidden') === 'false',
+                close: () => setAboutOpen(false)
+            },
+            {
+                isOpen: () => manualModal?.getAttribute('aria-hidden') === 'false',
+                close: () => setManualOpen(false)
             }
-        }
-        // Ctrl+C: Copy
-        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-            if (!isTypingTarget(document.activeElement)) {
-                e.preventDefault();
-                timelineController.copySelected();
-                updateClipboardUI();
-            }
-        }
-        // Ctrl+V: Paste
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-            if (!isTypingTarget(document.activeElement)) {
-                e.preventDefault();
-                timelineController.paste();
-                buildTimeline();
-            }
-        }
-        // Ctrl+D: Duplicate
-        if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-            if (!isTypingTarget(document.activeElement)) {
-                e.preventDefault();
-                timelineController.duplicateSelected();
-                buildTimeline();
-            }
-        }
-        // Space: Play/Pause
-        if (e.key === ' ') {
-            if (!isTypingTarget(document.activeElement)) {
-                e.preventDefault();
-                els.btnPlay?.click();
-            }
+        ],
+        callbacks: {
+            togglePane,
+            onBuildTimeline: () => buildTimeline(),
+            onUpdateSelectionUI: () => updateSelectionUI(),
+            onUpdateClipboardUI: () => updateClipboardUI()
         }
     });
 
