@@ -91,7 +91,7 @@ function createOnlineBackend() {
                 });
                 if (!handle) return null;
                 const file = await handle.getFile();
-                return file || null;
+                return file ? { file, handle } : null;
             } catch {
                 return null;
             }
@@ -107,7 +107,7 @@ function createOnlineBackend() {
             input.onchange = () => {
                 const file = input.files && input.files[0] ? input.files[0] : null;
                 input.remove();
-                resolve(file);
+                resolve(file ? { file, handle: null } : null);
             };
             document.body.appendChild(input);
             input.click();
@@ -138,9 +138,11 @@ function createOnlineBackend() {
             const targetPath = arguments[0];
             const projectJson = arguments[1];
             const audioFiles = arguments[2];
+            const options = arguments[3] || {};
+            const allowPrompt = options?.allowPrompt !== false;
 
             let handle = targetPath ? saveHandleByName.get(targetPath) : null;
-            if (!handle && typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
+            if (!handle && allowPrompt && typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
                 handle = await pickSaveHandle(targetPath || 'myshow.lum');
                 if (handle) saveHandleByName.set(handle.name, handle);
             }
@@ -159,6 +161,10 @@ function createOnlineBackend() {
                 }
             }
 
+            if (!allowPrompt) {
+                return 'Auto-save skipped: no file handle available';
+            }
+
             // Fallback: download via anchor.
             try {
                 const url = URL.createObjectURL(blob);
@@ -175,8 +181,14 @@ function createOnlineBackend() {
             }
         },
         async loadProject() {
-            const file = await pickOpenFile();
-            if (!file) return { error: 'Cancelled' };
+            const picked = await pickOpenFile();
+            if (!picked) return { error: 'Cancelled' };
+
+            const file = picked.file;
+            const handle = picked.handle;
+            if (handle?.name) {
+                saveHandleByName.set(handle.name, handle);
+            }
 
             try {
                 const { parseLumBytes } = await import('./LumFile.js');

@@ -25,18 +25,24 @@ export class ProjectService {
      * @param {string} path - File path (optional, will prompt if not provided)
      * @param {boolean} forceSaveAs - Force "Save As" dialog
      * @param {boolean} silent - Suppress success notification
+     * @param {{allowPrompt?: boolean}} options - Optional save behavior overrides
      * @returns {Promise<{success: boolean, message: string, path?: string}>}
      */
-    async save(path = null, forceSaveAs = false, silent = false) {
+    async save(path = null, forceSaveAs = false, silent = false, options = {}) {
         try {
             if (!this.backend?.capabilities?.fileIO) {
                 return { success: false, message: 'Save is not available in the online version' };
             }
 
+            const allowPrompt = options?.allowPrompt !== false;
+
             let targetPath = path || this.stateManager.get('filePath');
 
             // Request path if needed
             if (forceSaveAs || !targetPath) {
+                if (!allowPrompt) {
+                    return { success: false, message: 'Auto-save skipped: no save path yet' };
+                }
                 targetPath = await this.backend.requestSavePath();
                 if (!targetPath) {
                     return { success: false, message: 'Save cancelled' };
@@ -50,7 +56,8 @@ export class ProjectService {
             const result = await this.backend.saveProjectToPath(
                 targetPath,
                 JSON.stringify(projectData.project),
-                projectData.audio
+                projectData.audio,
+                { allowPrompt }
             );
 
             if (result === "Saved") {

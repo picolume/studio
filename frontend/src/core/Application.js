@@ -27,6 +27,11 @@ export class Application {
 
         // UI Elements
         this.elements = {};
+
+        // Auto-save
+        this._autoSaveTimer = null;
+        this._autoSaveInFlight = false;
+        this._autoSaveLastErrorAt = 0;
     }
 
     /**
@@ -67,6 +72,9 @@ export class Application {
 
             // 9. Set up global event listeners
             this._setupEventListeners();
+
+            // 9.5 Set up auto-save
+            this._setupAutoSave();
 
             // 10. Initial render
             this._updateTitle();
@@ -152,6 +160,68 @@ export class Application {
         window.addEventListener('app:state-changed', () => {
             // Notify timeline to rebuild
             window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        });
+    }
+
+    _setupAutoSave() {
+        const AUTO_SAVE_DEBOUNCE_MS = 2000;
+        const AUTO_SAVE_ERROR_COOLDOWN_MS = 15000;
+
+        const clearTimer = () => {
+            if (this._autoSaveTimer) {
+                clearTimeout(this._autoSaveTimer);
+                this._autoSaveTimer = null;
+            }
+        };
+
+        const canAutoSaveNow = () => {
+            if (!this.projectService?.backend?.capabilities?.fileIO) return false;
+            if (this.stateManager.get('autoSaveEnabled') !== true) return false;
+            if (this.stateManager.get('isDirty') !== true) return false;
+            const filePath = this.stateManager.get('filePath');
+            return Boolean(filePath);
+        };
+
+        const runAutoSave = async () => {
+            this._autoSaveTimer = null;
+            if (!canAutoSaveNow()) return;
+            if (this._autoSaveInFlight) return;
+
+            this._autoSaveInFlight = true;
+            try {
+                const filePath = this.stateManager.get('filePath');
+                const result = await this.projectService.save(filePath, false, true, { allowPrompt: false });
+                if (!result?.success) {
+                    const now = Date.now();
+                    if (now - this._autoSaveLastErrorAt > AUTO_SAVE_ERROR_COOLDOWN_MS) {
+                        this._autoSaveLastErrorAt = now;
+                        this.errorHandler?.showToast?.(result?.message || 'Auto-save failed');
+                    }
+                }
+            } finally {
+                this._autoSaveInFlight = false;
+                if (this.stateManager.get('autoSaveEnabled') === true && this.stateManager.get('isDirty') === true) {
+                    scheduleAutoSave();
+                }
+            }
+        };
+
+        const scheduleAutoSave = () => {
+            if (!canAutoSaveNow()) {
+                clearTimer();
+                return;
+            }
+            clearTimer();
+            this._autoSaveTimer = setTimeout(runAutoSave, AUTO_SAVE_DEBOUNCE_MS);
+        };
+
+        this.stateManager.subscribe((nextState) => {
+            if (!nextState) return;
+            if (nextState.autoSaveEnabled !== true || nextState.isDirty !== true) {
+                clearTimer();
+                return;
+            }
+            scheduleAutoSave();
         });
     }
 

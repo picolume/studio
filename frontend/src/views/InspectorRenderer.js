@@ -196,6 +196,27 @@ export class InspectorRenderer {
         }
     }
 
+    _addInput(parent, label, value, onChange) {
+        const row = document.createElement('div');
+        row.className = "mb-3";
+
+        const lbl = document.createElement('label');
+        lbl.className = "block text-xs text-[var(--ui-text-subtle)] mb-1";
+        lbl.innerText = label;
+        row.appendChild(lbl);
+
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.value = value;
+        inp.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1 outline-none";
+        inp.onchange = onChange;
+        inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
+        row.appendChild(inp);
+
+        parent.appendChild(row);
+        return inp;
+    }
+
     _renderMultiSelection(container, selection) {
         container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-2 border-b border-[var(--ui-border)] pb-2">MULTIPLE CLIPS</div>`;
         container.insertAdjacentHTML('beforeend', `<div class="text-xs text-[var(--ui-text-subtle)] italic mb-4">${selection.length} clips selected</div>`);

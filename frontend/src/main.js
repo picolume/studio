@@ -1000,6 +1000,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('app:timeline-changed', updateStatusBar);
     window.addEventListener('app:selection-changed', updateStatusBar);
     window.addEventListener('app:grid-changed', updateStatusBar);
+
     updateStatusBar();
     renderPicoStatus();
     startPicoStatusPolling();
