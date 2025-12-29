@@ -186,6 +186,9 @@ flowchart TB
 | **ProjectService** | `services/ProjectService.js` | Project save/load/new operations via backend |
 | **TimelineController** | `controllers/TimelineController.js` | Track/clip CRUD, selection, clipboard operations |
 | **UndoController** | `controllers/UndoController.js` | Undo/redo stack management and UI updates |
+| **ThemeManager** | `controllers/ThemeManager.js` | Theme selection/persistence and light/dark toggle behavior |
+| **KeyboardController** | `controllers/KeyboardController.js` | Keyboard shortcut bindings and global key handling |
+| **MenuController** | `controllers/MenuController.js` | Hamburger menu and submenu behavior (including viewport constraints) |
 | **TimelineRenderer** | `views/TimelineRenderer.js` | Renders tracks, clips, ruler, playhead |
 | **PreviewRenderer** | `views/PreviewRenderer.js` | Canvas-based LED effect simulation |
 | **InspectorRenderer** | `views/InspectorRenderer.js` | Property panel for clips and project settings |
@@ -752,6 +755,10 @@ flowchart TB
   - Auto-save toggle
   - Hardware profiles (per-prop configuration: LED type/order/brightness cap + assigned prop IDs)
   - Prop groups
+  - Color palettes (built-in + custom)
+    - Add/Edit palette opens a modal editor
+    - Palette list supports drag-and-drop reordering
+    - Palette editor supports adding/removing/editing colors
 
 - **Single Clip**: Clip properties
   - Start time, duration
@@ -790,6 +797,7 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 - Closes when pressing Escape key
 - Closes after selecting a menu item
 - Themes opens a submenu on hover/focus and applies immediately
+- Submenus are viewport-constrained (auto-position and scroll if they would extend off-screen)
 - Animated slide-down transition (150ms)
 - Menu items highlight on hover with accent color on icons
 
@@ -799,6 +807,12 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 - Rounded corners (8px)
 - Drop shadow for depth
 - Keyboard shortcuts displayed in subtle badge style
+
+#### 6.2.9 Modal Dialogs
+- Modals are centered with a full-screen overlay
+- Escape key closes the active modal
+- Clicking the overlay (outside the modal panel) closes the modal
+- Modal panels must constrain to the viewport height and allow internal scrolling for long content (e.g., Binary Inspector tables, Color Palette editor color lists)
 
 ### 6.3 Keyboard Shortcuts
 
@@ -1469,41 +1483,45 @@ const MASK_ARRAY_SIZE = 7  // 224 / 32 = 7 uint32s
 
 ```
 picolume/studio/
-├── main.go                 # Wails entry point
-├── app.go                  # Backend methods
-├── go.mod                  # Go dependencies
-├── go.sum                  # Dependency checksums
-├── wails.json              # Wails configuration
-├── frontend/
-│   ├── index.html          # Main HTML
-│   ├── manual.html         # User manual
-│   ├── package.json        # npm dependencies
-│   ├── tailwind.config.js  # Tailwind configuration
-│   └── src/
-│       ├── main.js                    # Application entry
-│       ├── timeline.js                # Timeline coordination
-│       ├── utils.js                   # Utility functions
-│       ├── input.css                  # Tailwind input
-│       ├── style.css                  # Compiled CSS
-│       ├── core/
-│       │   ├── Application.js         # App bootstrap
-│       │   ├── StateManager.js        # State management
-│       │   ├── ErrorHandler.js        # Error handling
-│       │   └── validators.js          # Validation
-│       ├── services/
-│       │   ├── AudioService.js        # Audio management
-│       │   └── ProjectService.js      # Project I/O
-│       ├── controllers/
-│       │   ├── TimelineController.js  # Timeline ops
-│       │   └── UndoController.js      # Undo/redo
-│       ├── views/
-│       │   ├── TimelineRenderer.js    # Timeline UI
-│       │   ├── PreviewRenderer.js     # LED preview
-│       │   └── InspectorRenderer.js   # Properties
-│       ├── wailsjs/                   # Auto-generated bindings
-│       ├── assets/                    # Static assets
-│       └── __tests__/                 # Test files
-└── build/                             # Build output
+  main.go                      # Wails entry point
+  app.go                       # Backend methods
+  go.mod                       # Go dependencies
+  go.sum                       # Dependency checksums
+  wails.json                   # Wails configuration
+  frontend/
+    index.html                 # Main HTML
+    manual.html                # User manual
+    package.json               # npm dependencies
+    tailwind.config.js         # Tailwind configuration
+    src/
+      main.js                  # Application entry
+      timeline.js              # Timeline coordination
+      utils.js                 # Utility functions
+      input.css                # Tailwind input
+      style.css                # Compiled CSS
+      core/
+        Application.js         # App bootstrap
+        Backend.js             # Backend adapter (Wails vs demo)
+        StateManager.js        # State management
+        ErrorHandler.js        # Error handling
+        validators.js          # Validation
+      services/
+        AudioService.js        # Audio management
+        ProjectService.js      # Project I/O
+      controllers/
+        TimelineController.js  # Timeline ops
+        UndoController.js      # Undo/redo
+        ThemeManager.js        # Theme selection/persistence
+        KeyboardController.js  # Keyboard shortcuts
+        MenuController.js      # Hamburger menu + submenu behavior
+      views/
+        TimelineRenderer.js    # Timeline UI
+        PreviewRenderer.js     # LED preview
+        InspectorRenderer.js   # Properties
+      wailsjs/                 # Auto-generated bindings
+      assets/                  # Static assets
+      __tests__/               # Test files
+  build/                       # Build output
 ```
 
 ### 11.5 Version History
