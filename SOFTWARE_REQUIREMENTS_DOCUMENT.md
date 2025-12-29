@@ -195,9 +195,9 @@ flowchart TB
 | **timeline.js** | `timeline.js` | Coordination layer between renderers |
 | **utils.js** | `utils.js` | Color conversion, time formatting, helpers |
 
-##### Website Demo (Static Frontend)
+##### Online Version (Static Frontend)
 
-To keep the marketing site demo aligned with the Studio UI, the project maintains a static web demo build that reuses the same frontend code (ES Modules + compiled Tailwind CSS) but runs without the Go/Wails backend.
+To keep the online version aligned with the Studio UI, the project maintains a static web version build that reuses the same frontend code (ES Modules + compiled Tailwind CSS) but runs without the Go/Wails backend.
 
 - **Output folder (website repo)**: `website/public/studio-demo/` (served as `/studio-demo/` by Astro)
 - **Entry URL (website repo)**: `website/public/demo.html` redirects to `/studio-demo/index.html`
