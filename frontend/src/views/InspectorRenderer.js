@@ -824,11 +824,11 @@ export class InspectorRenderer {
         };
 
         const panel = document.createElement('div');
-        panel.className = "bg-[var(--ui-panel-bg)] border border-[var(--ui-border)] rounded-lg shadow-2xl w-full max-w-md";
+        panel.className = "bg-[var(--ui-panel-bg)] border border-[var(--ui-border)] rounded-lg shadow-2xl w-full max-w-md max-h-[calc(100vh-3rem)] flex flex-col overflow-hidden";
 
         // Header
         const header = document.createElement('div');
-        header.className = "flex items-center justify-between p-4 border-b border-[var(--ui-border)]";
+        header.className = "flex items-center justify-between p-4 border-b border-[var(--ui-border)] shrink-0";
         header.innerHTML = `<h2 class="text-sm font-bold text-[var(--ui-text-strong)]">${isBuiltin ? 'Duplicate Palette' : 'Edit Palette'}</h2>`;
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = "<i class='fas fa-times'></i>";
@@ -839,7 +839,7 @@ export class InspectorRenderer {
 
         // Body
         const body = document.createElement('div');
-        body.className = "p-4 space-y-4";
+        body.className = "p-4 space-y-4 overflow-y-auto min-h-0 flex-1";
 
         // Palette name
         const nameWrapper = document.createElement('div');
@@ -926,7 +926,7 @@ export class InspectorRenderer {
 
         // Footer
         const footer = document.createElement('div');
-        footer.className = "flex justify-end gap-2 p-4 border-t border-[var(--ui-border)]";
+        footer.className = "flex justify-end gap-2 p-4 border-t border-[var(--ui-border)] shrink-0";
 
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = "Cancel";
@@ -1005,11 +1005,11 @@ export class InspectorRenderer {
         };
 
         const panel = document.createElement('div');
-        panel.className = "bg-[var(--ui-panel-bg)] border border-[var(--ui-border)] rounded-lg shadow-2xl w-full max-w-md";
+        panel.className = "bg-[var(--ui-panel-bg)] border border-[var(--ui-border)] rounded-lg shadow-2xl w-full max-w-md max-h-[calc(100vh-3rem)] flex flex-col overflow-hidden";
 
         // Header
         const header = document.createElement('div');
-        header.className = "flex items-center justify-between p-4 border-b border-[var(--ui-border)]";
+        header.className = "flex items-center justify-between p-4 border-b border-[var(--ui-border)] shrink-0";
         header.innerHTML = `
             <h2 class="text-sm font-bold text-[var(--ui-text-strong)]">Hardware Profile Settings</h2>
         `;
@@ -1022,7 +1022,7 @@ export class InspectorRenderer {
 
         // Body
         const body = document.createElement('div');
-        body.className = "p-4 space-y-4";
+        body.className = "p-4 space-y-4 overflow-y-auto min-h-0 flex-1";
 
         // Profile name
         this._addModalField(body, "Profile Name", "text", profile.name, (val) => {
@@ -1075,7 +1075,7 @@ export class InspectorRenderer {
 
         // Footer
         const footer = document.createElement('div');
-        footer.className = "flex justify-end gap-2 p-4 border-t border-[var(--ui-border)]";
+        footer.className = "flex justify-end gap-2 p-4 border-t border-[var(--ui-border)] shrink-0";
         const doneBtn = document.createElement('button');
         doneBtn.textContent = "Done";
         doneBtn.className = "px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-sm transition-colors";
