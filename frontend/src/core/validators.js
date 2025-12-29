@@ -108,48 +108,6 @@ export function validateBrightness(brightness) {
 }
 
 /**
- * Validate ID string (e.g., "1-5, 8, 10-12")
- * @param {string} idString - ID string
- * @returns {{valid: boolean, error?: string}}
- */
-export function validateIdString(idString) {
-    if (typeof idString !== 'string') {
-        return { valid: false, error: 'ID string must be a string' };
-    }
-
-    // Empty is valid
-    if (idString.trim() === '') {
-        return { valid: true };
-    }
-
-    const parts = idString.split(',');
-    for (const part of parts) {
-        const trimmed = part.trim();
-        if (trimmed === '') continue;
-
-        if (trimmed.includes('-')) {
-            const [start, end] = trimmed.split('-').map(s => parseInt(s.trim()));
-            if (isNaN(start) || isNaN(end)) {
-                return { valid: false, error: `Invalid range: ${trimmed}` };
-            }
-            if (start < 1 || end > 224) {
-                return { valid: false, error: 'IDs must be between 1 and 224' };
-            }
-        } else {
-            const num = parseInt(trimmed);
-            if (isNaN(num)) {
-                return { valid: false, error: `Invalid ID: ${trimmed}` };
-            }
-            if (num < 1 || num > 224) {
-                return { valid: false, error: 'IDs must be between 1 and 224' };
-            }
-        }
-    }
-
-    return { valid: true };
-}
-
-/**
  * Validate project name
  * @param {string} name - Project name
  * @returns {{valid: boolean, error?: string}}

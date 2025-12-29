@@ -1,7 +1,6 @@
 export const CONFIG = {
     defaultDuration: 3000,
     minClipDuration: 100,
-    magnetThreshold: 200,
     headerWidth: 240,
     maxUndoStack: 50,
     previewThrottleMs: 16, // ~60fps

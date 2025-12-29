@@ -1339,7 +1339,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                         detail: { file, trackId }
                     }));
                 } else {
-                    errorHandler.warn('Audio files can only be dropped on audio tracks');
+                    errorHandler.warning('Audio files can only be dropped on audio tracks');
                 }
                 return;
             }
