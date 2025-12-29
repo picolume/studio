@@ -1450,7 +1450,6 @@ sequenceDiagram
 const CONFIG = {
     defaultDuration: 3000,    // Default clip duration (ms)
     minClipDuration: 100,     // Minimum clip duration (ms)
-    magnetThreshold: 200,     // Snap threshold (unused)
     headerWidth: 240,         // Track header width (px)
     maxUndoStack: 50,         // Maximum undo history
     previewThrottleMs: 16,    // ~60fps preview
@@ -1484,7 +1483,6 @@ picolume/studio/
 │       ├── main.js                    # Application entry
 │       ├── timeline.js                # Timeline coordination
 │       ├── utils.js                   # Utility functions
-│       ├── audio.js                   # (Legacy/unused)
 │       ├── input.css                  # Tailwind input
 │       ├── style.css                  # Compiled CSS
 │       ├── core/
