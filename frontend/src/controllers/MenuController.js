@@ -106,6 +106,59 @@ export class MenuController {
 
         // Handle menu item clicks
         this.dropdown?.addEventListener('click', (e) => this._handleItemClick(e));
+
+        // Position submenus on hover
+        this._setupSubmenuPositioning();
+    }
+
+    /**
+     * Set up submenu positioning for viewport constraints
+     * @private
+     */
+    _setupSubmenuPositioning() {
+        const submenus = this.dropdown?.querySelectorAll('.hamburger-submenu');
+        if (!submenus) return;
+
+        submenus.forEach(submenu => {
+            const trigger = submenu.querySelector('.hamburger-submenu-trigger');
+            const panel = submenu.querySelector('.hamburger-submenu-panel');
+            if (!trigger || !panel) return;
+
+            const positionPanel = () => {
+                // Reset any previous positioning
+                panel.style.top = '';
+                panel.style.bottom = '';
+                panel.style.maxHeight = '';
+
+                // Wait for the panel to be visible to get accurate measurements
+                requestAnimationFrame(() => {
+                    const panelRect = panel.getBoundingClientRect();
+                    const viewportHeight = window.innerHeight;
+                    const padding = 16;
+
+                    // Check if panel extends below viewport
+                    if (panelRect.bottom > viewportHeight - padding) {
+                        // Calculate how much we need to shift up
+                        const overflow = panelRect.bottom - (viewportHeight - padding);
+                        const newTop = panelRect.top - overflow;
+
+                        if (newTop >= padding) {
+                            // Shift the panel up
+                            panel.style.top = `${-overflow}px`;
+                        } else {
+                            // Panel is too tall - constrain height and enable scrolling
+                            panel.style.top = `${padding - panelRect.top}px`;
+                            panel.style.maxHeight = `${viewportHeight - padding * 2}px`;
+                            panel.style.overflowY = 'auto';
+                        }
+                    }
+                });
+            };
+
+            // Position on hover/focus
+            submenu.addEventListener('mouseenter', positionPanel);
+            submenu.addEventListener('focusin', positionPanel);
+        });
     }
 
     /**

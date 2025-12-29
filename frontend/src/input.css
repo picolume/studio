@@ -5,19 +5,19 @@
 /* Custom Global Styles */
 :root {
     /* Standard theme (cyan accents) with the softer "Graphite" styling */
-    --bg-dark: #1f201e;
+    --bg-dark: #232422;
     --bg-panel: #2a2b29;
-    --border-color: #3a3c39;
+    --border-color: #50524e;
     --accent: #00bcd4;
     --playhead-color: #ff5252;
     --fg: #e7e7e4;
 
-    --menu-sep-color: #343633;
+    --menu-sep-color: #50524e;
 
     --btn-bg: #2a2b29;
-    --btn-border: #3a3c39;
+    --btn-border: #50524e;
     --btn-text: #e7e7e4;
-    --btn-hover-bg: #343633;
+    --btn-hover-bg: #2f302d;
     --btn-hover-border: #646663;
 
     --btn-primary-bg: #0b3b44;
@@ -30,21 +30,21 @@
     --btn-success-text: #eafff2;
     --btn-success-hover-bg: #1a7137;
 
-    --overlay-bg: rgba(0, 0, 0, 0.54);
-    --modal-bg: #2a2b29;
-    --modal-border: #3a3c39;
-    --modal-header-bg-from: #343633;
-    --modal-header-bg-to: #1f201e;
+    --overlay-bg: rgba(0, 0, 0, 0.60);
+    --modal-bg: #232422;
+    --modal-border: #50524e;
+    --modal-header-bg-from: #2a2b29;
+    --modal-header-bg-to: #232422;
     --modal-frame-bg: #2a2b29;
 
     --dropdown-bg: #2a2b29;
-    --dropdown-border: #3a3c39;
+    --dropdown-border: #50524e;
 
-    --kbd-bg: #1f201e;
+    --kbd-bg: #232422;
     --kbd-text: #a6a7a2;
-    --kbd-border: #3a3c39;
+    --kbd-border: #50524e;
 
-    --scrollbar-thumb: #444744;
+    --scrollbar-thumb: #50524e;
     --scrollbar-thumb-hover: #646663;
     --scrollbar-button-hover: #2f302d;
 
@@ -53,15 +53,15 @@
 
     /* Semantic UI tokens (themeable) */
     --ui-header-from: #2a2b29;
-    --ui-header-to: #1f201e;
+    --ui-header-to: #232422;
 
-    --ui-panel-bg: #2a2b29;
-    --ui-panel-border: #3a3c39;
+    --ui-panel-bg: #232422;
+    --ui-panel-border: #50524e;
 
     --ui-toolbar-bg: #2a2b29;
-    --ui-toolbar-hover-bg: #343633;
+    --ui-toolbar-hover-bg: #2f302d;
 
-    --ui-border: #444744;
+    --ui-border: #50524e;
     --ui-border-strong: #646663;
 
     --ui-text-strong: #f3f4f6;
@@ -70,12 +70,12 @@
     --ui-text-subtle: #a6a7a2;
     --ui-text-faint: #7b7d78;
 
-    --ui-select-bg: #1d1e1b;
-    --ui-select-border: #444744;
+    --ui-select-bg: #151614;
+    --ui-select-border: #50524e;
 
     --ui-canvas-bg: #11120f;
     --ui-canvas-overlay: #2a2b29;
-    --ui-canvas-grid: #3a3c39;
+    --ui-canvas-grid: #50524e;
     --ui-canvas-label: #a6a7a2;
     --ui-canvas-dim: #e7e7e4;
 
@@ -83,16 +83,16 @@
     --ui-audio-track-bg: #1d1e1b;
 
     --ui-timeline-bg: #1d1e1b;
-    --ui-track-headers-bg: #1f201e;
-    --ui-grid-line: #3a3c39;
-    --ui-ruler-bg: #1f201e;
-    --ui-ruler-border: #3a3c39;
+    --ui-track-headers-bg: #232422;
+    --ui-grid-line: #50524e;
+    --ui-ruler-bg: #232422;
+    --ui-ruler-border: #50524e;
     --ui-track-lane-border: #343633;
-    --ui-audio-lane-border: #343633;
+    --ui-audio-lane-border: #2f302d;
 
     --ui-palette-item-bg: #2a2b29;
-    --ui-palette-item-border: #3a3c39;
-    --ui-palette-item-hover-bg: #343633;
+    --ui-palette-item-border: #50524e;
+    --ui-palette-item-hover-bg: #2f302d;
     --ui-palette-item-hover-border: #646663;
 
     --track-height: 80px;
@@ -842,10 +842,10 @@
 
 :root[data-theme="daylight"] {
     /* Light theme with slightly muted contrast and accents (less "glare"). */
-    --bg-dark: #f4f6f8;
+    --bg-dark: #f0f9ff;
     --bg-panel: #ffffff;
     --border-color: #cbd5e1;
-    --accent: #0284c7; /* muted sky */
+    --accent: #7dd3fc; /* powder blue pastel */
     --playhead-color: #ef4444;
     --fg: #111827;
 
@@ -857,10 +857,10 @@
     --btn-hover-bg: #f1f5f9;
     --btn-hover-border: #94a3b8;
 
-    --btn-primary-bg: rgba(2, 132, 199, 0.10);
-    --btn-primary-border: #0284c7;
+    --btn-primary-bg: rgba(125, 211, 252, 0.10);
+    --btn-primary-border: #7dd3fc;
     --btn-primary-text: #0c4a6e;
-    --btn-primary-hover-bg: rgba(2, 132, 199, 0.14);
+    --btn-primary-hover-bg: rgba(125, 211, 252, 0.14);
 
     --btn-success-bg: rgba(22, 163, 74, 0.10);
     --btn-success-border: #16a34a;
@@ -877,7 +877,7 @@
     --dropdown-bg: #ffffff;
     --dropdown-border: #cbd5e1;
 
-    --kbd-bg: #f1f5f9;
+    --kbd-bg: #e0f2fe;
     --kbd-text: #475569;
     --kbd-border: #cbd5e1;
 
@@ -885,13 +885,13 @@
     --scrollbar-thumb-hover: #94a3b8;
     --scrollbar-button-hover: #f1f5f9;
 
-    --statusbar-bg: #f1f5f9;
+    --statusbar-bg: #e0f2fe;
     --statusbar-fg: #475569;
 
     --ui-header-from: #ffffff;
     --ui-header-to: #f1f5f9;
 
-    --ui-panel-bg: #f4f6f8;
+    --ui-panel-bg: #f0f9ff;
     --ui-panel-border: #cbd5e1;
 
     --ui-toolbar-bg: #ffffff;
@@ -910,16 +910,16 @@
     --ui-select-border: #cbd5e1;
 
     /* Keep preview/canvas slightly darker than the chrome so it doesn't feel "bright white". */
-    --ui-canvas-bg: #eef2f6;
-    --ui-canvas-overlay: #e7edf4;
-    --ui-canvas-grid: #d8e0ea;
+    --ui-canvas-bg: #e0f2fe;
+    --ui-canvas-overlay: #dbeafe;
+    --ui-canvas-grid: #bfdbfe;
     --ui-canvas-label: #475569;
     --ui-canvas-dim: #111827;
 
     --ui-tick: #334155;
-    --ui-audio-track-bg: #f1f5f9;
+    --ui-audio-track-bg: var(--ui-canvas-bg);
 
-    --ui-timeline-bg: #f4f6f8;
+    --ui-timeline-bg: #f0f9ff;
     --ui-track-headers-bg: #ffffff;
     --ui-grid-line: #d8e0ea;
     --ui-ruler-bg: #ffffff;
@@ -938,11 +938,11 @@
 :root[data-theme="daylight"] #btn-play { color: var(--ui-text-strong); }
 
 :root[data-theme="daylight"] #btn-add-track-led {
-    background: rgba(2, 132, 199, 0.10);
+    background: rgba(125, 211, 252, 0.10);
     color: #0c4a6e;
-    border-color: rgba(2, 132, 199, 0.26);
+    border-color: rgba(125, 211, 252, 0.26);
 }
-:root[data-theme="daylight"] #btn-add-track-led:hover { background: rgba(2, 132, 199, 0.16); }
+:root[data-theme="daylight"] #btn-add-track-led:hover { background: rgba(125, 211, 252, 0.16); }
 
 :root[data-theme="daylight"] #btn-add-track-audio {
     background: rgba(249, 115, 22, 0.10);
@@ -1794,6 +1794,25 @@ body {
     visibility: hidden;
     transform: translateY(-8px);
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    /* Note: overflow must be visible to allow submenu to appear outside bounds */
+}
+
+/* Thin scrollbar for submenu panel */
+.hamburger-submenu-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.hamburger-submenu-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.hamburger-submenu-panel::-webkit-scrollbar-thumb {
+    background: var(--ui-border);
+    border-radius: 3px;
+}
+
+.hamburger-submenu-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--ui-text-faint);
 }
 
 .hamburger-dropdown[aria-hidden="false"] {
@@ -1884,7 +1903,7 @@ body {
     z-index: 1100;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-8px);
+    transform: translateX(8px);
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
 }
 
@@ -1892,7 +1911,7 @@ body {
 .hamburger-submenu:focus-within .hamburger-submenu-panel {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateX(0);
 }
 
 .hamburger-theme-item i {
