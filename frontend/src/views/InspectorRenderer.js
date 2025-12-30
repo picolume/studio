@@ -332,7 +332,17 @@ export class InspectorRenderer {
         if (hasConflicts) {
             const conflictBox = document.createElement('div');
             conflictBox.className = "bg-red-900/30 border border-red-500/50 rounded p-2 mb-2 text-xs text-red-300";
-            conflictBox.innerHTML = `<strong>Conflict:</strong> ${formatProfileOverlaps(conflicts, profiles).replace(/\n/g, '<br>')}`;
+            const strong = document.createElement('strong');
+            strong.textContent = 'Conflict:';
+            conflictBox.appendChild(strong);
+            conflictBox.appendChild(document.createTextNode(' '));
+
+            const message = formatProfileOverlaps(conflicts, profiles);
+            const lines = String(message || '').split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                conflictBox.appendChild(document.createTextNode(lines[i]));
+                if (i < lines.length - 1) conflictBox.appendChild(document.createElement('br'));
+            }
             sectionContent.appendChild(conflictBox);
         }
 
@@ -512,10 +522,39 @@ export class InspectorRenderer {
 
             // Summary info row: LED spec with labeled values
             const ledTypeName = this._getLedTypeName(p.ledType);
-            const brightnessPercent = Math.round((p.brightnessCap / 255) * 100);
+            const brightnessCap = Number(p?.brightnessCap);
+            const brightnessPercent = Number.isFinite(brightnessCap) ? Math.round((brightnessCap / 255) * 100) : 0;
             const specRow = document.createElement('div');
             specRow.className = "text-xs text-[var(--ui-text-subtle)]";
-            specRow.innerHTML = `LED: <span class="text-[var(--ui-text)]">${p.ledCount}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Type: <span class="text-[var(--ui-text)]">${ledTypeName}</span> <span class="mx-1 text-[var(--ui-text-faint)]">&bull;</span> Max: <span class="text-[var(--ui-text)]">${brightnessPercent}%</span>`;
+            const ledCountSpan = document.createElement('span');
+            ledCountSpan.className = "text-[var(--ui-text)]";
+            ledCountSpan.textContent = String(p?.ledCount ?? '');
+
+            const ledTypeSpan = document.createElement('span');
+            ledTypeSpan.className = "text-[var(--ui-text)]";
+            ledTypeSpan.textContent = String(ledTypeName ?? '');
+
+            const maxSpan = document.createElement('span');
+            maxSpan.className = "text-[var(--ui-text)]";
+            maxSpan.textContent = `${brightnessPercent}%`;
+
+            const bullet = () => {
+                const b = document.createElement('span');
+                b.className = "mx-1 text-[var(--ui-text-faint)]";
+                b.textContent = '•';
+                return b;
+            };
+
+            specRow.appendChild(document.createTextNode('LED: '));
+            specRow.appendChild(ledCountSpan);
+            specRow.appendChild(document.createTextNode(' '));
+            specRow.appendChild(bullet());
+            specRow.appendChild(document.createTextNode(' Type: '));
+            specRow.appendChild(ledTypeSpan);
+            specRow.appendChild(document.createTextNode(' '));
+            specRow.appendChild(bullet());
+            specRow.appendChild(document.createTextNode(' Max: '));
+            specRow.appendChild(maxSpan);
             card.appendChild(specRow);
 
             // Summary info row 2: Assigned IDs
@@ -524,7 +563,10 @@ export class InspectorRenderer {
 
             const idsRow = document.createElement('div');
             idsRow.className = "flex items-center gap-2";
-            idsRow.innerHTML = `<span class="text-xs text-[var(--ui-text-subtle)]">Props:</span>`;
+            const idsLabel = document.createElement('span');
+            idsLabel.className = "text-xs text-[var(--ui-text-subtle)]";
+            idsLabel.textContent = 'Props:';
+            idsRow.appendChild(idsLabel);
 
             const idInp = document.createElement('input');
             idInp.className = "bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] rounded px-2 py-1 flex-1 outline-none border border-[var(--ui-border)] font-mono";
@@ -1111,7 +1153,10 @@ export class InspectorRenderer {
      */
     _addModalField(container, label, type, value, onChange, placeholder = '') {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">${label}</label>`;
+        const labelEl = document.createElement('label');
+        labelEl.className = "block text-xs text-[var(--ui-text-subtle)] mb-1";
+        labelEl.textContent = String(label ?? '');
+        wrapper.appendChild(labelEl);
         const input = document.createElement('input');
         input.type = type;
         input.value = value ?? '';
@@ -1128,7 +1173,10 @@ export class InspectorRenderer {
      */
     _addModalSelect(container, label, options, currentValue, onChange) {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">${label}</label>`;
+        const labelEl = document.createElement('label');
+        labelEl.className = "block text-xs text-[var(--ui-text-subtle)] mb-1";
+        labelEl.textContent = String(label ?? '');
+        wrapper.appendChild(labelEl);
         const select = document.createElement('select');
         select.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1.5 outline-none focus:border-cyan-500 cursor-pointer";
 
@@ -1150,14 +1198,20 @@ export class InspectorRenderer {
      */
     _addModalSlider(container, label, min, max, value, onChange, formatValue) {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = `
-            <div class="flex justify-between items-center mb-1">
-                <label class="text-xs text-[var(--ui-text-subtle)]">${label}</label>
-                <span class="text-xs text-[var(--ui-text)] font-mono" data-value></span>
-            </div>
-        `;
-        const valueEl = wrapper.querySelector('[data-value]');
-        valueEl.textContent = formatValue ? formatValue(value) : value;
+        const header = document.createElement('div');
+        header.className = "flex justify-between items-center mb-1";
+
+        const labelEl = document.createElement('label');
+        labelEl.className = "text-xs text-[var(--ui-text-subtle)]";
+        labelEl.textContent = String(label ?? '');
+        header.appendChild(labelEl);
+
+        const valueEl = document.createElement('span');
+        valueEl.className = "text-xs text-[var(--ui-text)] font-mono";
+        valueEl.textContent = formatValue ? formatValue(value) : String(value ?? '');
+        header.appendChild(valueEl);
+
+        wrapper.appendChild(header);
 
         const slider = document.createElement('input');
         slider.type = 'range';
@@ -1179,7 +1233,10 @@ export class InspectorRenderer {
      */
     _addModalTextarea(container, label, value, onChange, placeholder = '', opts = {}) {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = `<label class="block text-xs text-[var(--ui-text-subtle)] mb-1">${label}</label>`;
+        const labelEl = document.createElement('label');
+        labelEl.className = "block text-xs text-[var(--ui-text-subtle)] mb-1";
+        labelEl.textContent = String(label ?? '');
+        wrapper.appendChild(labelEl);
         const textarea = document.createElement('textarea');
         textarea.value = value;
         textarea.placeholder = placeholder;
@@ -1401,7 +1458,11 @@ export class InspectorRenderer {
         project.tracks.forEach(t => { const c = t.clips.find(x => x.id === clipId); if (c) clip = c; });
         if (!clip) return;
 
-        container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-4 border-b border-[var(--ui-border)] pb-2">${clip.type.toUpperCase()} CLIP</div>`;
+        const header = document.createElement('div');
+        header.className = "font-bold text-[var(--ui-text-strong)] mb-4 border-b border-[var(--ui-border)] pb-2";
+        header.textContent = `${String(clip.type || '').toUpperCase()} CLIP`;
+        container.innerHTML = '';
+        container.appendChild(header);
 
         if (clip.type === 'audio') {
             this._renderAudioClipProps(container, clip);
@@ -1504,25 +1565,54 @@ export class InspectorRenderer {
     _renderAudioClipProps(container, clip) {
         const audioInfo = document.createElement('div');
         audioInfo.className = 'bg-[var(--ui-toolbar-bg)] p-3 rounded mb-4 border border-orange-900';
-        const fileName = clip.props?.name || 'Unknown audio';
-        const volume = clip.props?.volume ?? 1;
+        const fileName = clip?.props?.name != null ? String(clip.props.name) : 'Unknown audio';
+        const rawVolume = Number(clip?.props?.volume);
+        const volume = Number.isFinite(rawVolume) ? rawVolume : 1;
 
-        audioInfo.innerHTML = `
-            <div class="flex items-center gap-2 mb-2">
-                <i class="fas fa-music text-orange-400"></i>
-                <span class="text-sm text-[var(--ui-text-strong)] font-medium">${fileName}</span>
-            </div>
-            <div class="text-xs text-[var(--ui-text-muted)] mb-3">
-                Duration: ${(clip.duration / 1000).toFixed(2)}s
-            </div>
-            <label class="block text-xs text-[var(--ui-text-muted)] mb-1">Volume</label>
-            <div class="flex items-center gap-2">
-                <input type="range" min="0" max="1" step="0.01" value="${volume}"
-                    class="flex-1 h-1 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-orange-500"
-                    id="audio-volume-slider">
-                <span class="text-xs text-[var(--ui-text-muted)] w-10 text-right" id="audio-volume-display">${Math.round(volume * 100)}%</span>
-            </div>
-        `;
+        const titleRow = document.createElement('div');
+        titleRow.className = 'flex items-center gap-2 mb-2';
+
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-music text-orange-400';
+        titleRow.appendChild(icon);
+
+        const title = document.createElement('span');
+        title.className = 'text-sm text-[var(--ui-text-strong)] font-medium';
+        title.textContent = fileName;
+        titleRow.appendChild(title);
+
+        const durationRow = document.createElement('div');
+        durationRow.className = 'text-xs text-[var(--ui-text-muted)] mb-3';
+        durationRow.textContent = `Duration: ${(Number(clip?.duration ?? 0) / 1000).toFixed(2)}s`;
+
+        const volumeLabel = document.createElement('label');
+        volumeLabel.className = 'block text-xs text-[var(--ui-text-muted)] mb-1';
+        volumeLabel.textContent = 'Volume';
+
+        const volumeRow = document.createElement('div');
+        volumeRow.className = 'flex items-center gap-2';
+
+        const volumeSlider = document.createElement('input');
+        volumeSlider.type = 'range';
+        volumeSlider.min = '0';
+        volumeSlider.max = '1';
+        volumeSlider.step = '0.01';
+        volumeSlider.value = String(volume);
+        volumeSlider.className = 'flex-1 h-1 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-orange-500';
+        volumeSlider.id = 'audio-volume-slider';
+
+        const volumeDisplay = document.createElement('span');
+        volumeDisplay.className = 'text-xs text-[var(--ui-text-muted)] w-10 text-right';
+        volumeDisplay.id = 'audio-volume-display';
+        volumeDisplay.textContent = `${Math.round(volume * 100)}%`;
+
+        volumeRow.appendChild(volumeSlider);
+        volumeRow.appendChild(volumeDisplay);
+
+        audioInfo.appendChild(titleRow);
+        audioInfo.appendChild(durationRow);
+        audioInfo.appendChild(volumeLabel);
+        audioInfo.appendChild(volumeRow);
         container.appendChild(audioInfo);
 
         const slider = audioInfo.querySelector('#audio-volume-slider');
@@ -1545,8 +1635,14 @@ export class InspectorRenderer {
     }
 
     _addTextInput(parent, lbl, val, cb) {
-        const d = document.createElement('div'); d.className = "mb-2";
-        d.innerHTML = `<label class="block text-xs text-[var(--ui-text-muted)] mb-1">${lbl}</label>`;
+        const d = document.createElement('div');
+        d.className = "mb-2";
+
+        const label = document.createElement('label');
+        label.className = "block text-xs text-[var(--ui-text-muted)] mb-1";
+        label.textContent = String(lbl ?? '');
+        d.appendChild(label);
+
         const inp = document.createElement('input');
         inp.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-1 py-1 outline-none mb-3";
         inp.value = val;
@@ -1555,7 +1651,14 @@ export class InspectorRenderer {
     }
 
     _addInput(parent, lbl, val, cb, type, opts = {}) {
-        const d = document.createElement('div'); d.className = "mb-3"; d.innerHTML = `<label class="block text-xs text-[var(--ui-text-muted)] mb-1.5">${lbl}</label>`;
+        const d = document.createElement('div');
+        d.className = "mb-3";
+
+        const label = document.createElement('label');
+        label.className = "block text-xs text-[var(--ui-text-muted)] mb-1.5";
+        label.textContent = String(lbl ?? '');
+        d.appendChild(label);
+
         const inp = document.createElement('input');
 
         const isColor = (typeof val === 'string' && val.startsWith('#')) || type === 'color';
@@ -1652,12 +1755,19 @@ export class InspectorRenderer {
     _addSlider(parent, lbl, val, spec, onValue) {
         const d = document.createElement('div');
         d.className = "mb-4";
-        d.innerHTML = `
-            <div class="flex items-baseline justify-between mb-1.5">
-                <label class="block text-xs text-[var(--ui-text-muted)]">${lbl}</label>
-                <span class="text-xs text-[var(--ui-text-subtle)] font-mono" data-role="value"></span>
-            </div>
-        `;
+        const header = document.createElement('div');
+        header.className = "flex items-baseline justify-between mb-1.5";
+
+        const label = document.createElement('label');
+        label.className = "block text-xs text-[var(--ui-text-muted)]";
+        label.textContent = String(lbl ?? '');
+        header.appendChild(label);
+
+        const valueEl = document.createElement('span');
+        valueEl.className = "text-xs text-[var(--ui-text-subtle)] font-mono";
+        header.appendChild(valueEl);
+
+        d.appendChild(header);
 
         const row = document.createElement('div');
         row.className = "flex items-center gap-2";
@@ -1670,7 +1780,6 @@ export class InspectorRenderer {
         inp.value = String(val ?? spec.min);
         inp.className = "flex-1 h-2 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-cyan-500";
 
-        const valueEl = d.querySelector('[data-role=\"value\"]');
         const formatValue = (n) => {
             if (!Number.isFinite(n)) return '';
             return typeof spec.valueLabel === 'function' ? spec.valueLabel(n) : String(n);

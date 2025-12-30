@@ -185,15 +185,27 @@ export function initBinaryInspector() {
         els.validationCount.textContent = warnings.length;
 
         const icons = { error: 'fa-circle-xmark', warn: 'fa-triangle-exclamation', info: 'fa-circle-info' };
-        els.warnings.innerHTML = warnings.slice(0, 20).map(w => `
-            <li class="inspector-warning ${w.type}">
-                <i class="fas ${icons[w.type]}"></i>
-                <span>${w.message}</span>
-            </li>
-        `).join('');
+        els.warnings.innerHTML = '';
+        for (const w of warnings.slice(0, 20)) {
+            const li = document.createElement('li');
+            li.className = `inspector-warning ${w.type}`;
+
+            const icon = document.createElement('i');
+            icon.className = `fas ${icons[w.type] || icons.info}`;
+
+            const text = document.createElement('span');
+            text.textContent = String(w.message ?? '');
+
+            li.appendChild(icon);
+            li.appendChild(text);
+            els.warnings.appendChild(li);
+        }
 
         if (warnings.length > 20) {
-            els.warnings.innerHTML += `<li class="inspector-warning info">... and ${warnings.length - 20} more</li>`;
+            const li = document.createElement('li');
+            li.className = 'inspector-warning info';
+            li.textContent = `... and ${warnings.length - 20} more`;
+            els.warnings.appendChild(li);
         }
     }
 

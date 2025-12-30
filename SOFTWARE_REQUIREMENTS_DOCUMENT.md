@@ -998,6 +998,15 @@ All file loading operations enforce size limits to prevent denial-of-service att
 - Only known file types (`project.json`, `audio/*`) are extracted
 - Unsafe zip paths (traversal/absolute paths/duplicates) are rejected
 
+#### 7.5.4 UI Injection Safety (XSS)
+
+Projects (`.lum` / `project.json`) are treated as **untrusted input**, especially in the online build where the UI runs in a web page.
+
+To prevent HTML/script injection:
+- Renderers avoid interpolating project-provided strings into `innerHTML` / `insertAdjacentHTML`
+- User/project text is rendered via `textContent` and form control `value` properties
+- Any required markup (icons, layout wrappers) is created from fixed templates or `document.createElement`
+
 ---
 
 ## 8. File Formats

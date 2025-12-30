@@ -195,17 +195,32 @@ class TimelineRenderer {
         header.className = `track-header track-header-${track.type}`;
         header.dataset.trackId = track.id;
 
-        header.innerHTML = `
-            <i class="fas ${track.type === 'led' ? 'fa-lightbulb' : 'fa-music'}"></i>
-            <input type="text" class="track-label" value="${track.label}">
-            ${track.type === 'led' ? this.createGroupSelector(track) : ''}
-            <button class="track-delete" title="Delete track">
-                <i class="fas fa-trash"></i>
-            </button>
-        `;
+        // Security note: track data ultimately comes from project files. Avoid interpolating
+        // untrusted strings (like track.label) into innerHTML. Prefer DOM APIs + text/value.
+        const icon = document.createElement('i');
+        icon.className = `fas ${track.type === 'led' ? 'fa-lightbulb' : 'fa-music'}`;
+        header.appendChild(icon);
+
+        const label = document.createElement('input');
+        label.type = 'text';
+        label.className = 'track-label';
+        label.value = track.label;
+        header.appendChild(label);
+
+        if (track.type === 'led') {
+            header.appendChild(this.createGroupSelector(track));
+        }
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'track-delete';
+        delBtn.title = 'Delete track';
+        const delIcon = document.createElement('i');
+        delIcon.className = 'fas fa-trash';
+        delBtn.appendChild(delIcon);
+        header.appendChild(delBtn);
 
         // Wire up events
-        header.querySelector('.track-delete').addEventListener('click', () => {
+        delBtn.addEventListener('click', () => {
             window.dispatchEvent(new CustomEvent('app:delete-track', {
                 detail: { trackId: track.id }
             }));
@@ -259,13 +274,21 @@ class TimelineRenderer {
         el.style.backgroundColor = color;
 
         // Content
-        el.innerHTML = `
-            <div class="clip-handle clip-handle-left"></div>
-            <div class="clip-content">
-                <span class="clip-label">${clip.type}</span>
-            </div>
-            <div class="clip-handle clip-handle-right"></div>
-        `;
+        const leftHandle = document.createElement('div');
+        leftHandle.className = 'clip-handle clip-handle-left';
+        el.appendChild(leftHandle);
+
+        const content = document.createElement('div');
+        content.className = 'clip-content';
+        const label = document.createElement('span');
+        label.className = 'clip-label';
+        label.textContent = clip.type;
+        content.appendChild(label);
+        el.appendChild(content);
+
+        const rightHandle = document.createElement('div');
+        rightHandle.className = 'clip-handle clip-handle-right';
+        el.appendChild(rightHandle);
 
         // Make focusable for accessibility
         el.setAttribute('tabindex', '0');
@@ -585,13 +608,12 @@ class InspectorRenderer {
 
             <div class="field-group">
                 <label>Project Name</label>
-                <input type="text" id="project-name" value="${project.name}">
+                <input type="text" id="project-name">
             </div>
 
             <div class="field-group">
                 <label>Duration (seconds)</label>
                 <input type="number" id="project-duration"
-                       value="${project.duration / 1000}"
                        min="1" max="3600">
             </div>
 
@@ -606,6 +628,10 @@ class InspectorRenderer {
             </div>
         `;
 
+        // Set dynamic values safely (no innerHTML interpolation).
+        this.container.querySelector('#project-name').value = project.name;
+        this.container.querySelector('#project-duration').value = project.duration / 1000;
+
         this.wireProjectEvents();
     }
 
@@ -613,22 +639,27 @@ class InspectorRenderer {
         const effectFields = this.getEffectFields(clip.type);
 
         this.container.innerHTML = `
-            <h3>${clip.type} Clip</h3>
+            <h3 id="clip-title"></h3>
 
             <div class="field-group">
                 <label>Start Time (ms)</label>
-                <input type="number" id="clip-start" value="${clip.startTime}" min="0">
+                <input type="number" id="clip-start" min="0">
             </div>
 
             <div class="field-group">
                 <label>Duration (ms)</label>
-                <input type="number" id="clip-duration" value="${clip.duration}" min="100">
+                <input type="number" id="clip-duration" min="100">
             </div>
 
             ${effectFields}
 
             <button class="delete-btn" id="delete-clip">Delete Clip</button>
         `;
+
+        // Set dynamic values safely (no innerHTML interpolation).
+        this.container.querySelector('#clip-title').textContent = `${clip.type} Clip`;
+        this.container.querySelector('#clip-start').value = clip.startTime;
+        this.container.querySelector('#clip-duration').value = clip.duration;
 
         this.wireClipEvents(clip.id);
     }

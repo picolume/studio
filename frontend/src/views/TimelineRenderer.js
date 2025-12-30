@@ -204,7 +204,13 @@ export class TimelineRenderer {
         el.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
 
         if (clip.type === 'audio') {
-            const lbl = document.createElement('div'); lbl.className = "clip-label"; lbl.innerHTML = `<i class="fas fa-music"></i> ${clip.props.name}`;
+            const lbl = document.createElement('div');
+            lbl.className = "clip-label";
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-music';
+            const name = (clip?.props?.name != null) ? String(clip.props.name) : 'Audio';
+            lbl.appendChild(icon);
+            lbl.appendChild(document.createTextNode(' ' + name));
             el.appendChild(lbl);
             const cvs = document.createElement('canvas');
             cvs.className = "clip-waveform absolute top-0 left-0 w-full h-full opacity-50 pointer-events-none";
