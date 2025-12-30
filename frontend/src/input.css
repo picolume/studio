@@ -52,8 +52,8 @@
     --statusbar-fg: #a6a7a2;
 
     /* Semantic UI tokens (themeable) */
-    --ui-header-from: #2a2b29;
-    --ui-header-to: #232422;
+    --ui-header-from: #343633;
+    --ui-header-to: #1f201e;
 
     --ui-panel-bg: #232422;
     --ui-panel-border: #50524e;
@@ -888,8 +888,8 @@
     --statusbar-bg: #e0f2fe;
     --statusbar-fg: #475569;
 
-    --ui-header-from: #ffffff;
-    --ui-header-to: #f1f5f9;
+    --ui-header-from: #f0f9ff;
+    --ui-header-to: #e0f2fe;
 
     --ui-panel-bg: #f0f9ff;
     --ui-panel-border: #cbd5e1;

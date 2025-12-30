@@ -45,3 +45,9 @@ PicoLume Studio is built using **Wails**. To run it locally:
 ```bash
 wails dev
 ```
+
+## Learn the Codebase
+
+If you want a course-style walkthrough of how PicoLume Studio works (architecture, patterns, backend API, file formats), see:
+
+- `studio/docs/class/README.md`
