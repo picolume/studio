@@ -1,5 +1,13 @@
 import { zipFiles, unzipFiles } from './ZipUtil.js';
 
+const LUM_LIMITS = Object.freeze({
+    maxZipBytes: 500 * 1024 * 1024,          // 500MB
+    maxProjectJsonBytes: 10 * 1024 * 1024,   // 10MB
+    maxAudioFileBytes: 200 * 1024 * 1024,    // 200MB
+    maxTotalExtractedBytes: 1024 * 1024 * 1024, // 1GB
+    maxEntries: 100,
+});
+
 function extFromMime(mime) {
     const lower = (mime || '').toLowerCase();
     if (lower.includes('mpeg') || lower.includes('mp3')) return 'mp3';
@@ -64,7 +72,17 @@ export async function createLumBytes(projectJson, audioFiles, { compress = false
 }
 
 export async function parseLumBytes(zipBytes) {
-    const files = await unzipFiles(zipBytes);
+    const files = await unzipFiles(zipBytes, {
+        maxZipBytes: LUM_LIMITS.maxZipBytes,
+        maxEntries: LUM_LIMITS.maxEntries,
+        maxTotalUncompressedBytes: LUM_LIMITS.maxTotalExtractedBytes,
+        shouldExtract: (name) => name === 'project.json' || name.startsWith('audio/'),
+        maxUncompressedBytesForFile: (name) => {
+            if (name === 'project.json') return LUM_LIMITS.maxProjectJsonBytes;
+            if (name.startsWith('audio/')) return LUM_LIMITS.maxAudioFileBytes;
+            return 0;
+        }
+    });
 
     const projectJsonBytes = files['project.json'];
     if (!projectJsonBytes) {

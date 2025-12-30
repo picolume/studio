@@ -7,6 +7,26 @@ const textDecoder = new TextDecoder('utf-8');
 
 let crcTable = null;
 
+function assertInRange(condition, message) {
+    if (!condition) throw new Error(message);
+}
+
+function isSafeZipPath(name) {
+    if (typeof name !== 'string' || name.length === 0) return false;
+    if (name.length > 4096) return false;
+    if (name.includes('\0')) return false;
+    if (name.includes('\\')) return false;
+    if (name.startsWith('/')) return false;
+    if (/^[a-zA-Z]:/.test(name)) return false;
+
+    const parts = name.split('/');
+    for (const part of parts) {
+        if (!part) return false;
+        if (part === '.' || part === '..') return false;
+    }
+    return true;
+}
+
 function initCrcTable() {
     if (crcTable) return crcTable;
     const table = new Uint32Array(256);
@@ -60,22 +80,48 @@ function decodeUtf8(bytes) {
     return textDecoder.decode(bytes);
 }
 
+async function readStreamBytes(stream, { limitBytes = Infinity } = {}) {
+    if (!stream || typeof stream.getReader !== 'function') {
+        throw new Error('Invalid stream');
+    }
+    const reader = stream.getReader();
+    const chunks = [];
+    let total = 0;
+
+    try {
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+            total += chunk.byteLength;
+            if (total > limitBytes) {
+                try { await reader.cancel(); } catch { }
+                throw new Error(`Zip entry exceeded size limit (${limitBytes} bytes)`);
+            }
+            chunks.push(chunk);
+        }
+    } finally {
+        try { reader.releaseLock(); } catch { }
+    }
+
+    return concatUint8(chunks, total);
+}
+
 async function deflateRaw(bytes) {
     if (typeof CompressionStream === 'undefined') {
         throw new Error('CompressionStream is not available in this browser');
     }
     const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
-    const ab = await new Response(stream).arrayBuffer();
-    return new Uint8Array(ab);
+    return await readStreamBytes(stream);
 }
 
-async function inflateRaw(bytes) {
+async function inflateRaw(bytes, { limitBytes = Infinity } = {}) {
     if (typeof DecompressionStream === 'undefined') {
         throw new Error('DecompressionStream is not available in this browser');
     }
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    const ab = await new Response(stream).arrayBuffer();
-    return new Uint8Array(ab);
+    return await readStreamBytes(stream, { limitBytes });
 }
 
 function findEocdOffset(bytes) {
@@ -183,7 +229,20 @@ export async function zipFiles(files, { compress = false } = {}) {
     return concatUint8([...localChunks, centralDir, eocd], localOffset + centralDir.length + eocd.length);
 }
 
-export async function unzipFiles(zipBytes) {
+export async function unzipFiles(zipBytes, options = {}) {
+    const {
+        maxZipBytes = Infinity,
+        maxEntries = Infinity,
+        maxTotalUncompressedBytes = Infinity,
+        maxFileUncompressedBytes = Infinity,
+        maxFilenameBytes = 4096,
+        shouldExtract = null,
+        maxUncompressedBytesForFile = null,
+    } = options || {};
+
+    assertInRange(zipBytes instanceof Uint8Array, 'zipBytes must be a Uint8Array');
+    assertInRange(zipBytes.length <= maxZipBytes, `Zip too large (max ${maxZipBytes} bytes)`);
+
     const eocdOffset = findEocdOffset(zipBytes);
     if (eocdOffset < 0) throw new Error('Invalid zip: missing end of central directory');
 
@@ -195,10 +254,17 @@ export async function unzipFiles(zipBytes) {
     const centralSize = eocdView.getUint32(12, true);
     const centralOffset = eocdView.getUint32(16, true);
 
+    assertInRange(totalEntries <= maxEntries, `Zip has too many files (max ${maxEntries})`);
+    assertInRange(centralOffset <= zipBytes.length, 'Invalid zip: central directory offset out of range');
+    assertInRange(centralOffset + centralSize <= zipBytes.length, 'Invalid zip: central directory size out of range');
+
     const out = {};
     let ptr = centralOffset;
+    let totalUncompressed = 0;
+    const seenNames = new Set();
 
     for (let i = 0; i < totalEntries; i++) {
+        assertInRange(ptr + 46 <= zipBytes.length, 'Invalid zip: truncated central directory header');
         const view = new DataView(zipBytes.buffer, zipBytes.byteOffset + ptr, 46);
         const sig = view.getUint32(0, true);
         if (sig !== ZIP_CENTRAL_DIR_HEADER_SIG) {
@@ -214,11 +280,31 @@ export async function unzipFiles(zipBytes) {
         const commentLen = view.getUint16(32, true);
         const localHeaderOffset = view.getUint32(42, true);
 
+        assertInRange(nameLen <= maxFilenameBytes, `Zip filename too long (max ${maxFilenameBytes} bytes)`);
+        assertInRange(ptr + 46 + nameLen + extraLen + commentLen <= zipBytes.length, 'Invalid zip: truncated central directory entry');
+
         const nameBytes = zipBytes.subarray(ptr + 46, ptr + 46 + nameLen);
         const name = decodeUtf8(nameBytes);
 
         ptr += 46 + nameLen + extraLen + commentLen;
 
+        assertInRange(isSafeZipPath(name), `Invalid zip path: "${name}"`);
+        assertInRange(!seenNames.has(name), `Invalid zip: duplicate entry "${name}"`);
+        seenNames.add(name);
+
+        const extract = typeof shouldExtract === 'function' ? Boolean(shouldExtract(name)) : true;
+
+        const maxForThisFile = (typeof maxUncompressedBytesForFile === 'function')
+            ? maxUncompressedBytesForFile(name)
+            : maxFileUncompressedBytes;
+        const effectiveMaxForThisFile = Number.isFinite(maxForThisFile) ? maxForThisFile : maxFileUncompressedBytes;
+
+        if (extract) {
+            assertInRange(uncompressedSize <= effectiveMaxForThisFile, `Zip entry too large: "${name}" (max ${effectiveMaxForThisFile} bytes)`);
+            assertInRange(totalUncompressed + uncompressedSize <= maxTotalUncompressedBytes, `Zip exceeds total extracted size limit (max ${maxTotalUncompressedBytes} bytes)`);
+        }
+
+        assertInRange(localHeaderOffset + 30 <= zipBytes.length, 'Invalid zip: local header offset out of range');
         const localView = new DataView(zipBytes.buffer, zipBytes.byteOffset + localHeaderOffset, 30);
         const localSig = localView.getUint32(0, true);
         if (localSig !== ZIP_LOCAL_FILE_HEADER_SIG) {
@@ -228,25 +314,34 @@ export async function unzipFiles(zipBytes) {
         const localNameLen = localView.getUint16(26, true);
         const localExtraLen = localView.getUint16(28, true);
         const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+        assertInRange(dataStart <= zipBytes.length, 'Invalid zip: data start out of range');
+        assertInRange(dataStart + compressedSize <= zipBytes.length, 'Invalid zip: compressed data out of range');
         const compressed = zipBytes.subarray(dataStart, dataStart + compressedSize);
 
         // Bit 3 indicates a data descriptor; we rely on central directory sizes.
         const hasDataDescriptor = (flags & 0x0008) !== 0;
         void hasDataDescriptor;
 
+        if (!extract) {
+            continue;
+        }
+
         let content;
         if (method === 0) {
             content = compressed;
-        } else if (method === 8) {
-            content = await inflateRaw(compressed);
             if (uncompressedSize && content.length !== uncompressedSize) {
-                // Allow mismatch, but keep a sanity check for gross corruption.
-                // (Some zips may omit or misreport sizes in local headers.)
+                throw new Error(`Invalid zip: size mismatch for "${name}"`);
+            }
+        } else if (method === 8) {
+            content = await inflateRaw(compressed, { limitBytes: effectiveMaxForThisFile });
+            if (uncompressedSize && content.length !== uncompressedSize) {
+                throw new Error(`Invalid zip: size mismatch for "${name}"`);
             }
         } else {
             throw new Error(`Unsupported zip compression method: ${method}`);
         }
 
+        totalUncompressed += content.length;
         out[name] = content;
     }
 

@@ -204,7 +204,7 @@ To keep the online version aligned with the Studio UI, the project maintains a s
 - **Sync script (studio repo)**: `scripts/sync-studio-demo.mjs` copies `studio/frontend/` into the website repo's `website/public/studio-demo/` and strips Wails-only pieces (ex: `/wailsjs/runtime/runtime.js`)
 - **Demo detection**: the frontend checks for `window.go.main.App`; if absent, it uses the demo backend adapter (`core/Backend.js`)
   - Save/Load are supported via browser file pickers and use standard `.lum` files compatible with the desktop app
-  - Export/Upload remain disabled in the web demo
+  - Export/Upload remain disabled in the online version
 - **CI/CD (website repo)**: the website repo can build and deploy automatically (e.g. GitHub Actions -> Hostinger via FTP) by building the Astro site and deploying `dist/`. In this model, `website/public/studio-demo/` is treated as a committed static asset that is updated by the sync script during development.
 
 #### 3.2.2 Backend Components
@@ -992,6 +992,12 @@ All file loading operations enforce size limits to prevent denial-of-service att
 - Total extracted size tracked and enforced
 - Only known file types (`project.json`, `audio/*`) are processed
 
+**Online implementation** (`frontend/src/core/LumFile.js`, `frontend/src/core/ZipUtil.js`, `frontend/src/core/Backend.js`):
+- File size checked before reading into memory when possible (`File.size`)
+- Zip extraction enforces max entries, per-file limits, and total uncompressed limits
+- Only known file types (`project.json`, `audio/*`) are extracted
+- Unsafe zip paths (traversal/absolute paths/duplicates) are rejected
+
 ---
 
 ## 8. File Formats
@@ -1535,7 +1541,7 @@ picolume/studio/
 | 0.1.4 | Dec 2025 | Replaced silent error ignoring with proper error handling in binary generation |
 | 0.1.5 | Dec 2025 | Added keyboard navigation for timeline clips (Tab, Arrow keys, Enter/Space) |
 | 0.1.6 | Dec 2025 | Added retry/timeout logic for async audio operations (AudioService.js) |
-| 0.2.0 | Dec 2025 | Added theme system + website demo workflow; web demo supports `.lum` Save/Load (incl. embedded audio) |
+| 0.2.0 | Dec 2025 | Added theme system + online version workflow; online version supports `.lum` Save/Load (incl. embedded audio) |
 | 0.2.1 | Dec 2025 | Added light themes (Daylight/Lilac/Rose/Latte) + header light/dark toggle; added About modal; improved preview refresh on project load; added footer status widget; added inspector sliders for numeric props |
 | 0.2.2 | Dec 2025 | Improved upload reliability: firmware filesystem cleanup on reset, show.bin load retry logic |
 | 0.2.2 | Dec 2025 | Upload reload via serial reset + manual safe-eject fallback; status bar Pico connection indicator; improved Pico-family serial VID detection |

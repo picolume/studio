@@ -36,7 +36,7 @@ PicoLume Studio is built using **Wails**. To run it locally:
 
 ### Prerequisites
 
-- [Go 1.21+](https://go.dev/)
+- [Go 1.23+](https://go.dev/)
 - [Node.js](https://nodejs.org/) (npm)
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation)
 

@@ -55,6 +55,7 @@ function createWailsBackend(app) {
 
 function createOnlineBackend() {
     const saveHandleByName = new Map();
+    const MAX_LUM_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
     async function pickSaveHandle(suggestedName = 'myshow.lum') {
         if (typeof window === 'undefined') return null;
@@ -192,6 +193,9 @@ function createOnlineBackend() {
 
             try {
                 const { parseLumBytes } = await import('./LumFile.js');
+                if (typeof file?.size === 'number' && file.size > MAX_LUM_FILE_SIZE) {
+                    throw new Error(`Project file too large (max ${Math.floor(MAX_LUM_FILE_SIZE / (1024 * 1024))}MB)`);
+                }
                 const ab = await file.arrayBuffer();
                 const { projectJson, audioFiles } = await parseLumBytes(new Uint8Array(ab));
                 return {

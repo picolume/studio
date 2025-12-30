@@ -627,6 +627,18 @@
                 <li><strong>Preview Canvas (Top Center):</strong> A real-time simulation of your show. Use the <strong>preview mode buttons</strong> to switch between Track/Field/Off, and drag the <strong>resize handle</strong> under the preview to change its height.</li>
                 <li><strong>Status Bar (Bottom):</strong> Shows project name (with <strong>●</strong> when unsaved), Pico device connection status, current selection info, snap/grid settings, and keyboard shortcut hints.</li>
             </ul>
+
+            <h3>Project Files (.lum)</h3>
+            <p>Studio saves projects as <code>.lum</code> files (ZIP archives containing <code>project.json</code> and embedded audio under <code>audio/</code>).</p>
+            <p>For safety, Studio enforces limits when opening projects:</p>
+            <ul>
+                <li><strong>Max .lum size:</strong> 500 MB</li>
+                <li><strong>Max project.json:</strong> 10 MB</li>
+                <li><strong>Max single audio file:</strong> 200 MB</li>
+                <li><strong>Max total extracted size:</strong> 1 GB</li>
+                <li><strong>Max files in archive:</strong> 100</li>
+            </ul>
+            <p>If a project exceeds these limits, it will be rejected instead of partially loading.</p>
         </section>
 
         <section id="preview">
