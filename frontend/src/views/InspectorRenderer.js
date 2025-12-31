@@ -15,6 +15,7 @@ const COLLAPSED_STORAGE_KEY = 'picolume:inspector:collapsed';
 
 // Default collapsed states for each section
 const DEFAULT_COLLAPSED = {
+    projectInfo: false,       // expanded
     hardwareProfiles: false,  // expanded
     colorPalettes: false,     // expanded
     propGroups: false         // expanded
@@ -242,9 +243,9 @@ export class InspectorRenderer {
         container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-2 border-b border-[var(--ui-border)] pb-2">PROJECT SETTINGS</div>`;
 
         // --- Project Info ---
-        container.insertAdjacentHTML('beforeend', `<div class="text-xs font-bold text-cyan-400 mb-2 uppercase">Project Info</div>`);
+        const { content: infoContent } = this._createCollapsibleSection(container, 'projectInfo', 'Project Info');
         const infoDiv = document.createElement('div');
-        infoDiv.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded mb-4 border border-[var(--ui-border)]";
+        infoDiv.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded border border-[var(--ui-border)]";
 
         this._addTextInput(infoDiv, "Project Name", project.name || "My Show", (val) => {
             this.stateManager?.update(draft => {
@@ -295,7 +296,7 @@ export class InspectorRenderer {
         };
         const asLabel = document.createElement('label'); asLabel.innerText = "Enable Auto-Save"; asLabel.className = "text-xs text-[var(--ui-text)]";
         autoSaveDiv.appendChild(asCheck); autoSaveDiv.appendChild(asLabel); infoDiv.appendChild(autoSaveDiv);
-        container.appendChild(infoDiv);
+        infoContent.appendChild(infoDiv);
 
         // Hardware Profiles
         this._renderHardwareProfiles(container, project);
@@ -826,7 +827,7 @@ export class InspectorRenderer {
                 if (!draft.project.settings.palettes) {
                     draft.project.settings.palettes = [...DEFAULT_PALETTES];
                 }
-                draft.project.settings.palettes.push(newPalette);
+                draft.project.settings.palettes.unshift(newPalette);
                 draft.isDirty = true;
             });
             this.render(null);
@@ -986,7 +987,7 @@ export class InspectorRenderer {
                 }
                 if (isBuiltin) {
                     // Add as new palette
-                    draft.project.settings.palettes.push(workingPalette);
+                    draft.project.settings.palettes.unshift(workingPalette);
                 } else {
                     // Update existing
                     const idx = draft.project.settings.palettes.findIndex(p => p.id === paletteId);
