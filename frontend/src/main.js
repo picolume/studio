@@ -19,7 +19,8 @@ import {
     updateSelectionUI,
     populateInspector,
     updateAudioClipWaveform,
-    getPreviewRenderer
+    getPreviewRenderer,
+    getInspectorRenderer
 } from './timeline.js';
 
 import { initBinaryInspector } from './ui/BinaryInspector.js';
@@ -476,6 +477,36 @@ window.addEventListener('DOMContentLoaded', async () => {
         audioService,
         errorHandler,
         elements: els
+    });
+
+    // ==========================================
+    // SIDEBAR MODE MANAGER & MENU RENDERER
+    // ==========================================
+
+    const sidebarModeManager = app.sidebarModeManager;
+    const menuRenderer = app.menuRenderer;
+
+    // Initialize SidebarModeManager with dependencies
+    sidebarModeManager.init({
+        inspectorRenderer: getInspectorRenderer(),
+        menuRenderer: menuRenderer,
+        paneInspector: document.getElementById('pane-inspector'),
+        sidebarHeader: document.getElementById('sidebar-header'),
+        sidebarTitle: document.getElementById('sidebar-title'),
+        sidebarIcon: document.getElementById('sidebar-icon'),
+        sidebarBackBtn: document.getElementById('sidebar-back-btn'),
+        sidebarCloseBtn: document.getElementById('sidebar-close-btn'),
+        hamburgerButton: document.getElementById('btn-hamburger'),
+    });
+
+    // Initialize MenuRenderer with action handlers and dependencies
+    menuRenderer.init({
+        sidebarModeManager: sidebarModeManager,
+        menuContent: document.getElementById('menu-content'),
+        sidebarTitle: document.getElementById('sidebar-title'),
+        sidebarBackBtn: document.getElementById('sidebar-back-btn'),
+        themeManager: themeManager,
+        actionHandlers: menuController.getActionHandlers()
     });
 
     // ==========================================

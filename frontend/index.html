@@ -94,90 +94,6 @@
                 <button id="btn-hamburger" class="btn btn--icon" title="Menu" aria-expanded="false" aria-haspopup="true">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div id="hamburger-dropdown" class="hamburger-dropdown" role="menu" aria-hidden="true">
-                    <button class="hamburger-item" role="menuitem" data-action="new">
-                        <i class="fas fa-file"></i><span>New Project</span><kbd>Ctrl+N</kbd>
-                    </button>
-                    <button class="hamburger-item" role="menuitem" data-action="open">
-                        <i class="fas fa-folder-open"></i><span>Open Project</span><kbd>Ctrl+O</kbd>
-                    </button>
-                    <div class="hamburger-divider" role="separator"></div>
-                    <button class="hamburger-item" role="menuitem" data-action="save">
-                        <i class="fas fa-save"></i><span>Save</span><kbd>Ctrl+S</kbd>
-                    </button>
-                    <button class="hamburger-item" role="menuitem" data-action="save-as">
-                        <i class="fas fa-file-export"></i><span>Save As...</span><kbd>Ctrl+Shift+S</kbd>
-                    </button>
-                    <div class="hamburger-divider" role="separator"></div>
-                    <button class="hamburger-item" role="menuitem" data-action="export">
-                        <i class="fas fa-download"></i><span>Export Binary</span>
-                    </button>
-                    <button class="hamburger-item" role="menuitem" data-action="upload">
-                        <i class="fas fa-microchip"></i><span>Upload to Device</span>
-                    </button>
-                    <button class="hamburger-item" role="menuitem" data-action="inspect">
-                        <i class="fas fa-search"></i><span>Inspect Binary</span>
-                    </button>
-                    <div class="hamburger-divider" role="separator"></div>
-
-                    <div class="hamburger-submenu" role="none">
-                        <div class="hamburger-item hamburger-submenu-trigger" role="menuitem" tabindex="0" data-action="themes" data-keep-open="true" aria-haspopup="true">
-                            <i class="fas fa-palette"></i><span>Themes</span><i class="fas fa-chevron-right hamburger-submenu-caret" aria-hidden="true"></i>
-                        </div>
-                        <div class="hamburger-submenu-panel" role="menu" aria-label="Themes">
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="standard" aria-checked="true">
-                                <i class="fas fa-check"></i><span>Standard</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="daylight" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Daylight</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="lilac" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Lilac</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="rose" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Rose</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="latte" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Latte</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="aurora" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Aurora</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="nord" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Nord</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="solarized" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Solarized</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="gruvbox" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Gruvbox</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="hc-dark" aria-checked="false">
-                                <i class="fas fa-check"></i><span>High Contrast</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="crimson" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Crimson</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="graphite" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Graphite</span>
-                            </button>
-                            <button class="hamburger-item hamburger-theme-item" role="menuitemradio" data-action="theme" data-theme="forest" aria-checked="false">
-                                <i class="fas fa-check"></i><span>Forest</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="hamburger-divider" role="separator"></div>
-                    <button class="hamburger-item" role="menuitem" data-action="settings">
-                        <i class="fas fa-cog"></i><span>Project Settings</span>
-                    </button>
-                    <button class="hamburger-item" role="menuitem" data-action="about">
-                        <i class="fas fa-circle-info"></i><span>About</span>
-                    </button>
-                    <a class="hamburger-item" role="menuitem" data-action="manual">
-                        <i class="fas fa-book"></i><span>User Manual</span>
-                    </a>
-                </div>
             </div>
         </div>
     </header>
@@ -272,12 +188,25 @@
             </div>
         </div>
 
-            <div id="pane-inspector" class="sidebar-inspector bg-[var(--ui-panel-bg)] border-l border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);">
-            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)] flex items-center gap-2">
-                <i class="fas fa-sliders-h text-[var(--ui-text-subtle)] text-xs" aria-hidden="true"></i>
-                <span class="truncate">Inspector</span>
+            <div id="pane-inspector" class="sidebar-inspector bg-[var(--ui-panel-bg)] border-l border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);" data-sidebar-mode="inspector">
+            <!-- Dynamic sidebar header -->
+            <div id="sidebar-header" class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)] flex items-center justify-between">
+                <div class="flex items-center gap-2 min-w-0">
+                    <button id="sidebar-back-btn" class="hidden btn--icon-sm" title="Back" aria-label="Go back">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </button>
+                    <i id="sidebar-icon" class="fas fa-sliders-h text-[var(--ui-text-subtle)] text-xs" aria-hidden="true"></i>
+                    <span id="sidebar-title" class="truncate">Inspector</span>
+                </div>
+                <button id="sidebar-close-btn" class="btn--icon-sm" title="Close menu (Esc)" aria-label="Close menu">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
             </div>
-            <div id="inspector-content" class="p-4 flex-1 overflow-y-auto"></div>
+            <!-- Content wrapper for slide animation -->
+            <div id="sidebar-content-wrapper">
+                <div id="inspector-content" class="p-4"></div>
+                <div id="menu-content" class="p-4"></div>
+            </div>
         </div>
     </div>
 

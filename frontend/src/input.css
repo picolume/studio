@@ -1291,6 +1291,124 @@ body {
 #pane-preview { transition: height 160ms ease; }
 .pane-collapsed { border-width: 0 !important; pointer-events: none; }
 
+/* ==========================================
+   Sidebar Mode Transitions (Inspector ↔ Menu)
+   ========================================== */
+
+/* Content wrapper - provides positioning context */
+#sidebar-content-wrapper {
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Both panes need explicit positioning */
+#inspector-content {
+    position: relative;
+    flex: 1;
+    overflow-y: auto;
+    transition: transform 200ms ease-out, opacity 200ms ease-out;
+}
+
+#menu-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+    transition: transform 200ms ease-out, opacity 200ms ease-out;
+}
+
+/* Sidebar header buttons */
+#sidebar-back-btn {
+    display: none;
+}
+
+#sidebar-close-btn {
+    display: flex;
+    visibility: hidden; /* Reserve space but hide in inspector mode */
+}
+
+/* Inspector mode (default) */
+[data-sidebar-mode="inspector"] #inspector-content {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+[data-sidebar-mode="inspector"] #menu-content {
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Menu mode */
+[data-sidebar-mode="menu"] #inspector-content {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+[data-sidebar-mode="menu"] #menu-content {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+/* Show close button in menu mode */
+[data-sidebar-mode="menu"] #sidebar-close-btn {
+    visibility: visible;
+}
+
+/* Show back button only when not at menu root (controlled by JS removing .hidden) */
+[data-sidebar-mode="menu"] #sidebar-back-btn:not(.hidden) {
+    display: flex;
+}
+
+/* Instant mode switch (no transition) */
+#pane-inspector.no-transition #inspector-content,
+#pane-inspector.no-transition #menu-content {
+    transition: none !important;
+}
+
+/* Hamburger button active state when menu is open */
+#btn-hamburger.btn--active {
+    background-color: var(--ui-toolbar-hover-bg);
+    color: var(--accent);
+}
+
+/* Small icon button variant for sidebar header - sized to not expand header */
+.btn--icon-sm {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--ui-text-subtle);
+    font-size: 10px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn--icon-sm:hover {
+    background-color: var(--ui-toolbar-hover-bg);
+    color: var(--ui-text);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    #inspector-content,
+    #menu-content {
+        transition: opacity 150ms ease-out;
+        transform: none !important;
+    }
+}
+
 /* Drag-and-drop reorder (Inspector cards) */
 .dnd-dragging {
     cursor: grabbing;

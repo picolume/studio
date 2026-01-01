@@ -67,6 +67,45 @@ export class InspectorRenderer {
     }
 
     /**
+     * Capture current inspector UI state for later restoration
+     * Used when switching to menu mode
+     * @returns {Object} Snapshot of inspector state
+     */
+    captureSnapshot() {
+        const inspectorContent = this.elements.inspector || document.getElementById('inspector-content');
+        return {
+            scrollTop: inspectorContent?.scrollTop || 0,
+            collapsedSections: { ...this._collapsedSections },
+        };
+    }
+
+    /**
+     * Restore inspector UI state from a snapshot
+     * Used when returning from menu mode
+     * @param {Object} snapshot - Previously captured snapshot
+     */
+    restoreSnapshot(snapshot) {
+        if (!snapshot) return;
+
+        // Restore collapsed sections state
+        if (snapshot.collapsedSections) {
+            this._collapsedSections = { ...snapshot.collapsedSections };
+            this._saveCollapsedState();
+        }
+
+        // Re-render to apply collapsed state, then restore scroll
+        this.render();
+
+        // Restore scroll position after render completes
+        requestAnimationFrame(() => {
+            const inspectorContent = this.elements.inspector || document.getElementById('inspector-content');
+            if (inspectorContent && snapshot.scrollTop) {
+                inspectorContent.scrollTop = snapshot.scrollTop;
+            }
+        });
+    }
+
+    /**
      * Create a collapsible section with header and content
      * @param {HTMLElement} container - Parent container
      * @param {string} sectionKey - Key for localStorage persistence

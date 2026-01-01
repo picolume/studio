@@ -85,6 +85,10 @@ export function getPreviewRenderer() {
     return deps.previewRenderer;
 }
 
+export function getInspectorRenderer() {
+    return deps.inspectorRenderer;
+}
+
 // ==========================================
 // UTILITIES
 // ==========================================
