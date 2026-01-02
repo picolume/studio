@@ -188,7 +188,7 @@ flowchart TB
 | **UndoController** | `controllers/UndoController.js` | Undo/redo stack management and UI updates |
 | **ThemeManager** | `controllers/ThemeManager.js` | Theme selection/persistence and light/dark toggle behavior |
 | **KeyboardController** | `controllers/KeyboardController.js` | Keyboard shortcut bindings and global key handling |
-| **MenuController** | `controllers/MenuController.js` | Hamburger menu and submenu behavior (including viewport constraints) |
+| **MenuController** | `controllers/MenuController.js` | Side panel menu drawer and submenu behavior |
 | **TimelineRenderer** | `views/TimelineRenderer.js` | Renders tracks, clips, ruler, playhead |
 | **PreviewRenderer** | `views/PreviewRenderer.js` | Canvas-based LED effect simulation |
 | **InspectorRenderer** | `views/InspectorRenderer.js` | Property panel for clips and project settings |
@@ -774,8 +774,8 @@ flowchart TB
 - Keyboard shortcut hints
 - Pico connection indicator (e.g., Not detected / Bootloader / USB drive / Serial COM port)
 
-#### 6.2.8 Hamburger Menu
-A dropdown menu accessible via the hamburger icon (three horizontal lines) in the header bar. Provides consolidated access to all major application actions with keyboard shortcut hints.
+#### 6.2.8 Side Panel Menu
+A slide-out drawer panel accessible via the hamburger icon (three horizontal lines) in the header bar. Provides consolidated access to all major application actions with keyboard shortcut hints.
 
 **Menu Items:**
 | Item | Icon | Shortcut | Action |
@@ -793,19 +793,20 @@ A dropdown menu accessible via the hamburger icon (three horizontal lines) in th
 
 **Behavior:**
 - Opens on hamburger button click
-- Closes when clicking outside the menu
+- Slides in from the left edge of the viewport
+- Closes when clicking outside the panel (overlay area)
 - Closes when pressing Escape key
 - Closes after selecting a menu item
-- Themes opens a submenu on hover/focus and applies immediately
-- Submenus are viewport-constrained (auto-position and scroll if they would extend off-screen)
-- Animated slide-down transition (150ms)
+- Themes opens an inline submenu and applies immediately
+- Animated slide-in/slide-out transition (200ms)
 - Menu items highlight on hover with accent color on icons
 
 **Styling:**
 - Theme-controlled background and borders
-- 220px minimum width
-- Rounded corners (8px)
-- Drop shadow for depth
+- 280px panel width
+- Full viewport height
+- Drop shadow on the right edge for depth
+- Semi-transparent overlay behind the panel
 - Keyboard shortcuts displayed in subtle badge style
 
 #### 6.2.9 Modal Dialogs
