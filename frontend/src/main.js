@@ -46,7 +46,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     const els = app.elements;
     const themeManager = app.themeManager;
     const keyboardController = app.keyboardController;
-    const menuController = app.menuController;
 
     // ==========================================
     // LAYOUT TOGGLES (Palette / Preview / Inspector)
@@ -453,22 +452,20 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Initialize MenuController with action handlers
-    menuController.init({
-        actionHandlers: {
-            'new': () => els.btnNew?.click(),
-            'open': () => els.btnOpen?.click(),
-            'save': () => els.btnSave?.click(),
-            'save-as': () => els.btnSaveAs?.click(),
-            'export': () => els.btnExportBin?.click(),
-            'upload': () => els.btnUpload?.click(),
-            'settings': () => els.btnSettings?.click(),
-            'about': () => setAboutOpen(true),
-            'inspect': () => binaryInspector?.open(),
-            'manual': () => setManualOpen(true),
-            'theme': (themeName) => themeManager.setTheme(themeName)
-        }
-    });
+    // Menu action handlers (passed directly to MenuRenderer)
+    const menuActionHandlers = {
+        'new': () => els.btnNew?.click(),
+        'open': () => els.btnOpen?.click(),
+        'save': () => els.btnSave?.click(),
+        'save-as': () => els.btnSaveAs?.click(),
+        'export': () => els.btnExportBin?.click(),
+        'upload': () => els.btnUpload?.click(),
+        'settings': () => els.btnSettings?.click(),
+        'about': () => setAboutOpen(true),
+        'inspect': () => binaryInspector?.open(),
+        'manual': () => setManualOpen(true),
+        'theme': (themeName) => themeManager.setTheme(themeName)
+    };
 
     // Wire timeline module to the application state/services (no bridge/proxy).
     initTimeline({
@@ -506,7 +503,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         sidebarTitle: document.getElementById('sidebar-title'),
         sidebarBackBtn: document.getElementById('sidebar-back-btn'),
         themeManager: themeManager,
-        actionHandlers: menuController.getActionHandlers()
+        actionHandlers: menuActionHandlers
     });
 
     // ==========================================

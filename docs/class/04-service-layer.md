@@ -27,7 +27,7 @@ flowchart LR
 
     subgraph "Coordination"
         KC[KeyboardController]
-        MC[MenuController]
+        MR[MenuRenderer]
         TC[TimelineController]
     end
 
@@ -42,9 +42,9 @@ flowchart LR
     end
 
     USER --> UI
-    UI --> KC & MC & TC
+    UI --> KC & MR & TC
     KC --> PS
-    MC --> PS
+    MR --> PS
     TC --> AS
     PS --> SM & BE
     AS --> SM

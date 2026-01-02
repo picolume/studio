@@ -29,10 +29,10 @@ flowchart TB
         MENU[Menu Clicks]
     end
 
-    subgraph "Controllers"
+    subgraph "Controllers & Views"
         KC[KeyboardController<br/>Shortcuts]
         TC[TimelineController<br/>Clips/Tracks]
-        MC[MenuController<br/>Menu Actions]
+        MR[MenuRenderer<br/>Menu Actions]
         UC[UndoController<br/>History]
         TM[ThemeManager<br/>Themes]
     end
@@ -45,11 +45,11 @@ flowchart TB
 
     KEY --> KC
     MOUSE --> TC
-    MENU --> MC
+    MENU --> MR
 
     KC --> TC & PS & UC
     TC --> SM & AS
-    MC --> PS & TM
+    MR --> PS & TM
     UC --> SM
     TM --> SM
 ```
@@ -572,88 +572,75 @@ This separation (StateManager owns logic, Controller owns UI) keeps concerns cle
 
 ---
 
-## MenuController: Handling Menu UI
+## Side Panel Menu: SidebarModeManager and MenuRenderer
 
-MenuController manages the hamburger menu behavior:
+The side panel menu is handled by two components working together:
+
+- **SidebarModeManager** - Controls when the sidebar shows menu vs inspector content
+- **MenuRenderer** - Renders menu items and handles action execution
 
 ```javascript
-// MenuController.js - Simplified
+// MenuRenderer.js - Simplified
 
-class MenuController {
-    constructor(projectService, themeManager) {
-        this.ps = projectService;
-        this.tm = themeManager;
-        this.menuPanel = document.getElementById('hamburger-menu');
-        this.menuBtn = document.getElementById('hamburger-btn');
-
-        this.setupMenu();
+class MenuRenderer {
+    constructor() {
+        this._actionHandlers = {};
     }
 
-    setupMenu() {
-        // Toggle on button click
-        this.menuBtn.addEventListener('click', () => this.toggleMenu());
-
-        // Close on outside click
-        document.addEventListener('click', (e) => {
-            if (!this.menuPanel.contains(e.target) && e.target !== this.menuBtn) {
-                this.closeMenu();
-            }
-        });
-
-        // Close on Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') this.closeMenu();
-        });
-
-        // Wire up menu items
-        this.wireMenuActions();
+    init(deps) {
+        this._deps = deps;
+        this._actionHandlers = deps.actionHandlers || {};
     }
 
-    wireMenuActions() {
-        // Each menu item has a data-action attribute
-        this.menuPanel.querySelectorAll('[data-action]').forEach(item => {
-            item.addEventListener('click', (e) => {
-                const action = e.currentTarget.dataset.action;
-                this.handleAction(action);
-                this.closeMenu();
-            });
-        });
-    }
+    render(pageId) {
+        const { menuContent, sidebarModeManager } = this._deps;
+        const currentPage = pageId || 'root';
+        const page = MENU_PAGES[currentPage];
 
-    handleAction(action) {
-        switch (action) {
-            case 'new':
-                this.ps.createNew();
-                break;
-            case 'open':
-                this.ps.load();
-                break;
-            case 'save':
-                this.ps.save();
-                break;
-            case 'save-as':
-                this.ps.save(null, true);
-                break;
-            case 'export':
-                this.ps.exportBinary();
-                break;
-            case 'upload':
-                this.ps.uploadToDevice();
-                break;
-            // ... more actions
+        menuContent.innerHTML = '';
+
+        for (const item of page.items) {
+            const el = this._renderItem(item);
+            if (el) menuContent.appendChild(el);
         }
     }
 
-    toggleMenu() {
-        const isOpen = this.menuPanel.classList.toggle('show');
-        this.menuBtn.setAttribute('aria-expanded', isOpen);
-    }
+    _executeAction(action, data) {
+        const { sidebarModeManager } = this._deps;
 
-    closeMenu() {
-        this.menuPanel.classList.remove('show');
-        this.menuBtn.setAttribute('aria-expanded', 'false');
+        // Close menu instantly when executing actions
+        sidebarModeManager?.exitMenu({ instant: true });
+
+        // Execute handler
+        const handler = this._actionHandlers[action];
+        if (handler) {
+            handler(data);
+        }
     }
 }
+```
+
+Action handlers are defined in `main.js` and passed to MenuRenderer:
+
+```javascript
+// main.js - Menu action handlers
+const menuActionHandlers = {
+    'new': () => els.btnNew?.click(),
+    'open': () => els.btnOpen?.click(),
+    'save': () => els.btnSave?.click(),
+    'save-as': () => els.btnSaveAs?.click(),
+    'export': () => els.btnExportBin?.click(),
+    'upload': () => els.btnUpload?.click(),
+    'settings': () => els.btnSettings?.click(),
+    'about': () => setAboutOpen(true),
+    'theme': (themeName) => themeManager.setTheme(themeName)
+};
+
+menuRenderer.init({
+    sidebarModeManager,
+    actionHandlers: menuActionHandlers,
+    // ... other deps
+});
 ```
 
 ---

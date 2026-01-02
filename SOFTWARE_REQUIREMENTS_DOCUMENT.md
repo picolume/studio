@@ -188,7 +188,8 @@ flowchart TB
 | **UndoController** | `controllers/UndoController.js` | Undo/redo stack management and UI updates |
 | **ThemeManager** | `controllers/ThemeManager.js` | Theme selection/persistence and light/dark toggle behavior |
 | **KeyboardController** | `controllers/KeyboardController.js` | Keyboard shortcut bindings and global key handling |
-| **MenuController** | `controllers/MenuController.js` | Side panel menu drawer and submenu behavior |
+| **SidebarModeManager** | `controllers/SidebarModeManager.js` | Side panel mode switching (menu vs inspector) |
+| **MenuRenderer** | `views/MenuRenderer.js` | Side panel menu rendering and action handling |
 | **TimelineRenderer** | `views/TimelineRenderer.js` | Renders tracks, clips, ruler, playhead |
 | **PreviewRenderer** | `views/PreviewRenderer.js` | Canvas-based LED effect simulation |
 | **InspectorRenderer** | `views/InspectorRenderer.js` | Property panel for clips and project settings |
@@ -1529,8 +1530,9 @@ picolume/studio/
         UndoController.js      # Undo/redo
         ThemeManager.js        # Theme selection/persistence
         KeyboardController.js  # Keyboard shortcuts
-        MenuController.js      # Hamburger menu + submenu behavior
+        SidebarModeManager.js  # Side panel mode switching (menu vs inspector)
       views/
+        MenuRenderer.js        # Side panel menu rendering
         TimelineRenderer.js    # Timeline UI
         PreviewRenderer.js     # LED preview
         InspectorRenderer.js   # Properties
@@ -1558,6 +1560,7 @@ picolume/studio/
 | 0.2.2 | Dec 2025 | Added drag-and-drop reordering for color palette cards in Inspector (matches hardware profiles and prop groups behavior) |
 | 0.2.2 | Dec 2025 | Fixed drop indicator line being clipped during drag operations (uses inset box-shadow to avoid parent overflow clipping) |
 | 0.2.2 | Dec 2025 | Added Binary Inspector tool for inspecting/validating show.bin files (FR-BI-001); accessible via hamburger menu |
+| 0.2.2 | Jan 2026 | Deprecated MenuController; menu functionality consolidated into SidebarModeManager and MenuRenderer |
 
 ---
 

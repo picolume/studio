@@ -11,7 +11,6 @@ import { UndoController } from '../controllers/UndoController.js';
 import { TimelineController } from '../controllers/TimelineController.js';
 import { ThemeManager } from '../controllers/ThemeManager.js';
 import { KeyboardController } from '../controllers/KeyboardController.js';
-import { MenuController } from '../controllers/MenuController.js';
 import { SidebarModeManager } from '../controllers/SidebarModeManager.js';
 import { MenuRenderer } from '../views/MenuRenderer.js';
 import { ErrorHandler } from './ErrorHandler.js';
@@ -31,7 +30,6 @@ export class Application {
         this.timelineController = null;
         this.themeManager = null;
         this.keyboardController = null;
-        this.menuController = null;
         this.sidebarModeManager = null;
         this.menuRenderer = null;
 
@@ -65,7 +63,6 @@ export class Application {
             this.timelineController = new TimelineController(this.stateManager, this.errorHandler);
             this.themeManager = new ThemeManager();
             this.keyboardController = new KeyboardController(this.stateManager, this.errorHandler);
-            this.menuController = new MenuController();
             this.sidebarModeManager = new SidebarModeManager();
             this.menuRenderer = new MenuRenderer();
 
@@ -273,7 +270,6 @@ export class Application {
             case 'timeline': return this.timelineController;
             case 'theme': return this.themeManager;
             case 'keyboard': return this.keyboardController;
-            case 'menu': return this.menuController;
             default: return null;
         }
     }

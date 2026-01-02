@@ -110,13 +110,14 @@ studio/
         │   ├── TimelineController.js
         │   ├── UndoController.js
         │   ├── KeyboardController.js
-        │   ├── MenuController.js
+        │   ├── SidebarModeManager.js
         │   └── ThemeManager.js
         │
         └── views/              # 🎨 Canvas/DOM rendering
             ├── TimelineRenderer.js
             ├── PreviewRenderer.js
-            └── InspectorRenderer.js
+            ├── InspectorRenderer.js
+            └── MenuRenderer.js
 ```
 
 ### Naming Convention
@@ -139,8 +140,8 @@ Here's what happens when you click "Save":
 ```mermaid
 sequenceDiagram
     participant User
-    participant UI as Save Button
-    participant Menu as MenuController
+    participant UI as Menu Panel
+    participant MR as MenuRenderer
     participant PS as ProjectService
     participant State as StateManager
     participant Backend as Backend.js
@@ -149,8 +150,8 @@ sequenceDiagram
     participant FS as File System
 
     User->>UI: Click Save
-    UI->>Menu: onClick event
-    Menu->>PS: save()
+    UI->>MR: action handler
+    MR->>PS: save()
     PS->>State: get('project')
     State-->>PS: project data
     PS->>State: get('audioLibrary')
