@@ -7,7 +7,6 @@
 import { app } from './core/Application.js';
 import { CONFIG, getSnappedTime, showConfirm, formatPicoStatus } from './utils.js';
 
-// Import legacy timeline functions (to be refactored later)
 import {
     initTimeline,
     buildTimeline,
