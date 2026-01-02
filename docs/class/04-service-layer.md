@@ -1,33 +1,12 @@
-# Lesson 4: The Service Layer Pattern
+# Service Layer
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Distinguish services from controllers
-- Understand AudioService and its Web Audio integration
-- Work with ProjectService for save/load operations
-- Implement retry and timeout patterns for async operations
-
----
-
-## The Hospital Analogy
-
-Think of our app like a hospital:
-
-| Hospital Role | App Role | Example |
-|---------------|----------|---------|
-| **Receptionist** | Controller | Takes patient info, routes requests |
-| **Specialist** | Service | Does the actual medical work |
-| **Medical Records** | StateManager | Keeps all patient data |
-| **Lab Equipment** | Backend | Specialized tools (file system, hardware) |
-
-A receptionist (Controller) doesn't perform surgery - they route you to a Specialist (Service) who has the training and equipment. The Specialist updates your Medical Records (StateManager) with results.
+This document explains the service layer pattern in PicoLume Studio, focusing on AudioService and ProjectService.
 
 ---
 
 ## Services vs Controllers
 
-### Key Differences
+Services and controllers have distinct responsibilities:
 
 | Aspect | Service | Controller |
 |--------|---------|------------|
@@ -73,9 +52,7 @@ flowchart LR
 
 ---
 
-## AudioService Deep Dive
-
-### What It Does
+## AudioService
 
 AudioService manages everything related to sound:
 - Loading audio files
@@ -83,7 +60,7 @@ AudioService manages everything related to sound:
 - Playing/stopping audio
 - Managing the Web Audio API context
 
-### The Web Audio API (Quick Primer)
+### Web Audio API Overview
 
 ```mermaid
 flowchart LR
@@ -158,11 +135,11 @@ async function withRetry(fn, options) {
 }
 ```
 
-**Pattern Alert!** Retry with exponential backoff is used everywhere:
+Retry with exponential backoff is used everywhere:
 - Network requests
 - Database connections
 - API rate limits
-- Our audio decoding
+- Audio decoding
 
 ### Playing Audio
 
@@ -220,9 +197,7 @@ Audio state changes shouldn't be undoable:
 
 ---
 
-## ProjectService Deep Dive
-
-### What It Does
+## ProjectService
 
 ProjectService handles project lifecycle:
 - Creating new projects
@@ -512,7 +487,7 @@ function scheduleAutoSave() {
 }
 ```
 
-**Pattern Alert!** Debouncing prevents rapid-fire saves when user is actively editing. The 2-second delay means we save 2 seconds after the user stops making changes.
+Debouncing prevents rapid-fire saves when user is actively editing. The 2-second delay means we save 2 seconds after the user stops making changes.
 
 ---
 
@@ -558,22 +533,6 @@ This is **Dependency Injection**: components receive their dependencies rather t
 
 ---
 
-## Exercise: Trace Upload Flow
-
-The `uploadToDevice()` method is more complex. Trace through:
-
-1. Find `uploadToDevice()` in ProjectService
-2. Follow it to the Backend adapter
-3. Find `UploadToPico()` in app.go
-4. Note all the events emitted
-
-Answer these:
-- What happens if no Pico is found?
-- How does the status bar update?
-- What's the serial reset command?
-
----
-
 ## Summary
 
 ### Key Takeaways
@@ -584,7 +543,7 @@ Answer these:
 4. **Resilience Patterns** - Timeouts, retries, error handling
 5. **Audio is Special** - Web Audio API objects aren't clonable
 
-### The Mental Model
+### Mental Model
 
 Services are **specialists**:
 - AudioService is your audio engineer
@@ -594,15 +553,4 @@ They don't care about UI, buttons, or keyboard shortcuts. They just do their spe
 
 ---
 
-## Next Lesson
-
-In [Lesson 5: Controllers](05-controllers.md), we'll explore:
-- TimelineController and clip operations
-- UndoController and history management
-- KeyboardController and shortcuts
-- MenuController and UI interactions
-- Custom events for coordination
-
----
-
-[← State Management](03-state-management.md) | [Course Index](README.md) | [Controllers →](05-controllers.md)
+[← State Management](03-state-management.md) | [Index](README.md) | [Controllers →](05-controllers.md)

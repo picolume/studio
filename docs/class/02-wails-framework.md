@@ -1,18 +1,12 @@
-# Lesson 2: The Wails Framework
+# Wails Framework
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Explain how Wails bridges JavaScript and Go
-- Understand the serialization boundary
-- Read and write Wails-bound Go functions
-- Use the Backend adapter pattern for portability
+This document explains how Wails bridges JavaScript and Go, enabling the frontend to call backend functions.
 
 ---
 
-## The Embassy Analogy
+## How Wails Works
 
-Imagine two countries that speak different languages:
+Wails creates a bridge between two different languages/runtimes:
 
 | Country | Language | Our App |
 |---------|----------|---------|
@@ -20,21 +14,17 @@ Imagine two countries that speak different languages:
 | **GoLand** | Structs, error tuples | Backend |
 | **The Embassy** | Translators, protocols | Wails Bridge |
 
-When JavaScriptland wants something from GoLand, it doesn't speak Go directly. It goes to the Embassy (Wails), which:
+When JavaScript wants something from Go, it goes through the bridge which:
 1. Takes the JavaScript message
 2. Translates it to Go
-3. Sends it to GoLand
+3. Sends it to Go
 4. Gets the response
 5. Translates back to JavaScript
 6. Returns to the caller
 
-This translation has rules and limitations we need to understand.
-
 ---
 
-## How Wails Works
-
-### The Setup (main.go)
+## The Setup (main.go)
 
 ```go
 // main.go - This is where it all starts
@@ -59,9 +49,9 @@ func main() {
 }
 ```
 
-### The Binding Magic
+## The Binding Magic
 
-When you write:
+When you write a Go function:
 ```go
 func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[string]string) string {
     // ...
@@ -96,7 +86,7 @@ flowchart LR
 
 ---
 
-## The Translation Rules
+## Translation Rules
 
 ### Rule 1: Everything is JSON
 
@@ -148,7 +138,7 @@ try {
 }
 ```
 
-**Pattern Alert!** In PicoLume, we often return error messages as strings instead of Go errors. This gives us more control over the message format:
+**Note:** In PicoLume, we often return error messages as strings instead of Go errors. This gives us more control over the message format:
 
 ```go
 func (a *App) SaveProjectToPath(...) string {
@@ -215,10 +205,6 @@ const status = await GetPicoConnectionStatus();
 ---
 
 ## The Backend Adapter Pattern
-
-Here's something clever in PicoLume: we don't call Wails directly everywhere. Instead, we have an **adapter**.
-
-### Why an Adapter?
 
 PicoLume has two modes:
 1. **Desktop App** - Full Wails backend available
@@ -318,12 +304,10 @@ class ProjectService {
 }
 ```
 
-**Pattern Alert!** This **Adapter Pattern** appears everywhere in software:
+This **Adapter Pattern** appears everywhere in software:
 - Database drivers (same interface, different databases)
 - Payment processors (same interface, different providers)
 - Storage backends (same interface, S3/GCS/local)
-
-We use it to abstract away the "how" so the rest of our code only thinks about "what."
 
 ---
 
@@ -435,7 +419,7 @@ tracks []Track  // []elementType
 
 ---
 
-## The Complete Picture
+## Complete Round-Trip Example
 
 Here's how a complete round-trip works:
 
@@ -526,20 +510,6 @@ try {
 
 ---
 
-## Exercise: Trace a Wails Call
-
-1. Open `frontend/src/services/ProjectService.js`
-2. Find the `save()` method
-3. Trace the call through `Backend.js`
-4. Find the corresponding Go function in `app.go`
-5. Answer:
-   - What parameters does the Go function take?
-   - What does it return?
-   - What validation does it do?
-   - What events does it emit (if any)?
-
----
-
 ## Summary
 
 ### Key Takeaways
@@ -550,7 +520,7 @@ try {
 4. **Backend adapter pattern** lets us support multiple environments
 5. **Events** handle progress and async notifications
 
-### The Mental Model
+### Mental Model
 
 Think of the Wails bridge as a **translator at the border**:
 - Takes your JavaScript request
@@ -563,14 +533,4 @@ The translator only knows JSON, so anything that can't be JSON-ified can't cross
 
 ---
 
-## Next Lesson
-
-In [Lesson 3: State Management](03-state-management.md), we'll explore:
-- How StateManager implements the Single Source of Truth
-- The observer pattern for reactive updates
-- Immutable state and why it matters
-- The undo/redo system
-
----
-
-[← Architecture Overview](01-architecture-overview.md) | [Course Index](README.md) | [State Management →](03-state-management.md)
+[← Architecture Overview](01-architecture-overview.md) | [Index](README.md) | [State Management →](03-state-management.md)

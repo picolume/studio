@@ -1,33 +1,24 @@
-# Lesson 3: State Management
+# State Management
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Explain why centralized state matters
-- Use StateManager to read and write data
-- Understand immutable updates and why they're important
-- Implement and understand the observer pattern
-- Work with the undo/redo system
+This document explains how PicoLume Studio manages application state using a centralized StateManager with immutable updates and undo/redo support.
 
 ---
 
-## The Library Analogy
-
-Imagine a library (the old-fashioned kind with books):
+## Why Centralized State?
 
 **Without Centralized State (Bad):**
-- Every department has their own copy of the catalog
-- When a book is checked out, you update YOUR copy
-- Other departments don't know
+- Every component has their own copy of data
+- When something changes, you update YOUR copy
+- Other components don't know
 - Chaos ensues
 
 **With Centralized State (Good):**
-- ONE master catalog
-- All departments check/update the SAME catalog
+- ONE master data store
+- All components check/update the SAME store
 - Everyone sees the same truth
 - When something changes, announcements are made
 
-StateManager is our master catalog.
+StateManager is our master data store.
 
 ---
 
@@ -97,7 +88,7 @@ Here's everything StateManager tracks:
 | | `isDirty`, `filePath` |
 | | `audio` (Web Audio objects) |
 
-**Why?** Things like "which clip is selected" or "current playhead position" are ephemeral - they don't make sense to restore when you reopen a project.
+Things like "which clip is selected" or "current playhead position" are ephemeral - they don't make sense to restore when you reopen a project.
 
 ---
 
@@ -302,7 +293,7 @@ stateManager.subscribeTo('isDirty', (isDirty) => {
 });
 ```
 
-**Pattern Alert!** The Observer Pattern appears everywhere:
+The Observer Pattern appears everywhere:
 - DOM events (`element.addEventListener`)
 - React's state (`useState` triggers re-render)
 - Vue's reactivity system
@@ -371,7 +362,7 @@ stateManager.update(draft => {
 
 ### History Limit
 
-We cap undo history at 50 entries to prevent memory issues:
+Undo history is capped at 50 entries to prevent memory issues:
 
 ```javascript
 // If undo stack has 50 entries and you make a change:
@@ -402,9 +393,7 @@ This means:
 
 ---
 
-## Putting It Together: A Complete Example
-
-Let's trace adding a clip:
+## Complete Example: Adding a Clip
 
 ```javascript
 // 1. User drags effect to timeline
@@ -535,39 +524,6 @@ console.log('Redo depth:', stateManager.redoStack.length);
 
 ---
 
-## Exercise: Implement a Feature
-
-Try implementing "Clear All Clips" functionality:
-
-1. Add a method to TimelineController
-2. It should:
-   - Remove all clips from all LED tracks
-   - Not affect audio tracks
-   - Be undoable
-   - Mark project as dirty
-   - Dispatch `app:timeline-changed`
-
-<details>
-<summary>Solution</summary>
-
-```javascript
-clearAllLedClips() {
-    stateManager.update(draft => {
-        draft.project.tracks.forEach(track => {
-            if (track.type === 'led') {
-                track.clips = [];
-            }
-        });
-        draft.isDirty = true;
-    });
-
-    window.dispatchEvent(new CustomEvent('app:timeline-changed'));
-}
-```
-</details>
-
----
-
 ## Summary
 
 ### Key Takeaways
@@ -578,7 +534,7 @@ clearAllLedClips() {
 4. **Undo/Redo for Free** - Immutability makes history trivial
 5. **Path-Based Access** - `get('a.b.c')` and `subscribeTo('a.b.c')`
 
-### The Mental Model
+### Mental Model
 
 Think of StateManager as a **newspaper with subscriptions**:
 - The newspaper (state) is published
@@ -589,14 +545,4 @@ Think of StateManager as a **newspaper with subscriptions**:
 
 ---
 
-## Next Lesson
-
-In [Lesson 4: The Service Layer](04-service-layer.md), we'll explore:
-- What services do vs. controllers
-- AudioService: Web Audio API management
-- ProjectService: Save/Load/Export operations
-- How services interact with StateManager and Backend
-
----
-
-[← The Wails Framework](02-wails-framework.md) | [Course Index](README.md) | [The Service Layer →](04-service-layer.md)
+[← Wails Framework](02-wails-framework.md) | [Index](README.md) | [Service Layer →](04-service-layer.md)

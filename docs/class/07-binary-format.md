@@ -1,18 +1,10 @@
-# Lesson 7: Binary Format & Serialization
+# Binary Format & Serialization
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Understand the .lum project file format
-- Read and understand the show.bin binary structure
-- Explain how timeline data becomes hardware instructions
-- Work with binary data in JavaScript and Go
+This document explains the binary file formats used in PicoLume Studio: the `.lum` project format and the `show.bin` hardware format.
 
 ---
 
-## The Language Translation Analogy
-
-Think of serialization like translating between languages:
+## Format Overview
 
 | Format | Analogy | Use Case |
 |--------|---------|----------|
@@ -697,17 +689,11 @@ view.getUint32(offset, false)  // false = big-endian
 
 ---
 
-## Exercise: Calculate File Size
+## File Size Calculation
 
-Given a project with:
-- 50 events
-- Version 3 format
+Formula: `16 + 1792 + (eventCount × 48)`
 
-Calculate the exact file size of show.bin.
-
-<details>
-<summary>Solution</summary>
-
+Example with 50 events:
 ```
 Header:        16 bytes
 PropConfig:    224 × 8 = 1,792 bytes
@@ -715,9 +701,6 @@ Events:        50 × 48 = 2,400 bytes
 ─────────────────────────────────────
 Total:         4,208 bytes (4.1 KB)
 ```
-
-Formula: `16 + 1792 + (eventCount × 48)`
-</details>
 
 ---
 
@@ -762,14 +745,4 @@ Each format is optimized for its reader.
 
 ---
 
-## Next Lesson
-
-In [Lesson 8: Backend API Reference](08-backend-api-reference.md), we'll provide:
-- Complete list of Go functions callable from JavaScript
-- Parameter types and return values
-- When to use each function
-- Error handling patterns
-
----
-
-[← Rendering Pipeline](06-rendering-pipeline.md) | [Course Index](README.md) | [Backend API Reference →](08-backend-api-reference.md)
+[← Rendering Pipeline](06-rendering-pipeline.md) | [Index](README.md) | [Backend API Reference →](08-backend-api-reference.md)

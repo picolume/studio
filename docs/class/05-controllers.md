@@ -1,17 +1,10 @@
-# Lesson 5: Controllers
+# Controllers
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Understand the role of controllers in the architecture
-- Work with TimelineController for clip/track operations
-- Implement keyboard shortcuts with KeyboardController
-- Use custom events for component coordination
-- Understand the undo/redo integration in UndoController
+This document explains the controller layer in PicoLume Studio, including TimelineController, KeyboardController, and custom events for coordination.
 
 ---
 
-## The Air Traffic Controller Analogy
+## What Controllers Do
 
 Controllers are like air traffic controllers at an airport:
 
@@ -37,11 +30,11 @@ flowchart TB
     end
 
     subgraph "Controllers"
-        KC[KeyboardController<br/>🎹 Shortcuts]
-        TC[TimelineController<br/>⏱️ Clips/Tracks]
-        MC[MenuController<br/>📋 Menu Actions]
-        UC[UndoController<br/>↩️ History]
-        TM[ThemeManager<br/>🎨 Themes]
+        KC[KeyboardController<br/>Shortcuts]
+        TC[TimelineController<br/>Clips/Tracks]
+        MC[MenuController<br/>Menu Actions]
+        UC[UndoController<br/>History]
+        TM[ThemeManager<br/>Themes]
     end
 
     subgraph "Services & State"
@@ -405,7 +398,7 @@ flowchart LR
 - No circular dependencies
 - Components can be loaded in any order
 
-**Pattern Alert!** This is the **Publish-Subscribe (Pub/Sub) Pattern**. You'll see it in:
+This is the **Publish-Subscribe (Pub/Sub) Pattern**. You'll see it in:
 - Node.js EventEmitter
 - DOM events
 - Message queues (RabbitMQ, Redis)
@@ -512,32 +505,6 @@ class KeyboardController {
             this.togglePlayback();
             return;
         }
-
-        // ========== LAYOUT TOGGLES ==========
-        if (e.altKey && key === '1') {
-            e.preventDefault();
-            this.togglePalette();
-            return;
-        }
-
-        if (e.altKey && key === '2') {
-            e.preventDefault();
-            this.togglePreview();
-            return;
-        }
-
-        if (e.altKey && key === '3') {
-            e.preventDefault();
-            this.toggleInspector();
-            return;
-        }
-
-        // ========== THEME ==========
-        if (e.altKey && key === 't') {
-            e.preventDefault();
-            this.toggleTheme();
-            return;
-        }
     }
 
     isTyping(target) {
@@ -547,7 +514,7 @@ class KeyboardController {
 }
 ```
 
-### The Shortcut Reference
+### Shortcut Reference
 
 | Shortcut | Action | Handler |
 |----------|--------|---------|
@@ -601,7 +568,7 @@ class UndoController {
 }
 ```
 
-**Pattern Alert!** This separation (StateManager owns logic, Controller owns UI) keeps concerns clean. The StateManager doesn't care about buttons. The controller doesn't care about state structure.
+This separation (StateManager owns logic, Controller owns UI) keeps concerns clean. The StateManager doesn't care about buttons. The controller doesn't care about state structure.
 
 ---
 
@@ -689,47 +656,6 @@ class MenuController {
 }
 ```
 
-### Submenu Positioning
-
-Submenus (like Themes) need special handling to stay on screen:
-
-```javascript
-// MenuController.js - Submenu positioning
-
-setupSubmenuPositioning() {
-    this.menuPanel.querySelectorAll('.has-submenu').forEach(item => {
-        item.addEventListener('mouseenter', () => {
-            const submenu = item.querySelector('.submenu');
-            this.positionSubmenu(submenu, item);
-        });
-    });
-}
-
-positionSubmenu(submenu, parent) {
-    const rect = submenu.getBoundingClientRect();
-    const parentRect = parent.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-
-    // Reset any previous positioning
-    submenu.style.top = '0';
-    submenu.style.maxHeight = '';
-
-    // Check if extends below viewport
-    if (rect.bottom > viewportHeight) {
-        // Try shifting up
-        const overflow = rect.bottom - viewportHeight;
-        if (rect.height < viewportHeight - 20) {
-            // Shift up
-            submenu.style.top = `-${overflow + 10}px`;
-        } else {
-            // Too tall - constrain height and scroll
-            submenu.style.maxHeight = `${viewportHeight - parentRect.top - 20}px`;
-            submenu.style.overflowY = 'auto';
-        }
-    }
-}
-```
-
 ---
 
 ## ThemeManager: Appearance Control
@@ -793,18 +719,6 @@ class ThemeManager {
     getCurrentTheme() {
         return document.body.getAttribute('data-theme') || 'standard';
     }
-
-    updateToggleButton() {
-        const btn = document.getElementById('theme-toggle-btn');
-        const isDark = this.isDark(this.getCurrentTheme());
-
-        // Update icon (moon for dark mode button, sun for light)
-        const icon = btn.querySelector('i');
-        icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
-
-        // Update aria
-        btn.setAttribute('aria-pressed', !isDark);
-    }
 }
 ```
 
@@ -840,30 +754,6 @@ sequenceDiagram
 
 ---
 
-## Exercise: Add a Shortcut
-
-Implement a new shortcut `Ctrl+A` for "Select All":
-
-1. Find where shortcuts are handled in KeyboardController
-2. Add the key binding
-3. Call the appropriate method
-
-<details>
-<summary>Solution</summary>
-
-```javascript
-// In KeyboardController.handleKeyDown()
-
-if (ctrl && !shift && key === 'a') {
-    e.preventDefault();
-    this.tc.selectAll();
-    return;
-}
-```
-</details>
-
----
-
 ## Summary
 
 ### Key Takeaways
@@ -874,7 +764,7 @@ if (ctrl && !shift && key === 'a') {
 4. **skipHistory** - Use for ephemeral changes (selection, playback)
 5. **Single Responsibility** - Each controller owns one concern
 
-### The Mental Model
+### Mental Model
 
 Controllers are **traffic cops**:
 - They direct traffic (user actions) to the right destination
@@ -884,14 +774,4 @@ Controllers are **traffic cops**:
 
 ---
 
-## Next Lesson
-
-In [Lesson 6: The Rendering Pipeline](06-rendering-pipeline.md), we'll explore:
-- How TimelineRenderer draws tracks and clips
-- Canvas rendering in PreviewRenderer
-- DOM manipulation in InspectorRenderer
-- Performance optimization techniques
-
----
-
-[← The Service Layer](04-service-layer.md) | [Course Index](README.md) | [Rendering Pipeline →](06-rendering-pipeline.md)
+[← Service Layer](04-service-layer.md) | [Index](README.md) | [Rendering Pipeline →](06-rendering-pipeline.md)

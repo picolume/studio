@@ -1,12 +1,6 @@
-# Lesson 8: Backend API Reference
+# Backend API Reference
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Know every Go function available from JavaScript
-- Understand parameters, return values, and error handling
-- Choose the right function for each task
-- Work with the Backend adapter pattern
+This document provides a complete reference for all Go functions callable from JavaScript via the Wails bridge.
 
 ---
 
@@ -697,26 +691,4 @@ interface BackendCapabilities {
 
 ---
 
-## Course Complete!
-
-Congratulations! You've completed the PicoLume Studio deep dive course. You now understand:
-
-- **Architecture** - How all the pieces fit together
-- **Wails** - How JavaScript and Go communicate
-- **State Management** - Single source of truth with undo/redo
-- **Services** - Business logic layer
-- **Controllers** - User interaction handling
-- **Rendering** - How the UI is drawn
-- **Binary Format** - How data becomes hardware instructions
-- **Backend API** - What functions are available
-
-### Next Steps
-
-1. **Explore the code** - Open files referenced in lessons
-2. **Trace features** - Pick a button and follow its code path
-3. **Make a change** - Best way to confirm understanding
-4. **Build something new** - Add a feature using what you've learned
-
----
-
-[← Binary Format](07-binary-format.md) | [Course Index](README.md)
+[← Binary Format](07-binary-format.md) | [Index](README.md)

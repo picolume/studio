@@ -1,18 +1,12 @@
-# Lesson 1: Architecture Overview
+# Architecture Overview
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Draw the high-level architecture from memory
-- Explain what each major component does
-- Understand the flow of data through the system
-- Identify the technology stack and why each piece was chosen
+This document provides a 30,000-foot view of how all the pieces of PicoLume Studio connect.
 
 ---
 
-## The Restaurant Analogy
+## Component Analogy
 
-Before we dive into code, let's think about PicoLume Studio like a restaurant:
+PicoLume Studio follows a restaurant-like separation of concerns:
 
 | Restaurant | PicoLume Studio |
 |------------|-----------------|
@@ -23,13 +17,11 @@ Before we dive into code, let's think about PicoLume Studio like a restaurant:
 | **Back Office** (ordering supplies, managing staff) | **Go Backend** (file I/O, hardware) |
 | **Delivery Truck** (brings supplies) | **Wails Bridge** (connects JS to Go) |
 
-Just like a restaurant has clear separation of concerns (waiters don't cook, chefs don't seat guests), our app has clear boundaries between components.
+Just like a restaurant has clear separation of concerns (waiters don't cook, chefs don't seat guests), the app has clear boundaries between components.
 
 ---
 
-## The 30,000-Foot View
-
-Here's how everything connects:
+## High-Level Architecture
 
 ```mermaid
 flowchart TB
@@ -80,20 +72,18 @@ flowchart TB
     APPGO <--> PICO
 ```
 
-### Key Insight: The Star is StateManager
+### Key Insight: StateManager is Central
 
-Notice how StateManager is at the center of everything? This is intentional. **All application data lives in one place**, and everything else either:
+Notice how StateManager is at the center of everything. This is intentional. **All application data lives in one place**, and everything else either:
 - **Reads** from it (Renderers)
 - **Writes** to it (Controllers, Services)
 - **Reacts** to changes in it (everyone subscribes)
 
-This pattern is called **Single Source of Truth** and it's why the app doesn't have bugs where "the UI shows one thing but the data says another."
+This pattern is called **Single Source of Truth** and prevents bugs where "the UI shows one thing but the data says another."
 
 ---
 
-## The File Map
-
-Let's see where everything actually lives:
+## File Structure
 
 ```
 studio/
@@ -129,9 +119,9 @@ studio/
             └── InspectorRenderer.js
 ```
 
-### The Naming Convention
+### Naming Convention
 
-Notice the suffixes? They tell you what a file does:
+The suffixes tell you what a file does:
 
 | Suffix | Role | Talks To |
 |--------|------|----------|
@@ -140,13 +130,11 @@ Notice the suffixes? They tell you what a file does:
 | `*Renderer.js` | Draws to screen | StateManager (read-only) |
 | `*Manager.js` | Manages a specific concern | Various |
 
-**Pattern Alert!** This naming convention is used consistently throughout. When you see a new file, the suffix tells you its job.
-
 ---
 
-## Data Flow: Following a Save
+## Data Flow Example: Save Operation
 
-Let's trace what happens when you click "Save":
+Here's what happens when you click "Save":
 
 ```mermaid
 sequenceDiagram
@@ -192,7 +180,7 @@ sequenceDiagram
 
 ---
 
-## The Technology Stack Explained
+## Technology Stack
 
 ### Why Wails?
 
@@ -219,10 +207,6 @@ sequenceDiagram
 
 ### Why Vanilla JavaScript?
 
-**The Problem:** Many web apps use React, Vue, or Angular. Why don't we?
-
-**The Answer:** Simplicity and control.
-
 | Framework | Bundle Size | Learning Curve | Our Need |
 |-----------|-------------|----------------|----------|
 | React | ~40KB | Medium | Virtual DOM, component model |
@@ -236,7 +220,7 @@ For PicoLume Studio:
 - StateManager gives us the reactivity we need
 - No build step complexity
 
-**Pattern Alert!** We essentially built a mini-framework with StateManager + custom events. This pattern appears in many production apps that "outgrow" frameworks.
+We essentially built a mini-framework with StateManager + custom events.
 
 ---
 
@@ -340,22 +324,6 @@ Data flows **one direction** (mostly). This makes bugs easier to find:
 
 ---
 
-## Exercise: Trace a Feature
-
-Pick one of these features and trace it through the codebase:
-
-1. **Adding a clip** - What happens when you drag an effect to the timeline?
-2. **Undo** - How does Ctrl+Z restore previous state?
-3. **Theme switch** - How does changing theme update the whole UI?
-
-For each, identify:
-- Which Controller handles it?
-- Which Service does the work?
-- What State changes?
-- Which Views re-render?
-
----
-
 ## Summary
 
 ### Key Takeaways
@@ -365,23 +333,12 @@ For each, identify:
 3. **Unidirectional Data Flow** - Input → Controller → Service → State → View
 4. **Two Languages, One App** - JavaScript for UI, Go for heavy lifting
 
-### Files to Explore
+### Key Files to Explore
 
-Start your code exploration with:
 - `frontend/src/core/Application.js` - See how everything boots up
 - `frontend/src/main.js` - See how the UI wires together
 - `app.go` - See all the backend capabilities
 
 ---
 
-## Next Lesson
-
-In [Lesson 2: The Wails Framework](02-wails-framework.md), we'll dive deep into how JavaScript and Go communicate, including:
-- How the bridge works
-- What gets serialized
-- Error handling across the boundary
-- The Backend adapter pattern
-
----
-
-[← Back to Course Index](README.md) | [Next: The Wails Framework →](02-wails-framework.md)
+[← Back to Index](README.md) | [Next: Wails Framework →](02-wails-framework.md)

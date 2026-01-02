@@ -1,6 +1,6 @@
 # Design Patterns Index
 
-This document catalogs all the design patterns used in PicoLume Studio, with links to where they appear in the codebase and lessons.
+This document catalogs all the design patterns used in PicoLume Studio, with links to where they appear in the codebase.
 
 ---
 
@@ -15,7 +15,7 @@ This document catalogs all the design patterns used in PicoLume Studio, with lin
 - `ProjectService` - Receives StateManager, AudioService, ErrorHandler
 - `TimelineController` - Receives StateManager, AudioService
 
-**Lesson:** [Lesson 4: Service Layer](04-service-layer.md#service-initialization)
+**Reference:** [Service Layer](04-service-layer.md#service-initialization)
 
 **Example:**
 ```javascript
@@ -39,7 +39,7 @@ this.projectService = new ProjectService(
 **Where Used:**
 - `Backend.js` - Adapts Wails backend and Browser APIs to common interface
 
-**Lesson:** [Lesson 2: Wails Framework](02-wails-framework.md#the-backend-adapter-pattern)
+**Reference:** [Wails Framework](02-wails-framework.md#the-backend-adapter-pattern)
 
 **Example:**
 ```javascript
@@ -64,7 +64,7 @@ class OnlineBackend {
 - `ProjectService` - Simplifies save/load operations
 - `AudioService` - Hides Web Audio API complexity
 
-**Lesson:** [Lesson 4: Service Layer](04-service-layer.md)
+**Reference:** [Service Layer](04-service-layer.md)
 
 ---
 
@@ -78,7 +78,7 @@ class OnlineBackend {
 - `StateManager` - Components subscribe to state changes
 - Custom DOM events - `app:timeline-changed`, `app:selection-changed`
 
-**Lesson:** [Lesson 3: State Management](03-state-management.md#the-observer-pattern)
+**Reference:** [State Management](03-state-management.md#the-observer-pattern)
 
 **Example:**
 ```javascript
@@ -101,7 +101,7 @@ stateManager.subscribeTo('ui.zoom', (newZoom) => {
 - Custom events throughout the app
 - Wails events from Go backend
 
-**Lesson:** [Lesson 5: Controllers](05-controllers.md#custom-events-the-coordination-system)
+**Reference:** [Controllers](05-controllers.md#custom-events-the-coordination-system)
 
 **Example:**
 ```javascript
@@ -119,7 +119,7 @@ window.addEventListener('app:timeline-changed', () => this.render());
 **Where Used:**
 - `StateManager` - State snapshots enable undo/redo
 
-**Lesson:** [Lesson 3: State Management](03-state-management.md#the-undoredo-system)
+**Reference:** [State Management](03-state-management.md#the-undoredo-system)
 
 ### Strategy Pattern
 
@@ -128,7 +128,7 @@ window.addEventListener('app:timeline-changed', () => this.render());
 **Where Used:**
 - Effect rendering in `PreviewRenderer` - Different algorithms per effect type
 
-**Lesson:** [Lesson 6: Rendering Pipeline](06-rendering-pipeline.md#the-rendering-loop)
+**Reference:** [Rendering Pipeline](06-rendering-pipeline.md#the-strategy-pattern-in-effects)
 
 **Example:**
 ```javascript
@@ -153,7 +153,7 @@ calculateEffectColor(clip, ledIndex, elapsed, progress) {
 **Where Used:**
 - `StateManager` - Central state container
 
-**Lesson:** [Lesson 3: State Management](03-state-management.md)
+**Reference:** [State Management](03-state-management.md)
 
 ### Unidirectional Data Flow
 
@@ -162,7 +162,7 @@ calculateEffectColor(clip, ledIndex, elapsed, progress) {
 **Where Used:**
 - User Action → Controller → Service → State → View
 
-**Lesson:** [Lesson 1: Architecture Overview](01-architecture-overview.md#mental-model-the-assembly-line)
+**Reference:** [Architecture Overview](01-architecture-overview.md#mental-model-the-assembly-line)
 
 ```
 User Input → Controller → Service → StateManager → Renderer → DOM
@@ -178,7 +178,7 @@ User Input → Controller → Service → StateManager → Renderer → DOM
 - Controllers = Controllers
 - Services = Model helpers
 
-**Lesson:** [Lesson 1: Architecture Overview](01-architecture-overview.md)
+**Reference:** [Architecture Overview](01-architecture-overview.md)
 
 ---
 
@@ -192,7 +192,7 @@ User Input → Controller → Service → StateManager → Renderer → DOM
 - `AudioService` - Audio decode retries
 - `UploadToPico` - Serial port retries
 
-**Lesson:** [Lesson 4: Service Layer](04-service-layer.md#the-retry-pattern)
+**Reference:** [Service Layer](04-service-layer.md#the-retry-pattern)
 
 **Example:**
 ```javascript
@@ -216,7 +216,7 @@ async function withRetry(fn, { maxRetries = 2, baseDelayMs = 500 }) {
 **Where Used:**
 - `AudioService` - All async operations
 
-**Lesson:** [Lesson 4: Service Layer](04-service-layer.md#the-timeout-pattern)
+**Reference:** [Service Layer](04-service-layer.md#the-timeout-pattern)
 
 ---
 
@@ -248,7 +248,7 @@ stateManager.subscribeTo('isDirty', (dirty) => {
 **Where Used:**
 - `PreviewRenderer` - ~60fps cap during playback
 
-**Lesson:** [Lesson 6: Rendering Pipeline](06-rendering-pipeline.md#throttling-for-performance)
+**Reference:** [Rendering Pipeline](06-rendering-pipeline.md#throttling-for-performance)
 
 ### Optimistic UI Updates
 
@@ -257,7 +257,7 @@ stateManager.subscribeTo('isDirty', (dirty) => {
 **Where Used:**
 - Drag operations - Direct DOM manipulation, state commit on drop
 
-**Lesson:** [Lesson 6: Rendering Pipeline](06-rendering-pipeline.md#clip-dragging-moveresize)
+**Reference:** [Rendering Pipeline](06-rendering-pipeline.md#drag-and-drop-interactions)
 
 ---
 
@@ -270,7 +270,7 @@ stateManager.subscribeTo('isDirty', (dirty) => {
 **Where Used:**
 - `StateManager` - All updates create new state objects
 
-**Lesson:** [Lesson 3: State Management](03-state-management.md#immutability-why-it-matters)
+**Reference:** [State Management](03-state-management.md#immutability-why-it-matters)
 
 ### Data URL Encoding
 
@@ -317,4 +317,4 @@ data:audio/mp3;base64,//uQxAAAAAANIAAAAAExBTU...
 
 ---
 
-[← Back to Course Index](README.md)
+[← Back to Index](README.md)

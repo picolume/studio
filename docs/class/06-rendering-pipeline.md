@@ -1,30 +1,39 @@
-# Lesson 6: The Rendering Pipeline
+# Rendering Pipeline
 
-## Learning Objectives
-
-By the end of this lesson, you will be able to:
-- Understand how TimelineRenderer draws tracks and clips
-- Work with Canvas rendering in PreviewRenderer
-- Implement DOM-based rendering in InspectorRenderer
-- Apply performance optimization techniques
-- Handle drag-and-drop interactions
+This document explains how PicoLume Studio draws the timeline and preview, including the rendering loop, effect calculations, and performance optimizations.
 
 ---
 
-## The Theater Stage Analogy
+## The Two Canvases
 
-Think of our renderers like a theater production:
+PicoLume Studio uses two main rendering areas:
 
-| Theater | Our App |
-|---------|---------|
-| **Script** | State data |
-| **Stage Manager** | Renderer |
-| **Actors** | DOM elements / Canvas pixels |
-| **Stage** | Container elements |
-| **Props** | Clips, tracks, controls |
-| **Lighting Cues** | State change notifications |
+| Canvas | Purpose | Update Trigger |
+|--------|---------|----------------|
+| **Timeline** | Shows tracks, clips, playhead | Timeline data changes |
+| **Preview** | Shows LED colors in real-time | Playback/time changes |
 
-When the script (state) changes, the stage manager (renderer) directs the actors (elements) to their new positions.
+```mermaid
+flowchart TB
+    subgraph "State Changes"
+        SM[StateManager]
+    end
+
+    subgraph "Timeline Rendering"
+        TR[TimelineRenderer]
+        TCAN[Timeline Canvas]
+    end
+
+    subgraph "Preview Rendering"
+        PR[PreviewRenderer]
+        PCAN[Preview Canvas]
+    end
+
+    SM -->|timeline data| TR
+    SM -->|playback time| PR
+    TR --> TCAN
+    PR --> PCAN
+```
 
 ---
 
@@ -132,7 +141,7 @@ flowchart TB
     GRID --> PLAY
 ```
 
-### The render() Method (Simplified)
+### Simplified Implementation
 
 ```javascript
 // TimelineRenderer.js
@@ -178,81 +187,6 @@ class TimelineRenderer {
         // Render ruler and grid
         this.renderRuler(duration, pxPerMs);
         this.renderGrid(state.ui);
-    }
-
-    renderTrackHeaders(tracks) {
-        // Clear existing
-        this.headersContainer.innerHTML = '';
-
-        tracks.forEach((track, index) => {
-            const header = this.createTrackHeader(track, index);
-            this.headersContainer.appendChild(header);
-        });
-    }
-
-    createTrackHeader(track, index) {
-        const header = document.createElement('div');
-        header.className = `track-header track-header-${track.type}`;
-        header.dataset.trackId = track.id;
-
-        // Security note: track data ultimately comes from project files. Avoid interpolating
-        // untrusted strings (like track.label) into innerHTML. Prefer DOM APIs + text/value.
-        const icon = document.createElement('i');
-        icon.className = `fas ${track.type === 'led' ? 'fa-lightbulb' : 'fa-music'}`;
-        header.appendChild(icon);
-
-        const label = document.createElement('input');
-        label.type = 'text';
-        label.className = 'track-label';
-        label.value = track.label;
-        header.appendChild(label);
-
-        if (track.type === 'led') {
-            header.appendChild(this.createGroupSelector(track));
-        }
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'track-delete';
-        delBtn.title = 'Delete track';
-        const delIcon = document.createElement('i');
-        delIcon.className = 'fas fa-trash';
-        delBtn.appendChild(delIcon);
-        header.appendChild(delBtn);
-
-        // Wire up events
-        delBtn.addEventListener('click', () => {
-            window.dispatchEvent(new CustomEvent('app:delete-track', {
-                detail: { trackId: track.id }
-            }));
-        });
-
-        return header;
-    }
-
-    renderTrackLanes(tracks, state) {
-        // Clear existing
-        this.tracksContainer.innerHTML = '';
-
-        const pxPerMs = state.ui.zoom / 1000;
-
-        tracks.forEach(track => {
-            const lane = this.createTrackLane(track, pxPerMs, state);
-            this.tracksContainer.appendChild(lane);
-        });
-    }
-
-    createTrackLane(track, pxPerMs, state) {
-        const lane = document.createElement('div');
-        lane.className = `track-lane track-lane-${track.type}`;
-        lane.dataset.trackId = track.id;
-
-        // Render each clip
-        track.clips.forEach(clip => {
-            const clipEl = this.createClipElement(clip, pxPerMs, state);
-            lane.appendChild(clipEl);
-        });
-
-        return lane;
     }
 
     createClipElement(clip, pxPerMs, state) {
@@ -537,7 +471,7 @@ render() {
     const now = Date.now();
     const lastRender = this.sm.get('lastPreviewRender') || 0;
 
-    if (now - lastRender < 16) return;  // 16ms ≈ 60fps
+    if (now - lastRender < 16) return;  // 16ms = 60fps
 
     this.sm.update(draft => {
         draft.lastPreviewRender = now;
@@ -547,214 +481,54 @@ render() {
 }
 ```
 
-**Pattern Alert!** Throttling is essential for smooth animations:
+Throttling is essential for smooth animations:
 - `requestAnimationFrame` for vsync
 - Time-based throttling for event handlers
 - `setTimeout` debouncing for input
 
 ---
 
-## InspectorRenderer: The Properties Panel
+## The Strategy Pattern in Effects
 
-InspectorRenderer shows different content based on selection:
-
-```mermaid
-flowchart TB
-    SEL{Selection?}
-    SEL -->|None| PROJ[Project Settings]
-    SEL -->|Single| CLIP[Clip Properties]
-    SEL -->|Multiple| BATCH[Batch Operations]
-
-    PROJ --> PFIELDS[Name, Duration, Profiles, Palettes]
-    CLIP --> CFIELDS[Type, Start, Duration, Effect Props]
-    BATCH --> BFIELDS[Count, Delete All]
-```
-
-### Dynamic Form Generation
+The effect calculation uses the **Strategy Pattern** - different algorithms for different effect types:
 
 ```javascript
-// InspectorRenderer.js - Simplified
+// Each effect is a "strategy" for calculating color
+const effectStrategies = {
+    solid: (clip, led, elapsed) => clip.props.color,
 
-class InspectorRenderer {
-    constructor(stateManager, container) {
-        this.sm = stateManager;
-        this.container = container;
+    rainbow: (clip, led, elapsed, totalLeds) => {
+        const hue = ((led / totalLeds) + elapsed / 1000 * clip.props.speed) % 1;
+        return hslToRgb(hue, 1, 0.5);
+    },
 
-        window.addEventListener('app:selection-changed', () => this.render());
-        window.addEventListener('app:timeline-changed', () => this.render());
+    chase: (clip, led, elapsed, totalLeds) => {
+        const pos = (elapsed / 1000 * clip.props.speed * totalLeds) % totalLeds;
+        return Math.abs(led - pos) < clip.props.width ? clip.props.color : '#000';
     }
+    // ... more strategies
+};
 
-    render() {
-        const state = this.sm.getState();
-        const { selection } = state;
-
-        this.container.innerHTML = '';
-
-        if (selection.length === 0) {
-            this.renderProjectSettings(state);
-        } else if (selection.length === 1) {
-            const clip = this.findClip(selection[0], state);
-            if (clip) this.renderClipProperties(clip, state);
-        } else {
-            this.renderMultiSelection(selection, state);
-        }
+// Usage
+function calculateColor(clip, led, elapsed, totalLeds) {
+    const strategy = effectStrategies[clip.type];
+    if (strategy) {
+        return strategy(clip, led, elapsed, totalLeds);
     }
-
-    renderProjectSettings(state) {
-        const { project } = state;
-
-        this.container.innerHTML = `
-            <h3>Project Settings</h3>
-
-            <div class="field-group">
-                <label>Project Name</label>
-                <input type="text" id="project-name">
-            </div>
-
-            <div class="field-group">
-                <label>Duration (seconds)</label>
-                <input type="number" id="project-duration"
-                       min="1" max="3600">
-            </div>
-
-            <h4>Hardware Profiles</h4>
-            <div id="profiles-list">
-                ${this.renderProfilesList(project.settings.profiles)}
-            </div>
-
-            <h4>Prop Groups</h4>
-            <div id="groups-list">
-                ${this.renderGroupsList(project.propGroups)}
-            </div>
-        `;
-
-        // Set dynamic values safely (no innerHTML interpolation).
-        this.container.querySelector('#project-name').value = project.name;
-        this.container.querySelector('#project-duration').value = project.duration / 1000;
-
-        this.wireProjectEvents();
-    }
-
-    renderClipProperties(clip, state) {
-        const effectFields = this.getEffectFields(clip.type);
-
-        this.container.innerHTML = `
-            <h3 id="clip-title"></h3>
-
-            <div class="field-group">
-                <label>Start Time (ms)</label>
-                <input type="number" id="clip-start" min="0">
-            </div>
-
-            <div class="field-group">
-                <label>Duration (ms)</label>
-                <input type="number" id="clip-duration" min="100">
-            </div>
-
-            ${effectFields}
-
-            <button class="delete-btn" id="delete-clip">Delete Clip</button>
-        `;
-
-        // Set dynamic values safely (no innerHTML interpolation).
-        this.container.querySelector('#clip-title').textContent = `${clip.type} Clip`;
-        this.container.querySelector('#clip-start').value = clip.startTime;
-        this.container.querySelector('#clip-duration').value = clip.duration;
-
-        this.wireClipEvents(clip.id);
-    }
-
-    getEffectFields(effectType) {
-        // Each effect type has different parameters
-        const fields = {
-            solid: `
-                <div class="field-group">
-                    <label>Color</label>
-                    <input type="color" id="prop-color">
-                </div>
-            `,
-            rainbow: `
-                <div class="field-group">
-                    <label>Speed</label>
-                    <input type="range" id="prop-speed" min="0.1" max="5" step="0.1">
-                </div>
-                <div class="field-group">
-                    <label>Frequency</label>
-                    <input type="range" id="prop-frequency" min="1" max="10">
-                </div>
-            `,
-            chase: `
-                <div class="field-group">
-                    <label>Color</label>
-                    <input type="color" id="prop-color">
-                </div>
-                <div class="field-group">
-                    <label>Speed</label>
-                    <input type="range" id="prop-speed" min="0.1" max="5" step="0.1">
-                </div>
-                <div class="field-group">
-                    <label>Width</label>
-                    <input type="range" id="prop-width" min="0.05" max="0.5" step="0.05">
-                </div>
-            `,
-            // ... more effect types
-        };
-
-        return fields[effectType] || '';
-    }
-
-    wireClipEvents(clipId) {
-        // Wire up all input fields to update state
-        this.container.querySelectorAll('input').forEach(input => {
-            input.addEventListener('change', () => {
-                this.updateClipProperty(clipId, input);
-            });
-        });
-
-        this.container.querySelector('#delete-clip')?.addEventListener('click', () => {
-            window.dispatchEvent(new CustomEvent('app:delete-clip', {
-                detail: { clipId }
-            }));
-        });
-    }
-
-    updateClipProperty(clipId, input) {
-        const property = input.id.replace('prop-', '').replace('clip-', '');
-        let value = input.type === 'number' ? parseFloat(input.value) : input.value;
-
-        if (property === 'start' || property === 'duration') {
-            // Update clip timing
-            this.sm.update(draft => {
-                const clip = this.findClipInDraft(draft, clipId);
-                if (clip) {
-                    if (property === 'start') clip.startTime = value;
-                    if (property === 'duration') clip.duration = value;
-                    draft.isDirty = true;
-                }
-            });
-        } else {
-            // Update clip props
-            this.sm.update(draft => {
-                const clip = this.findClipInDraft(draft, clipId);
-                if (clip) {
-                    clip.props[property] = value;
-                    draft.isDirty = true;
-                }
-            });
-        }
-
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
-    }
+    return '#000000';
 }
 ```
+
+**Benefits:**
+- Easy to add new effects (just add a strategy)
+- Each strategy is testable independently
+- No giant switch statement
 
 ---
 
 ## Drag and Drop Interactions
 
-Timeline supports several drag operations:
-
-### Clip Dragging (Move/Resize)
+Timeline supports clip dragging (move/resize):
 
 ```mermaid
 stateDiagram-v2
@@ -777,10 +551,10 @@ stateDiagram-v2
     }
 ```
 
-### Implementation
+### Clip Dragging Implementation
 
 ```javascript
-// Timeline drag handling in main.js
+// Timeline drag handling
 
 let dragState = null;
 
@@ -848,7 +622,7 @@ function handleDragEnd(e) {
         return;
     }
 
-    // Calculate final values
+    // Calculate final values and commit to state
     const deltaX = e.clientX - dragState.startX;
     const pxPerMs = stateManager.get('ui.zoom') / 1000;
     const deltaMs = deltaX / pxPerMs;
@@ -868,42 +642,20 @@ function handleDragEnd(e) {
                     snapGrid
                 );
                 break;
-
-            case 'resize-left':
-                const newStart = snapToGrid(
-                    dragState.originalClip.startTime + deltaMs,
-                    snapGrid
-                );
-                const newDuration = dragState.originalClip.duration - (newStart - dragState.originalClip.startTime);
-                clip.startTime = newStart;
-                clip.duration = Math.max(100, newDuration);
-                break;
-
-            case 'resize-right':
-                clip.duration = Math.max(100, snapToGrid(
-                    dragState.originalClip.duration + deltaMs,
-                    snapGrid
-                ));
-                break;
+            // ... handle resize modes
         }
-
         draft.isDirty = true;
     });
 
     window.dispatchEvent(new CustomEvent('app:timeline-changed'));
     cleanup();
-
-    function cleanup() {
-        document.removeEventListener('mousemove', handleDrag);
-        document.removeEventListener('mouseup', handleDragEnd);
-        dragState = null;
-    }
-}
-
-function snapToGrid(value, grid) {
-    return Math.round(value / grid) * grid;
 }
 ```
+
+**Why Optimistic Updates?**
+- Immediate visual feedback (no lag)
+- State updates only on commit (clean undo history)
+- Single undo entry for entire drag operation
 
 ---
 
@@ -932,13 +684,88 @@ For very long timelines with many clips, we could virtualize:
 - Only render clips visible in the viewport
 - Recycle DOM elements when scrolling
 
-Currently not needed, but the pattern would be:
+Pattern:
 ```javascript
 const visibleRange = getVisibleTimeRange();
 const visibleClips = clips.filter(c =>
     c.startTime + c.duration > visibleRange.start &&
     c.startTime < visibleRange.end
 );
+```
+
+---
+
+## InspectorRenderer: The Properties Panel
+
+InspectorRenderer shows different content based on selection:
+
+```mermaid
+flowchart TB
+    SEL{Selection?}
+    SEL -->|None| PROJ[Project Settings]
+    SEL -->|Single| CLIP[Clip Properties]
+    SEL -->|Multiple| BATCH[Batch Operations]
+
+    PROJ --> PFIELDS[Name, Duration, Profiles, Palettes]
+    CLIP --> CFIELDS[Type, Start, Duration, Effect Props]
+    BATCH --> BFIELDS[Count, Delete All]
+```
+
+### Dynamic Form Generation
+
+```javascript
+// InspectorRenderer.js - Simplified
+
+class InspectorRenderer {
+    constructor(stateManager, container) {
+        this.sm = stateManager;
+        this.container = container;
+
+        window.addEventListener('app:selection-changed', () => this.render());
+        window.addEventListener('app:timeline-changed', () => this.render());
+    }
+
+    render() {
+        const state = this.sm.getState();
+        const { selection } = state;
+
+        this.container.innerHTML = '';
+
+        if (selection.length === 0) {
+            this.renderProjectSettings(state);
+        } else if (selection.length === 1) {
+            const clip = this.findClip(selection[0], state);
+            if (clip) this.renderClipProperties(clip, state);
+        } else {
+            this.renderMultiSelection(selection, state);
+        }
+    }
+
+    getEffectFields(effectType) {
+        // Each effect type has different parameters
+        const fields = {
+            solid: `
+                <div class="field-group">
+                    <label>Color</label>
+                    <input type="color" id="prop-color">
+                </div>
+            `,
+            rainbow: `
+                <div class="field-group">
+                    <label>Speed</label>
+                    <input type="range" id="prop-speed" min="0.1" max="5" step="0.1">
+                </div>
+                <div class="field-group">
+                    <label>Frequency</label>
+                    <input type="range" id="prop-frequency" min="1" max="10">
+                </div>
+            `,
+            // ... more effect types
+        };
+
+        return fields[effectType] || '';
+    }
+}
 ```
 
 ---
@@ -979,35 +806,6 @@ document.addEventListener('keydown', (e) => {
 
 ---
 
-## Exercise: Add a Visual Effect
-
-Add a "glow" effect to selected clips:
-
-1. Find where clips are rendered in TimelineRenderer
-2. Add a CSS class when selected
-3. Create the glow effect in CSS
-
-<details>
-<summary>Solution</summary>
-
-```javascript
-// In createClipElement()
-if (state.selection.includes(clip.id)) {
-    el.classList.add('selected');
-}
-```
-
-```css
-/* In style.css */
-.clip.selected {
-    box-shadow: 0 0 10px 2px var(--ui-accent);
-    z-index: 10;
-}
-```
-</details>
-
----
-
 ## Summary
 
 ### Key Takeaways
@@ -1018,7 +816,7 @@ if (state.selection.includes(clip.id)) {
 4. **Throttling** - Essential for smooth animation
 5. **Event-Driven Updates** - Renderers respond to events, not direct calls
 
-### The Mental Model
+### Mental Model
 
 Renderers are **painters**:
 - They read the script (state)
@@ -1028,14 +826,4 @@ Renderers are **painters**:
 
 ---
 
-## Next Lesson
-
-In [Lesson 7: Binary Format & Serialization](07-binary-format.md), we'll explore:
-- The .lum project file format (ZIP)
-- The show.bin binary format for hardware
-- How data is serialized for the Pico
-- PropConfig LUT and event structures
-
----
-
-[← Controllers](05-controllers.md) | [Course Index](README.md) | [Binary Format →](07-binary-format.md)
+[← Controllers](05-controllers.md) | [Index](README.md) | [Binary Format →](07-binary-format.md)
