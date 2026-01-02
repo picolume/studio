@@ -210,7 +210,6 @@ export class SidebarModeManager {
             if (sidebarIcon) {
                 sidebarIcon.className = 'fas fa-bars text-[var(--ui-text-subtle)] text-xs';
             }
-            if (sidebarCloseBtn) sidebarCloseBtn.classList.remove('hidden');
 
             // Show back button only if not at root
             if (sidebarBackBtn) {
@@ -223,7 +222,6 @@ export class SidebarModeManager {
                 sidebarIcon.className = 'fas fa-sliders-h text-[var(--ui-text-subtle)] text-xs';
             }
             if (sidebarBackBtn) sidebarBackBtn.classList.add('hidden');
-            if (sidebarCloseBtn) sidebarCloseBtn.classList.add('hidden');
         }
     }
 
