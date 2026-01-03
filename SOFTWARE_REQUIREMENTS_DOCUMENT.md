@@ -1247,7 +1247,7 @@ If the project has cue points defined, a 32-byte CUE1 block is appended after al
 **Remote Behavior:**
 - On boot, the remote reads the CUE1 block from `show.bin` stored on its flash
 - Pressing a cue button (A/B/C/D) jumps to that cue's time and starts playing
-- If a cue is unused (0xFFFFFFFF), pressing that button starts from time 0
+- If a cue is unused (0xFFFFFFFF), pressing that button is ignored
 - The Play/Pause button toggles playback; Stop resets to time 0
 
 **Compatibility:**
