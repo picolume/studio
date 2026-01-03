@@ -10,6 +10,7 @@ export class KeyboardController {
         // Controller/service references (set via init)
         this.undoController = null;
         this.timelineController = null;
+        this.cueController = null;
         this.themeManager = null;
 
         // UI element references
@@ -36,6 +37,7 @@ export class KeyboardController {
     init(options = {}) {
         this.undoController = options.undoController;
         this.timelineController = options.timelineController;
+        this.cueController = options.cueController;
         this.themeManager = options.themeManager;
         this.elements = options.elements || {};
         this._callbacks = { ...this._callbacks, ...options.callbacks };
@@ -182,6 +184,44 @@ export class KeyboardController {
                 case ' ':
                     e.preventDefault();
                     this.elements.btnPlay?.click();
+                    return;
+
+                // 1-4: Jump to cue A-D (or Shift+1-4 to set cue)
+                case '1':
+                case '!': // Shift+1
+                    e.preventDefault();
+                    if (shift) {
+                        this.cueController?.setCueAtPlayhead('A');
+                    } else {
+                        this.cueController?.jumpToCue('A');
+                    }
+                    return;
+                case '2':
+                case '@': // Shift+2
+                    e.preventDefault();
+                    if (shift) {
+                        this.cueController?.setCueAtPlayhead('B');
+                    } else {
+                        this.cueController?.jumpToCue('B');
+                    }
+                    return;
+                case '3':
+                case '#': // Shift+3
+                    e.preventDefault();
+                    if (shift) {
+                        this.cueController?.setCueAtPlayhead('C');
+                    } else {
+                        this.cueController?.jumpToCue('C');
+                    }
+                    return;
+                case '4':
+                case '$': // Shift+4
+                    e.preventDefault();
+                    if (shift) {
+                        this.cueController?.setCueAtPlayhead('D');
+                    } else {
+                        this.cueController?.jumpToCue('D');
+                    }
                     return;
             }
         }

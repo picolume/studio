@@ -607,6 +607,23 @@ export class StateManager {
 }
 
 /**
+ * Default cue points structure
+ */
+export const DEFAULT_CUES = Object.freeze([
+    { id: 'A', timeMs: null, enabled: false },
+    { id: 'B', timeMs: null, enabled: false },
+    { id: 'C', timeMs: null, enabled: false },
+    { id: 'D', timeMs: null, enabled: false }
+]);
+
+/**
+ * Create a fresh cues array
+ */
+export function createDefaultCues() {
+    return DEFAULT_CUES.map(cue => ({ ...cue }));
+}
+
+/**
  * Create initial state structure
  */
 export function createInitialState() {
@@ -631,7 +648,8 @@ export function createInitialState() {
             tracks: [
                 { id: 't1', type: 'audio', label: 'Audio Track', clips: [], groupId: null },
                 { id: 't2', type: 'led', label: 'Main Track', clips: [], groupId: 'g_all' }
-            ]
+            ],
+            cues: createDefaultCues() // Cue points for live resync (A, B, C, D)
         },
         assets: {},
         audioLibrary: {},
@@ -650,6 +668,7 @@ export function createInitialState() {
             snapEnabled: true,
             gridSize: 1000,
             previewMode: 'track', // 'track' | 'field' | 'off'
+            selectedCue: null, // Currently selected cue ID ('A', 'B', 'C', 'D') for inspector
         },
         audio: {
             ctx: null,

@@ -466,10 +466,14 @@ window.addEventListener('DOMContentLoaded', async () => {
         'theme': (themeName) => themeManager.setTheme(themeName)
     };
 
+    // Get cueController reference
+    const cueController = app.cueController;
+
     // Wire timeline module to the application state/services (no bridge/proxy).
     initTimeline({
         stateManager,
         timelineController,
+        cueController,
         audioService,
         errorHandler,
         elements: els
@@ -740,6 +744,10 @@ window.addEventListener('DOMContentLoaded', async () => {
             // Clear selection and show project settings in inspector
             stateManager.set('selection', [], { skipHistory: true });
             updateSelectionUI();
+            // Also clear cue selection
+            if (cueController.getSelectedCue()) {
+                cueController.selectCue(null);
+            }
             populateInspector(null);
             updateStatusBar();
         };
@@ -769,6 +777,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     keyboardController.init({
         undoController,
         timelineController,
+        cueController,
         themeManager,
         elements: els,
         modalChecks: [
@@ -1047,6 +1056,10 @@ window.addEventListener('DOMContentLoaded', async () => {
             event.preventDefault();
             timelineController.clearSelection();
             updateSelectionUI();
+            // Also clear cue selection
+            if (cueController.getSelectedCue()) {
+                cueController.selectCue(null);
+            }
             document.activeElement.blur();
             return;
         }
@@ -1219,6 +1232,11 @@ window.addEventListener('DOMContentLoaded', async () => {
             stateManager.set('selection', [], { skipHistory: true });
             updateSelectionUI();
             updateClipboardUI();
+
+            // Also clear cue selection
+            if (cueController.getSelectedCue()) {
+                cueController.selectCue(null);
+            }
         }
 
         // Only allow scrubbing from the ruler area

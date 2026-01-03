@@ -1,12 +1,23 @@
 import { getSnappedTime, formatTime, showConfirm } from '../utils.js';
 
+// Cue marker colors
+const CUE_COLORS = {
+    A: '#ef4444', // red
+    B: '#22c55e', // green
+    C: '#3b82f6', // blue
+    D: '#f97316'  // orange
+};
+
 export class TimelineRenderer {
     constructor(deps) {
         this.deps = deps;
+        this._cueContextMenu = null;
+        this._dragState = null;
     }
 
     get stateManager() { return this.deps.stateManager; }
     get timelineController() { return this.deps.timelineController; }
+    get cueController() { return this.deps.cueController; }
     get elements() { return this.deps.elements; }
     get audioService() { return this.deps.audioService; }
 
@@ -261,6 +272,184 @@ export class TimelineRenderer {
             tick.style.borderLeft = '1px solid var(--ui-tick)';
             if (i % 5 === 0) { tick.innerText = `${i}s`; tick.style.fontSize = '10px'; tick.style.color = 'var(--ui-tick)'; tick.style.paddingLeft = '3px'; }
             ruler.appendChild(tick);
+        }
+
+        // Render cue markers
+        this._renderCueMarkers(ruler, project);
+
+        // Add context menu for setting cues
+        this._setupRulerContextMenu(ruler);
+    }
+
+    _renderCueMarkers(ruler, project) {
+        const cues = project?.cues || [];
+        const zoom = this.getZoom();
+        const selectedCue = this.stateManager?.get('ui.selectedCue');
+
+        // Remove existing cue markers
+        ruler.querySelectorAll('.cue-marker').forEach(el => el.remove());
+
+        cues.forEach(cue => {
+            if (cue.timeMs === null) return;
+
+            const marker = document.createElement('div');
+            marker.className = `cue-marker ${cue.enabled ? '' : 'cue-disabled'}`;
+            marker.dataset.cueId = cue.id;
+
+            const x = (cue.timeMs / 1000) * zoom;
+            marker.style.left = `${x}px`;
+            marker.style.setProperty('--cue-color', CUE_COLORS[cue.id] || '#888');
+
+            if (selectedCue === cue.id) {
+                marker.classList.add('cue-selected');
+            }
+
+            // Label
+            const label = document.createElement('span');
+            label.className = 'cue-label';
+            label.textContent = cue.id;
+            marker.appendChild(label);
+
+            // Click to select
+            marker.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.cueController) {
+                    this.cueController.selectCue(cue.id);
+                }
+            });
+
+            // Drag to move
+            marker.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return; // Left click only
+                e.stopPropagation();
+                this._startCueDrag(cue.id, e);
+            });
+
+            ruler.appendChild(marker);
+        });
+    }
+
+    _startCueDrag(cueId, startEvent) {
+        const ruler = this.elements.ruler || document.getElementById('ruler');
+        if (!ruler) return;
+
+        const zoom = this.getZoom();
+        const rulerRect = ruler.getBoundingClientRect();
+        const duration = this.stateManager?.get('project.duration') || 60000;
+        const snapEnabled = this.stateManager?.get('ui.snapEnabled');
+        const gridSize = this.stateManager?.get('ui.gridSize') || 1000;
+
+        const onMouseMove = (e) => {
+            const relX = e.clientX - rulerRect.left + ruler.scrollLeft;
+            let newTimeMs = (relX / zoom) * 1000;
+
+            // Clamp to valid range
+            newTimeMs = Math.max(0, Math.min(newTimeMs, duration));
+
+            // Snap if enabled
+            if (snapEnabled) {
+                newTimeMs = getSnappedTime(newTimeMs, gridSize);
+            }
+
+            // Update marker position visually during drag
+            const marker = ruler.querySelector(`.cue-marker[data-cue-id="${cueId}"]`);
+            if (marker) {
+                marker.style.left = `${(newTimeMs / 1000) * zoom}px`;
+            }
+
+            this._dragState = { cueId, timeMs: newTimeMs };
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+
+            if (this._dragState && this.cueController) {
+                this.cueController.updateCueTime(this._dragState.cueId, this._dragState.timeMs);
+            }
+            this._dragState = null;
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    }
+
+    _setupRulerContextMenu(ruler) {
+        // Remove existing listener if any
+        ruler.removeEventListener('contextmenu', this._rulerContextHandler);
+
+        this._rulerContextHandler = (e) => {
+            e.preventDefault();
+
+            const zoom = this.getZoom();
+            const rulerRect = ruler.getBoundingClientRect();
+            const relX = e.clientX - rulerRect.left;
+            const timeMs = (relX / zoom) * 1000;
+            const duration = this.stateManager?.get('project.duration') || 60000;
+
+            // Don't allow setting cue past duration
+            if (timeMs > duration) return;
+
+            this._showCueContextMenu(e.clientX, e.clientY, timeMs);
+        };
+
+        ruler.addEventListener('contextmenu', this._rulerContextHandler);
+    }
+
+    _showCueContextMenu(x, y, timeMs) {
+        // Remove existing menu
+        this._hideCueContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'cue-context-menu';
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+
+        const cues = this.stateManager?.get('project.cues') || [];
+
+        ['A', 'B', 'C', 'D'].forEach(cueId => {
+            const cue = cues.find(c => c.id === cueId);
+            const hasTime = cue && cue.timeMs !== null;
+
+            const item = document.createElement('div');
+            item.className = 'cue-context-item';
+            item.innerHTML = `<span class="cue-context-color" style="background:${CUE_COLORS[cueId]}"></span> ${hasTime ? 'Move' : 'Set'} Cue ${cueId} here`;
+
+            item.addEventListener('click', () => {
+                if (this.cueController) {
+                    this.cueController.setCue(cueId, timeMs);
+                }
+                this._hideCueContextMenu();
+            });
+
+            menu.appendChild(item);
+        });
+
+        document.body.appendChild(menu);
+        this._cueContextMenu = menu;
+
+        // Close on click outside
+        const closeHandler = (e) => {
+            if (!menu.contains(e.target)) {
+                this._hideCueContextMenu();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+    }
+
+    _hideCueContextMenu() {
+        if (this._cueContextMenu) {
+            this._cueContextMenu.remove();
+            this._cueContextMenu = null;
+        }
+    }
+
+    updateCueMarkers() {
+        const project = this.stateManager?.get('project');
+        const ruler = this.elements.ruler || document.getElementById('ruler');
+        if (ruler && project) {
+            this._renderCueMarkers(ruler, project);
         }
     }
 

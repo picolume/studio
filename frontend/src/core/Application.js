@@ -9,6 +9,7 @@ import { AudioService } from '../services/AudioService.js';
 import { ProjectService } from '../services/ProjectService.js';
 import { UndoController } from '../controllers/UndoController.js';
 import { TimelineController } from '../controllers/TimelineController.js';
+import { CueController } from '../controllers/CueController.js';
 import { ThemeManager } from '../controllers/ThemeManager.js';
 import { KeyboardController } from '../controllers/KeyboardController.js';
 import { SidebarModeManager } from '../controllers/SidebarModeManager.js';
@@ -28,6 +29,7 @@ export class Application {
         // Controllers
         this.undoController = null;
         this.timelineController = null;
+        this.cueController = null;
         this.themeManager = null;
         this.keyboardController = null;
         this.sidebarModeManager = null;
@@ -61,6 +63,7 @@ export class Application {
             // 4. Initialize controllers
             this.undoController = new UndoController(this.stateManager, this.errorHandler);
             this.timelineController = new TimelineController(this.stateManager, this.errorHandler);
+            this.cueController = new CueController(this.stateManager, this.errorHandler);
             this.themeManager = new ThemeManager();
             this.keyboardController = new KeyboardController(this.stateManager, this.errorHandler);
             this.sidebarModeManager = new SidebarModeManager();
@@ -268,6 +271,7 @@ export class Application {
         switch (name) {
             case 'undo': return this.undoController;
             case 'timeline': return this.timelineController;
+            case 'cue': return this.cueController;
             case 'theme': return this.themeManager;
             case 'keyboard': return this.keyboardController;
             default: return null;

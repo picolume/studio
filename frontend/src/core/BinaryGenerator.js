@@ -330,5 +330,43 @@ export function generateBinaryBytes(project) {
         eventOffset += eventSize;
     }
 
+    // --- 9. Append CUE block if cues exist ---
+    const cues = project.cues || [];
+    const hasCues = cues.some(c => c.enabled && c.timeMs !== null);
+
+    if (hasCues) {
+        const cueBlockSize = 32;
+        const finalOutput = new Uint8Array(totalSize + cueBlockSize);
+        finalOutput.set(output, 0);
+
+        const cueView = new DataView(finalOutput.buffer, totalSize, cueBlockSize);
+
+        // Magic "CUE1" (0x43 0x55 0x45 0x31)
+        cueView.setUint8(0, 0x43); // 'C'
+        cueView.setUint8(1, 0x55); // 'U'
+        cueView.setUint8(2, 0x45); // 'E'
+        cueView.setUint8(3, 0x31); // '1'
+
+        // Version u16 = 1
+        cueView.setUint16(4, 1, true);
+
+        // Count u16 = 4
+        cueView.setUint16(6, 4, true);
+
+        // Times[4] u32 (ms). Use 0xFFFFFFFF for unused.
+        const cueIds = ['A', 'B', 'C', 'D'];
+        for (let i = 0; i < 4; i++) {
+            const cue = cues.find(c => c.id === cueIds[i]);
+            const timeValue = (cue && cue.enabled && cue.timeMs !== null)
+                ? cue.timeMs
+                : 0xFFFFFFFF;
+            cueView.setUint32(8 + (i * 4), timeValue, true);
+        }
+
+        // Reserved[8] bytes are already 0
+
+        return { bytes: finalOutput, eventCount: events.length };
+    }
+
     return { bytes: output, eventCount: events.length };
 }

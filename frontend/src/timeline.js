@@ -6,6 +6,7 @@ import { InspectorRenderer } from './views/InspectorRenderer.js';
 const deps = {
     stateManager: null,
     timelineController: null,
+    cueController: null,
     audioService: null,
     errorHandler: null,
     elements: {},
@@ -23,6 +24,7 @@ export function initTimeline(injected) {
     }
     deps.stateManager = injected?.stateManager ?? null;
     deps.timelineController = injected?.timelineController ?? null;
+    deps.cueController = injected?.cueController ?? null;
     deps.audioService = injected?.audioService ?? null;
     deps.errorHandler = injected?.errorHandler ?? null;
     deps.elements = injected?.elements ?? injected?.els ?? {};
@@ -132,6 +134,16 @@ function attachGlobalListeners() {
 
     window.addEventListener('app:grid-changed', () => {
         updateGridBackground();
+    });
+
+    window.addEventListener('app:cues-changed', () => {
+        deps.timelineRenderer?.updateCueMarkers();
+        populateInspector(null); // Refresh inspector
+    });
+
+    window.addEventListener('app:cue-selected', () => {
+        deps.timelineRenderer?.updateCueMarkers();
+        populateInspector(null); // Refresh inspector to show cue properties
     });
 
     // --- DOM EVENT HANDLERS (Delegated mostly) ---

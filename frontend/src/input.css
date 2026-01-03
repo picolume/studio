@@ -2481,3 +2481,115 @@ input[type="color"]::-moz-color-swatch {
     :root { --palette-width: 0px; --inspector-width: 0px; --header-width: 120px; --preview-height: 150px; }
     .sidebar-palette, .sidebar-inspector { display: none; }
 }
+
+/* ==========================================
+   CUE MARKERS
+   ========================================== */
+
+.cue-marker {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    z-index: 15;
+    user-select: none;
+    transition: opacity 0.15s;
+}
+
+.cue-marker::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--cue-color, #888);
+    margin-bottom: 1px;
+}
+
+.cue-marker::after {
+    content: '';
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: calc(var(--ruler-height, 24px) - 8px);
+    background: var(--cue-color, #888);
+    opacity: 0.5;
+}
+
+.cue-label {
+    font-size: 8px;
+    font-weight: bold;
+    color: var(--cue-color, #888);
+    line-height: 1;
+    margin-top: -1px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.cue-marker:hover {
+    filter: brightness(1.2);
+}
+
+.cue-marker:hover::after {
+    opacity: 0.8;
+}
+
+.cue-marker.cue-selected::before {
+    border-top-width: 9px;
+    border-left-width: 6px;
+    border-right-width: 6px;
+}
+
+.cue-marker.cue-selected::after {
+    width: 2px;
+    opacity: 0.9;
+}
+
+.cue-marker.cue-disabled {
+    opacity: 0.35;
+}
+
+.cue-marker.cue-disabled:hover {
+    opacity: 0.5;
+}
+
+/* ==========================================
+   CUE CONTEXT MENU
+   ========================================== */
+
+.cue-context-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 160px;
+    background: var(--dropdown-bg, #2a2b29);
+    border: 1px solid var(--dropdown-border, #50524e);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.cue-context-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: var(--ui-text, #e7e7e4);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.cue-context-item:hover {
+    background: var(--ui-toolbar-hover-bg, #2f302d);
+}
+
+.cue-context-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
