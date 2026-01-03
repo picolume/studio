@@ -229,6 +229,8 @@ Binary format gives us:
 
 ### Header Structure
 
+Optional: a 32-byte `CUE1` block may be appended after the events section (see below).
+
 ```
 Offset  Size  Field           Description
 ------  ----  -----           -----------
@@ -288,6 +290,22 @@ Offset  Size  Field           Description
 0x0C    4     color           Primary color (0x00RRGGBB)
 0x10    4     color2          Secondary color (0x00RRGGBB)
 0x14    28    propMask        Bitfield for props 1-224 (7 × uint32)
+```
+
+### Optional Cue Block (CUE1 trailer)
+
+If a project defines cue points (A-D), Studio appends a 32-byte cue block to the end of `show.bin`. Receivers ignore trailing bytes; the remote reads the last 32 bytes and checks for the `CUE1` magic.
+
+Cue block layout (little-endian):
+
+```
+Offset  Size  Field           Description
+------  ----  -----           -----------
+0x00    4     magic           "CUE1" (bytes 43 55 45 31)
+0x04    2     version         1
+0x06    2     count           4
+0x08    16    times[4]        Cue A-D times in ms (u32); 0xFFFFFFFF = unused
+0x18    8     reserved        Future use (zeros)
 ```
 
 **Effect Codes:**

@@ -1,7 +1,7 @@
 # PicoLume Studio - Software Requirements Document
 
 **Version:** 0.2.2
-**Last Updated:** December 2025
+**Last Updated:** January 2026
 **Author:** PicoLume Project
 **License:** GNU General Public License v3.0
 
@@ -346,7 +346,13 @@ classDiagram
             fieldLayout: {}   // prop ID -> { x, y } positions for field preview
         },
         propGroups: [...],
-        tracks: [...]
+        tracks: [...],
+        cues: [             // up to 4 cue points for live resync
+            { id: 'A', timeMs: 12345, enabled: true },
+            { id: 'B', timeMs: null, enabled: false },
+            { id: 'C', timeMs: null, enabled: false },
+            { id: 'D', timeMs: null, enabled: false }
+        ]
     },
     assets: {},           // bufferId -> AudioBuffer
     audioLibrary: {},     // bufferId -> data URL
@@ -364,7 +370,8 @@ classDiagram
         zoom: 50,         // pixels per second
         snapEnabled: true,
         gridSize: 1000,   // snap grid in ms
-        previewMode: 'track' // 'track' | 'field' | 'off'
+        previewMode: 'track', // 'track' | 'field' | 'off'
+        selectedCue: null // 'A' | 'B' | 'C' | 'D' | null
     },
     audio: {
         ctx: null,        // AudioContext
@@ -649,7 +656,58 @@ classDiagram
 - **Flow**: Inverse of undo
 - **Postconditions**: State restored
 
-### 5.7 Binary Inspector
+### 5.7 Cue Points
+
+#### FR-CU-001: Set Cue Point
+- **Description**: User can set up to 4 cue points (A, B, C, D) at the current playhead position
+- **Trigger**: Shift+1 (Cue A), Shift+2 (Cue B), Shift+3 (Cue C), Shift+4 (Cue D)
+- **Preconditions**: Project loaded
+- **Flow**:
+  1. Capture current playhead time
+  2. Store as cue time for the specified cue slot
+  3. Display toast notification confirming cue was set
+- **Postconditions**: Cue point stored in project state
+
+#### FR-CU-002: Clear Cue Point
+- **Description**: User can clear a cue point
+- **Trigger**: Shift+1/2/3/4 when playhead is at or near existing cue, or via inspector
+- **Preconditions**: Cue point exists
+- **Flow**:
+  1. Mark cue as unused (0xFFFFFFFF in binary)
+  2. Update UI to reflect cleared cue
+- **Postconditions**: Cue point removed
+
+#### FR-CU-003: Export Cues with Binary
+- **Description**: Cue points are included when exporting show.bin
+- **Trigger**: Export Binary or Upload to Device
+- **Preconditions**: Project has at least one cue set
+- **Flow**:
+  1. Generate standard binary content (header, PropConfig LUT, events)
+  2. Append 32-byte CUE1 block with cue times
+- **Postconditions**: show.bin includes CUE1 trailer block
+
+#### FR-CU-004: Jump to Cue Point
+- **Description**: User can jump the playhead to a cue point
+- **Trigger**: Press 1, 2, 3, or 4 key (without Shift)
+- **Preconditions**: Corresponding cue is enabled with a valid time
+- **Flow**:
+  1. Read cue time from project state
+  2. Set playhead to cue time
+  3. Dispatch time-changed event
+- **Postconditions**: Playhead positioned at cue time
+
+#### FR-CU-005: Drag Cue Marker
+- **Description**: User can drag cue markers on the timeline to adjust their time
+- **Trigger**: Click and drag cue marker
+- **Preconditions**: Cue is enabled
+- **Flow**:
+  1. Capture mouse position on drag start
+  2. Calculate new time from mouse position
+  3. Clamp to valid range (0 to duration)
+  4. Update cue time in state
+- **Postconditions**: Cue time updated, timeline refreshed
+
+### 5.8 Binary Inspector
 
 #### FR-BI-001: Inspect Binary File
 - **Description**: User can inspect and validate exported show.bin files
@@ -747,6 +805,7 @@ flowchart TB
 - **Timeline Content** (right, scrollable):
   - Time ruler with tick marks
   - Playhead (vertical red line with handle)
+  - Cue markers (A-D, draggable, displayed above ruler)
   - Track lanes with clips
   - Grid background (when snap enabled)
 
@@ -754,12 +813,19 @@ flowchart TB
 - **No Selection**: Project settings
   - Project name, duration
   - Auto-save toggle
+  - Cue points (A-D with time display, set/clear buttons)
   - Hardware profiles (per-prop configuration: LED type/order/brightness cap + assigned prop IDs)
   - Prop groups
   - Color palettes (built-in + custom)
     - Add/Edit palette opens a modal editor
     - Palette list supports drag-and-drop reordering
     - Palette editor supports adding/removing/editing colors
+
+- **Single Cue Selected**: Cue properties
+  - Cue label (A/B/C/D)
+  - Time (editable)
+  - Enabled toggle
+  - Clear button
 
 - **Single Clip**: Clip properties
   - Start time, duration
@@ -836,6 +902,14 @@ A slide-out drawer panel accessible via the hamburger icon (three horizontal lin
 | Alt+1 | Toggle Palette |
 | Alt+2 | Toggle Preview |
 | Alt+3 | Toggle Inspector |
+| Shift+1 | Set/Clear Cue A at playhead |
+| Shift+2 | Set/Clear Cue B at playhead |
+| Shift+3 | Set/Clear Cue C at playhead |
+| Shift+4 | Set/Clear Cue D at playhead |
+| 1 | Jump playhead to Cue A |
+| 2 | Jump playhead to Cue B |
+| 3 | Jump playhead to Cue C |
+| 4 | Jump playhead to Cue D |
 | Escape | Close modal/menu, clear selection |
 
 #### Timeline Clip Navigation (Accessibility)
@@ -1150,6 +1224,36 @@ Event Structure (48 bytes):
 | 16 | sparkle |
 | 17 | breathe |
 | 18 | alternate |
+
+#### Optional CUE1 Block (32 bytes)
+
+If the project has cue points defined, a 32-byte CUE1 block is appended after all events. The remote firmware reads the last 32 bytes of `show.bin` and checks for the `CUE1` magic number to load cue times.
+
+```
++--------+--------+-------------------------------------------+
+| Offset | Size   | Description                               |
++--------+--------+-------------------------------------------+
+| 0x00   | 4      | Magic: 0x31455543 ("CUE1" little-endian)  |
+| 0x04   | 2      | Version: 1                                |
+| 0x06   | 2      | Count: 4                                  |
+| 0x08   | 4      | Cue A time (ms), 0xFFFFFFFF = unused      |
+| 0x0C   | 4      | Cue B time (ms), 0xFFFFFFFF = unused      |
+| 0x10   | 4      | Cue C time (ms), 0xFFFFFFFF = unused      |
+| 0x14   | 4      | Cue D time (ms), 0xFFFFFFFF = unused      |
+| 0x18   | 8      | Reserved (zeros)                          |
++--------+--------+-------------------------------------------+
+```
+
+**Remote Behavior:**
+- On boot, the remote reads the CUE1 block from `show.bin` stored on its flash
+- Pressing a cue button (A/B/C/D) jumps to that cue's time and starts playing
+- If a cue is unused (0xFFFFFFFF), pressing that button starts from time 0
+- The Play/Pause button toggles playback; Stop resets to time 0
+
+**Compatibility:**
+- Old receivers ignore trailing CUE1 block bytes and remain compatible
+- Old remotes without CUE parsing ignore cues (graceful degradation)
+- New remote works with old show.bin files that lack a CUE1 block
 
 ---
 
@@ -1561,6 +1665,7 @@ picolume/studio/
 | 0.2.2 | Dec 2025 | Fixed drop indicator line being clipped during drag operations (uses inset box-shadow to avoid parent overflow clipping) |
 | 0.2.2 | Dec 2025 | Added Binary Inspector tool for inspecting/validating show.bin files (FR-BI-001); accessible via hamburger menu |
 | 0.2.2 | Jan 2026 | Deprecated MenuController; menu functionality consolidated into SidebarModeManager and MenuRenderer |
+| 0.2.2 | Jan 2026 | Added cue points system: FR-CU-001 through FR-CU-005 functional requirements, Shift+1/2/3/4 set shortcuts, 1/2/3/4 jump shortcuts, cue markers in timeline, cue editing in inspector, CUE1 binary block with compatibility notes, remote behavior documentation |
 
 ---
 

@@ -15,6 +15,11 @@ export const PROPCFG_SIZE = 8;
 export const EVENT_SIZE = 48;
 export const LUT_SIZE = TOTAL_PROPS * PROPCFG_SIZE;
 
+// Optional cue block trailer (32 bytes at end of file)
+export const CUE_BLOCK_SIZE = 32;
+export const CUE_MAGIC = 0x31455543; // "CUE1" when read as u32 little-endian
+export const CUE_UNUSED = 0xffffffff;
+
 export const COLOR_ORDER = Object.freeze({
     0: "GRB", 1: "RGB", 2: "BRG", 3: "RBG", 4: "GBR", 5: "BGR"
 });
@@ -199,6 +204,28 @@ export function parseShowBin(bytes) {
         });
     }
 
+    // Parse optional CUE block at the end of the file (last 32 bytes)
+    let cueBlock = null;
+    if (dv.byteLength >= CUE_BLOCK_SIZE) {
+        const base = dv.byteLength - CUE_BLOCK_SIZE;
+        const cueMagic = readU32LE(dv, base + 0);
+        if (cueMagic === CUE_MAGIC) {
+            const cueVersion = readU16LE(dv, base + 4);
+            const cueCount = readU16LE(dv, base + 6);
+            const cueIds = ['A', 'B', 'C', 'D'];
+            const times = {};
+            for (let i = 0; i < 4; i++) {
+                const t = readU32LE(dv, base + 8 + i * 4);
+                times[cueIds[i]] = t === CUE_UNUSED ? null : t;
+            }
+            cueBlock = { base, version: cueVersion, count: cueCount, times };
+        }
+    }
+
+    // Trailing bytes after the expected events payload (includes cue block if present)
+    const expectedEnd = eventsOffset + eventCount * EVENT_SIZE;
+    const trailingBytes = dv.byteLength > expectedEnd ? (dv.byteLength - expectedEnd) : 0;
+
     // Calculate stats
     let maxEnd = 0;
     for (const e of events) {
@@ -213,6 +240,8 @@ export function parseShowBin(bytes) {
         propConfigs,
         events,
         eventsOffset,
+        cueBlock,
+        trailingBytes,
         stats: {
             totalEvents: events.length,
             duration: maxEnd,
@@ -327,6 +356,7 @@ export function exportAsJSON(parsed) {
 
     return {
         header: parsed.header,
+        cueBlock: parsed.cueBlock,
         propConfigs: parsed.propConfigs.filter(c => c.ledCount > 0),
         events: parsed.events.map(e => ({
             index: e.index,

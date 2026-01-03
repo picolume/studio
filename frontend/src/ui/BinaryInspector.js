@@ -17,6 +17,7 @@ import {
     LED_TYPE,
     COLOR_ORDER,
     TOTAL_PROPS,
+    CUE_BLOCK_SIZE,
 } from '../core/ShowBinParser.js';
 
 /**
@@ -99,6 +100,16 @@ export function initBinaryInspector() {
         els.details.style.display = 'grid';
         const { header } = state.parsed;
 
+        const cueBlock = state.parsed.cueBlock;
+        const trailingBytes = state.parsed.trailingBytes || 0;
+
+        const cueSummary = (cue) => {
+            if (!cue?.times) return '';
+            return ['A', 'B', 'C', 'D']
+                .map(id => cue.times[id] === null ? `${id}: unused` : `${id}: ${fmtTime(cue.times[id])}`)
+                .join(' • ');
+        };
+
         els.header.innerHTML = `
             <div class="inspector-kv">
                 <span class="inspector-kv-key">Magic</span>
@@ -109,6 +120,15 @@ export function initBinaryInspector() {
                 <span class="inspector-kv-value">${header.eventCount}</span>
                 <span class="inspector-kv-key">Reserved</span>
                 <span class="inspector-kv-value">8 bytes (offset 8-15)</span>
+                ${cueBlock ? `
+                    <span class="inspector-kv-key">Cue Block</span>
+                    <span class="inspector-kv-value">CUE1 @ ${cueBlock.base} (${CUE_BLOCK_SIZE} bytes)</span>
+                    <span class="inspector-kv-key">Cues</span>
+                    <span class="inspector-kv-value">${cueSummary(cueBlock)}</span>
+                ` : (trailingBytes > 0 ? `
+                    <span class="inspector-kv-key">Trailing Bytes</span>
+                    <span class="inspector-kv-value">${trailingBytes}</span>
+                ` : '')}
             </div>
         `;
     }
