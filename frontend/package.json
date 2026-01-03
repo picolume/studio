@@ -6,6 +6,7 @@
     "scripts": {
         "build": "tailwindcss -i ./src/input.css -o ./src/style.css",
         "build:css": "tailwindcss -i ./src/input.css -o ./src/style.css --watch",
+        "build:wasm": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-wasm.ps1",
         "test": "vitest",
         "test:ui": "vitest --ui",
         "test:coverage": "vitest --coverage"

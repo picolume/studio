@@ -143,6 +143,11 @@ flowchart TB
     subgraph "Backend Layer (Go)"
         APPGO[app.go<br/>App Methods]
         MAINGO[main.go<br/>Wails Setup]
+        BINGEN[bingen/<br/>Binary Generation]
+    end
+
+    subgraph "WebAssembly"
+        WASM[bingen.wasm<br/>Browser Binary Gen]
     end
 
     subgraph "Runtime"
@@ -181,6 +186,7 @@ flowchart TB
 | **StateManager** | `core/StateManager.js` | Centralized immutable state management with undo/redo support |
 | **ErrorHandler** | `core/ErrorHandler.js` | Centralized error handling and toast notifications |
 | **Backend Adapter** | `core/Backend.js` | Environment adapter (Wails vs browser demo) for backend-dependent features |
+| **Binary Generator** | `core/BinaryGeneratorWasm.js` | WASM-based binary generation with JavaScript fallback |
 | **Validators** | `core/validators.js` | Input validation functions for colors, times, clips, tracks |
 | **AudioService** | `services/AudioService.js` | Web Audio API management, buffer loading, playback control |
 | **ProjectService** | `services/ProjectService.js` | Project save/load/new operations via backend |
@@ -214,6 +220,37 @@ To keep the online version aligned with the Studio UI, the project maintains a s
 |-----------|------|-------------|
 | **App** | `app.go` | Application struct with all exposed methods |
 | **Main** | `main.go` | Wails initialization and window configuration |
+| **Binary Generator** | `bingen/bingen.go` | Shared package for show.bin generation (used by desktop and WASM) |
+| **WASM Entry** | `wasm/main.go` | WebAssembly entry point exposing bingen to JavaScript |
+
+#### 3.2.3 Binary Generation Architecture
+
+Binary generation uses a **single source of truth** pattern:
+
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│   Wails Desktop     │     │   Web Browser       │
+│   (app.go)          │     │   (JavaScript)      │
+└────────┬────────────┘     └────────┬────────────┘
+         │                           │
+         ▼                           ▼
+┌─────────────────────┐     ┌─────────────────────┐
+│  bingen package     │     │  bingen.wasm        │
+│  (native Go)        │     │  (Go→WebAssembly)   │
+└─────────────────────┘     └─────────────────────┘
+         │                           │
+         └───────────┬───────────────┘
+                     ▼
+           bingen/bingen.go
+           (Single Source)
+```
+
+**Build WASM module:**
+```bash
+npm run build:wasm   # or .\scripts\build-wasm.ps1
+```
+
+The JavaScript loader (`BinaryGeneratorWasm.js`) includes a fallback JavaScript implementation for environments where WASM fails to load.
 
 ### 3.3 State Management Architecture
 
@@ -1666,6 +1703,7 @@ picolume/studio/
 | 0.2.2 | Dec 2025 | Added Binary Inspector tool for inspecting/validating show.bin files (FR-BI-001); accessible via hamburger menu |
 | 0.2.2 | Jan 2026 | Deprecated MenuController; menu functionality consolidated into SidebarModeManager and MenuRenderer |
 | 0.2.2 | Jan 2026 | Added cue points system: FR-CU-001 through FR-CU-005 functional requirements, Shift+1/2/3/4 set shortcuts, 1/2/3/4 jump shortcuts, cue markers in timeline, cue editing in inspector, CUE1 binary block with compatibility notes, remote behavior documentation |
+| 0.2.2 | Jan 2026 | Consolidated binary generation: extracted shared `bingen` Go package, added WebAssembly build for browser, `BinaryGeneratorWasm.js` loader with JS fallback, build scripts (`npm run build:wasm`). Single source of truth for show.bin generation across desktop and web. |
 
 ---
 

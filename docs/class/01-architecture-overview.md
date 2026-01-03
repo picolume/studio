@@ -88,7 +88,17 @@ This pattern is called **Single Source of Truth** and prevents bugs where "the U
 ```
 studio/
 ├── main.go                     # 🚀 App starts here (Go side)
-├── app.go                      # 💪 All backend logic
+├── app.go                      # 💪 Backend logic (wraps bingen)
+│
+├── bingen/                     # 📦 Shared binary generation
+│   └── bingen.go               #    Single source of truth
+│
+├── wasm/                       # 🌐 WebAssembly build
+│   └── main.go                 #    WASM entry point
+│
+├── scripts/                    # 🔨 Build scripts
+│   ├── build-wasm.ps1          #    PowerShell WASM build
+│   └── build-wasm.bat          #    Batch WASM build
 │
 └── frontend/
     ├── index.html              # 📄 The one HTML file
@@ -100,6 +110,7 @@ studio/
         │   ├── Application.js  #    Boots everything up
         │   ├── StateManager.js #    📦 THE source of truth
         │   ├── Backend.js      #    🌉 Wails adapter
+        │   ├── BinaryGeneratorWasm.js # WASM loader + JS fallback
         │   └── ErrorHandler.js #    🚨 Toast notifications
         │
         ├── services/           # 🔧 Business logic
@@ -110,14 +121,19 @@ studio/
         │   ├── TimelineController.js
         │   ├── UndoController.js
         │   ├── KeyboardController.js
+        │   ├── CueController.js
         │   ├── SidebarModeManager.js
         │   └── ThemeManager.js
         │
-        └── views/              # 🎨 Canvas/DOM rendering
-            ├── TimelineRenderer.js
-            ├── PreviewRenderer.js
-            ├── InspectorRenderer.js
-            └── MenuRenderer.js
+        ├── views/              # 🎨 Canvas/DOM rendering
+        │   ├── TimelineRenderer.js
+        │   ├── PreviewRenderer.js
+        │   ├── InspectorRenderer.js
+        │   └── MenuRenderer.js
+        │
+        └── wasm/               # 🌐 Compiled WASM assets
+            ├── bingen.wasm     #    Compiled Go→WASM
+            └── wasm_exec.js    #    Go WASM runtime
 ```
 
 ### Naming Convention

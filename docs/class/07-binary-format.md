@@ -363,7 +363,7 @@ flowchart TB
         GROUPS[Prop Groups]
     end
 
-    subgraph "Processing"
+    subgraph "Shared bingen Package"
         PARSE[Parse JSON]
         BUILD_LUT[Build PropConfig LUT]
         PROCESS[Process Clips → Events]
@@ -392,123 +392,132 @@ flowchart TB
     HEADER & LUT & EVENTS --> BIN
 ```
 
+### Architecture: Single Source of Truth
+
+Binary generation is implemented once in Go and shared across all environments:
+
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│   Wails Desktop     │     │   Web Browser       │
+│   (app.go)          │     │   (JavaScript)      │
+└────────┬────────────┘     └────────┬────────────┘
+         │                           │
+         ▼                           ▼
+┌─────────────────────┐     ┌─────────────────────┐
+│  bingen package     │     │  bingen.wasm        │
+│  (native Go)        │     │  (Go→WebAssembly)   │
+└─────────────────────┘     └─────────────────────┘
+         │                           │
+         └───────────┬───────────────┘
+                     ▼
+           Single Source of Truth
+           (bingen/bingen.go)
+```
+
+**Why this architecture?**
+- **Consistency**: Same binary output regardless of environment
+- **Maintainability**: One codebase to update when format changes
+- **Testing**: Test once, trust everywhere
+
 ### The Go Implementation
 
+Binary generation lives in the shared `bingen` package (`bingen/bingen.go`):
+
 ```go
-// app.go - generateBinaryBytes (simplified)
+// bingen/bingen.go - Shared binary generation package
 
-func generateBinaryBytes(projectJson string) ([]byte, int, error) {
-    // Parse JSON
-    var project Project
-    json.Unmarshal([]byte(projectJson), &project)
+package bingen
 
-    // Build prop → profile mapping
-    propProfiles := make(map[int]*HardwareProfile)
-    for _, profile := range project.Settings.Profiles {
-        propIds := parseIdRange(profile.AssignedIds)
-        for _, id := range propIds {
-            propProfiles[id] = &profile
-        }
+// GenerateFromJSON generates show.bin bytes from project JSON string.
+func GenerateFromJSON(projectJSON string) (*Result, error) {
+    var p Project
+    if err := json.Unmarshal([]byte(projectJSON), &p); err != nil {
+        return nil, err
     }
-
-    // === BUILD PROPCONFIG LUT ===
-    propConfigLUT := make([]byte, 224*8)  // 1792 bytes
-    for propId := 1; propId <= 224; propId++ {
-        offset := (propId - 1) * 8
-        profile := propProfiles[propId]
-
-        if profile != nil {
-            binary.LittleEndian.PutUint16(propConfigLUT[offset:], uint16(profile.LedCount))
-            propConfigLUT[offset+2] = byte(profile.LedType)
-            propConfigLUT[offset+3] = byte(profile.ColorOrder)
-            propConfigLUT[offset+4] = byte(profile.BrightnessCap)
-        }
-        // Unconfigured props remain zeroed
-    }
-
-    // === PROCESS CLIPS INTO EVENTS ===
-    var events []Event
-
-    for _, track := range project.Tracks {
-        if track.Type != "led" {
-            continue
-        }
-
-        // Get prop IDs for this track's group
-        propIds := getPropIdsForGroup(track.GroupId, project.PropGroups)
-
-        // Sort clips by start time
-        sortedClips := sortByStartTime(track.Clips)
-
-        var lastEndTime float64 = 0
-
-        for _, clip := range sortedClips {
-            // Insert OFF event for gaps
-            if clip.StartTime > lastEndTime {
-                offEvent := Event{
-                    StartTime:  uint32(lastEndTime),
-                    Duration:   uint32(clip.StartTime - lastEndTime),
-                    EffectCode: 0,  // OFF
-                    PropMask:   buildPropMask(propIds),
-                }
-                events = append(events, offEvent)
-            }
-
-            // Create event for clip
-            event := Event{
-                StartTime:  uint32(clip.StartTime),
-                Duration:   uint32(clip.Duration),
-                EffectCode: effectNameToCode(clip.Type),
-                Color:      parseColor(clip.Props.Color),
-                Color2:     parseColor(clip.Props.Color2),
-                Speed:      mapSpeedToByte(clip.Props.Speed),
-                Width:      mapWidthToByte(clip.Props.Width),
-                PropMask:   buildPropMask(propIds),
-            }
-            events = append(events, event)
-
-            lastEndTime = clip.StartTime + clip.Duration
-        }
-    }
-
-    // === ENCODE TO BINARY ===
-    buf := new(bytes.Buffer)
-
-    // Header
-    buf.Write([]byte("PICO"))                           // Magic
-    binary.Write(buf, binary.LittleEndian, uint16(3))   // Version
-    binary.Write(buf, binary.LittleEndian, uint16(len(events)))
-    buf.Write(make([]byte, 8))                          // Reserved
-
-    // PropConfig LUT
-    buf.Write(propConfigLUT)
-
-    // Events
-    for _, event := range events {
-        binary.Write(buf, binary.LittleEndian, event.StartTime)
-        binary.Write(buf, binary.LittleEndian, event.Duration)
-        buf.WriteByte(event.EffectCode)
-        buf.WriteByte(event.Speed)
-        buf.WriteByte(event.Width)
-        buf.WriteByte(0)  // Reserved
-        binary.Write(buf, binary.LittleEndian, event.Color)
-        binary.Write(buf, binary.LittleEndian, event.Color2)
-        for _, mask := range event.PropMask {
-            binary.Write(buf, binary.LittleEndian, mask)
-        }
-    }
-
-    return buf.Bytes(), len(events), nil
+    return Generate(&p)
 }
 
-// Helper: Parse "1-18" or "1,5,7" into []int
-func parseIdRange(ids string) []int {
-    var result []int
+// Generate creates show.bin bytes from a Project struct.
+func Generate(p *Project) (*Result, error) {
+    // 1. Build prop → profile mapping
+    // 2. Generate PropConfig LUT (1792 bytes)
+    // 3. Process clips into events with gap-filling
+    // 4. Encode header + LUT + events
+    // 5. Append CUE block if cues exist
+    // ... (see bingen/bingen.go for full implementation)
+}
+```
 
+The desktop app (`app.go`) wraps the shared package:
+
+```go
+// app.go - Uses shared bingen package
+
+import "PicoLume/bingen"
+
+func generateBinaryBytes(projectJSON string) ([]byte, int, error) {
+    result, err := bingen.GenerateFromJSON(projectJSON)
+    if err != nil {
+        return nil, 0, err
+    }
+    return result.Bytes, result.EventCount, nil
+}
+```
+
+### WebAssembly Build
+
+The same `bingen` package compiles to WebAssembly for browser use:
+
+```go
+// wasm/main.go - WASM entry point
+//go:build js && wasm
+
+package main
+
+import (
+    "syscall/js"
+    "PicoLume/bingen"
+)
+
+func generateBinaryBytes(this js.Value, args []js.Value) interface{} {
+    projectJSON := args[0].String()
+    result, err := bingen.GenerateFromJSON(projectJSON)
+    if err != nil {
+        return map[string]interface{}{"error": err.Error()}
+    }
+
+    uint8Array := js.Global().Get("Uint8Array").New(len(result.Bytes))
+    js.CopyBytesToJS(uint8Array, result.Bytes)
+    return map[string]interface{}{
+        "bytes":      uint8Array,
+        "eventCount": result.EventCount,
+    }
+}
+
+func main() {
+    picolume := js.Global().Get("Object").New()
+    picolume.Set("generateBinaryBytes", js.FuncOf(generateBinaryBytes))
+    js.Global().Set("picolume", picolume)
+    select {} // Keep alive
+}
+```
+
+Build the WASM module:
+```bash
+npm run build:wasm
+# or
+.\scripts\build-wasm.ps1
+```
+
+### Helper Functions
+
+```go
+// Parse "1-18" or "1,5,7" into []int
+func parseIDRange(ids string) []int {
+    var result []int
     for _, part := range strings.Split(ids, ",") {
         part = strings.TrimSpace(part)
         if strings.Contains(part, "-") {
-            // Range: "1-18"
             bounds := strings.Split(part, "-")
             start, _ := strconv.Atoi(bounds[0])
             end, _ := strconv.Atoi(bounds[1])
@@ -518,24 +527,19 @@ func parseIdRange(ids string) []int {
                 }
             }
         } else {
-            // Single: "5"
             id, _ := strconv.Atoi(part)
             if id >= 1 && id <= 224 {
                 result = append(result, id)
             }
         }
     }
-
     return result
 }
 
-// Helper: Build 7×uint32 prop mask
-func buildPropMask(propIds []int) [7]uint32 {
+// Build 7×uint32 prop mask
+func calculateMask(idStr string) [7]uint32 {
     var mask [7]uint32
-    for _, id := range propIds {
-        if id < 1 || id > 224 {
-            continue
-        }
+    for _, id := range parseIDRange(idStr) {
         index := (id - 1) / 32
         bit := uint32((id - 1) % 32)
         mask[index] |= (1 << bit)

@@ -31,11 +31,11 @@ function createWailsBackend(app) {
             return await app.LoadProject();
         },
         async saveBinary(projectJson) {
-            // Use JS binary generator, then save via Go's native file dialog
+            // Use WASM binary generator (with JS fallback), then save via Go's native file dialog
             try {
-                const { generateBinaryBytes } = await import('./BinaryGenerator.js');
+                const { generateBinaryBytesAsync } = await import('./BinaryGeneratorWasm.js');
                 const project = JSON.parse(projectJson);
-                const { bytes } = generateBinaryBytes(project);
+                const { bytes } = await generateBinaryBytesAsync(project);
 
                 // Convert to base64 for transfer to Go
                 const base64 = btoa(String.fromCharCode(...bytes));
@@ -210,9 +210,9 @@ function createOnlineBackend() {
         },
         async saveBinary(projectJson) {
             try {
-                const { generateBinaryBytes } = await import('./BinaryGenerator.js');
+                const { generateBinaryBytesAsync } = await import('./BinaryGeneratorWasm.js');
                 const project = JSON.parse(projectJson);
-                const { bytes, eventCount } = generateBinaryBytes(project);
+                const { bytes, eventCount } = await generateBinaryBytesAsync(project);
 
                 const blob = new Blob([bytes], { type: 'application/octet-stream' });
 
