@@ -11,6 +11,7 @@
 
 import { createInitialState } from '../core/StateManager.js';
 import { getBackend } from '../core/Backend.js';
+import { errorHandler } from '../core/ErrorHandler.js';
 import { showConfirm, findProfileOverlaps, formatProfileOverlaps } from '../utils.js';
 
 export class ProjectService {
@@ -202,6 +203,9 @@ export class ProjectService {
                     message: `Cannot export: Hardware profile conflicts detected.\n\n${message}\n\nPlease fix overlapping prop assignments in Settings before exporting.`
                 };
             }
+
+            // Show loading feedback (WASM initialization can take a few seconds on first use)
+            errorHandler.info('Generating binary...');
 
             const result = await this.backend.saveBinary(
                 JSON.stringify(project)
