@@ -31,17 +31,19 @@ function createWailsBackend(app) {
             return await app.LoadProject();
         },
         async saveBinary(projectJson) {
-            // Use WASM binary generator (with JS fallback), then save via Go's native file dialog
+            // Use WASM binary generator (Go→WASM), then save via Go's native file dialog.
+            // If WASM isn't available (missing assets / bad hosting), fall back to Go-side generation.
             try {
-                const { generateBinaryBytesAsync } = await import('./BinaryGeneratorWasm.js');
                 const project = JSON.parse(projectJson);
-                const { bytes } = await generateBinaryBytesAsync(project);
-
-                // Convert to base64 for transfer to Go
-                const base64 = btoa(String.fromCharCode(...bytes));
+                const { generateBinaryBase64Async } = await import('./BinaryGeneratorWasm.js');
+                const { base64 } = await generateBinaryBase64Async(project);
                 return await app.SaveBinaryData(base64);
             } catch (err) {
-                return `Error: ${err?.message || err}`;
+                try {
+                    return await app.SaveBinary(projectJson);
+                } catch (fallbackErr) {
+                    return `Error: ${fallbackErr?.message || fallbackErr}`;
+                }
             }
         },
         async uploadToPico(projectJson) {
@@ -251,7 +253,7 @@ function createOnlineBackend() {
                 URL.revokeObjectURL(url);
                 return 'OK';
             } catch (err) {
-                return `Error: ${err?.message || err}`;
+                return `Error: ${err?.message || err} (WASM binary generator unavailable; rebuild and deploy /src/wasm/bingen.wasm + wasm_exec.js)`;
             }
         },
         async uploadToPico() {
