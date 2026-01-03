@@ -211,10 +211,20 @@ function createOnlineBackend() {
             }
         },
         async saveBinary(projectJson) {
+            const exportModal = document.getElementById('export-modal');
+            const showExportModal = () => exportModal?.setAttribute('aria-hidden', 'false');
+            const hideExportModal = () => exportModal?.setAttribute('aria-hidden', 'true');
+
             try {
+                // Show loading modal while WASM initializes and generates binary
+                showExportModal();
+
                 const { generateBinaryBytesAsync } = await import('./BinaryGeneratorWasm.js');
                 const project = JSON.parse(projectJson);
                 const { bytes, eventCount } = await generateBinaryBytesAsync(project);
+
+                // Hide modal before showing file picker
+                hideExportModal();
 
                 const blob = new Blob([bytes], { type: 'application/octet-stream' });
 
@@ -253,6 +263,7 @@ function createOnlineBackend() {
                 URL.revokeObjectURL(url);
                 return 'OK';
             } catch (err) {
+                hideExportModal();
                 return `Error: ${err?.message || err} (WASM binary generator unavailable; rebuild and deploy /src/wasm/bingen.wasm + wasm_exec.js)`;
             }
         },

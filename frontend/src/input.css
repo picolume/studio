@@ -1615,6 +1615,28 @@ body {
     margin: 0;
 }
 
+/* Export Dialog (reuses upload-body/spinner/message classes) */
+#export-modal {
+    cursor: progress;
+}
+#export-modal .modal-panel {
+    width: min(460px, 92vw);
+    height: auto;
+    max-height: 90vh;
+    cursor: default;
+}
+#export-modal .modal-header {
+    height: 40px;
+    padding: 0 16px;
+    background: var(--modal-bg);
+    border-bottom: 1px solid var(--modal-border);
+}
+#export-modal .modal-title {
+    font-size: 13px;
+    color: var(--ui-text);
+    font-weight: 600;
+}
+
 /* About Dialog */
 #about-modal .modal-panel {
     width: min(560px, 92vw);
