@@ -137,6 +137,13 @@ type Project struct {
 	Settings   Settings    `json:"settings"`
 	PropGroups []PropGroup `json:"propGroups"`
 	Tracks     []Track     `json:"tracks"`
+	Cues       []Cue       `json:"cues"`
+}
+
+type Cue struct {
+	ID      string `json:"id"`      // "A", "B", "C", "D"
+	TimeMs  *int   `json:"timeMs"`  // null or milliseconds
+	Enabled bool   `json:"enabled"` // only write if enabled
 }
 
 type Settings struct {
@@ -579,6 +586,50 @@ func generateBinaryBytes(projectJson string) ([]byte, int, error) {
 	// V3: PropConfig LUT follows header directly (1792 bytes = 224 × 8)
 	buf.Write(lutBuf.Bytes())
 	buf.Write(eventBuf.Bytes())
+
+	// --- 7. APPEND CUE BLOCK (if cues exist) ---
+	// Check if any cue is enabled with a valid time
+	hasCues := false
+	for _, cue := range p.Cues {
+		if cue.Enabled && cue.TimeMs != nil {
+			hasCues = true
+			break
+		}
+	}
+
+	if hasCues {
+		// CUE block format (32 bytes):
+		// Magic "CUE1" (4 bytes): 0x43 0x55 0x45 0x31
+		// Version (2 bytes): 1
+		// Count (2 bytes): 4
+		// Times[4] (16 bytes): u32 for each cue, 0xFFFFFFFF if unused
+		// Reserved (8 bytes): zeros
+
+		// Magic "CUE1"
+		buf.Write([]byte{0x43, 0x55, 0x45, 0x31})
+
+		// Version = 1
+		binary.Write(buf, binary.LittleEndian, uint16(1))
+
+		// Count = 4
+		binary.Write(buf, binary.LittleEndian, uint16(4))
+
+		// Times for cues A, B, C, D
+		cueIds := []string{"A", "B", "C", "D"}
+		for _, cueId := range cueIds {
+			timeValue := uint32(0xFFFFFFFF) // Default: unused
+			for _, cue := range p.Cues {
+				if cue.ID == cueId && cue.Enabled && cue.TimeMs != nil {
+					timeValue = uint32(*cue.TimeMs)
+					break
+				}
+			}
+			binary.Write(buf, binary.LittleEndian, timeValue)
+		}
+
+		// Reserved (8 bytes)
+		buf.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0})
+	}
 
 	return buf.Bytes(), eventCount, nil
 }
