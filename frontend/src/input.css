@@ -1636,6 +1636,33 @@ body {
     color: var(--ui-text);
     font-weight: 600;
 }
+#export-modal .upload-body {
+    padding: 18px 20px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+#export-modal .upload-spinner {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 18%, var(--ui-toolbar-bg));
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--ui-border));
+    color: color-mix(in srgb, var(--accent) 90%, var(--ui-text-strong));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+#export-modal .upload-spinner i {
+    font-size: 18px;
+}
+#export-modal .upload-message {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ui-text-muted);
+    margin: 0;
+}
 
 /* About Dialog */
 #about-modal .modal-panel {
