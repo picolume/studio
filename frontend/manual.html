@@ -564,6 +564,7 @@
                 <a href="#tracks" class="nav-link">Working with Tracks</a>
                 <a href="#effects" class="nav-link">Effects Reference</a>
                 <a href="#audio" class="nav-link">Audio Sync</a>
+                <a href="#cues" class="nav-link">Cue Points</a>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Output</div>
@@ -933,6 +934,18 @@
                 <li><strong>Zoom Timeline:</strong> <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Scroll</kbd></li>
             </ul>
 
+            <h3>Cue Shortcuts</h3>
+            <ul>
+                <li><strong>Jump to Cue A:</strong> <kbd>1</kbd></li>
+                <li><strong>Jump to Cue B:</strong> <kbd>2</kbd></li>
+                <li><strong>Jump to Cue C:</strong> <kbd>3</kbd></li>
+                <li><strong>Jump to Cue D:</strong> <kbd>4</kbd></li>
+                <li><strong>Set Cue A at Playhead:</strong> <kbd>Shift</kbd>+<kbd>1</kbd></li>
+                <li><strong>Set Cue B at Playhead:</strong> <kbd>Shift</kbd>+<kbd>2</kbd></li>
+                <li><strong>Set Cue C at Playhead:</strong> <kbd>Shift</kbd>+<kbd>3</kbd></li>
+                <li><strong>Set Cue D at Playhead:</strong> <kbd>Shift</kbd>+<kbd>4</kbd></li>
+            </ul>
+
             <h3>Timeline Clip Navigation</h3>
             <p>Clips on the timeline are fully keyboard-accessible. Click a clip to focus it, then use these shortcuts:</p>
             <ul>
@@ -1103,6 +1116,32 @@
             </ul>
             <p>3. Use the waveform to visually align your lighting effects (e.g., placing a "Flash" right on a snare hit).</p>
             <p><strong>Volume:</strong> Use the header volume slider for overall playback volume, and select an audio clip to adjust its per-clip volume in the Inspector.</p>
+        </section>
+
+        <section id="cues">
+            <h2>Cue Points</h2>
+            <p>Cue points are markers you place on the timeline that get embedded into the exported <code>show.bin</code> file. They enable <strong>live resync</strong> during performances—if the show drifts out of sync with external music, you can trigger a cue to jump the playback to a known position.</p>
+
+            <h3>How Cues Work</h3>
+            <p>PicoLume supports <strong>4 cue points</strong> labeled A, B, C, and D. Each cue stores a timestamp in the show file. During live playback on the hardware, you can trigger any cue to instantly jump to that position.</p>
+
+            <h3>Setting Cues</h3>
+            <ul>
+                <li><strong>Keyboard:</strong> Position the playhead where you want the cue, then press <kbd>Shift</kbd>+<kbd>1</kbd> through <kbd>Shift</kbd>+<kbd>4</kbd> to set cues A–D respectively.</li>
+                <li><strong>Timeline:</strong> Cue markers appear as labeled flags (A, B, C, D) on the timeline ruler. You can drag them to adjust their position.</li>
+                <li><strong>Inspector:</strong> Select a cue marker to view and edit its exact timestamp in the Inspector panel.</li>
+            </ul>
+
+            <h3>Jumping to Cues</h3>
+            <p>Press <kbd>1</kbd> through <kbd>4</kbd> to instantly jump the playhead to cue A–D. This works in Studio for previewing, and on the hardware during live shows.</p>
+
+            <h3>Clearing Cues</h3>
+            <p>Select a cue marker and press <kbd>Delete</kbd>, or use the Inspector to disable or remove the cue.</p>
+
+            <div class="callout">
+                <h4>Use Case: Live Music Sync</h4>
+                <p>Place cues at major song sections (intro, chorus, bridge, outro). If the lighting drifts from the music during a live performance, the operator can trigger the nearest cue to resync without restarting the entire show.</p>
+            </div>
         </section>
 
         <section id="export">
