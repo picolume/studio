@@ -1473,6 +1473,44 @@ body {
 .btn:active { transform: translateY(1px); }
 .app-logo-svg { width: 20px; height: 20px; display: block; overflow: hidden; border-radius: 0; flex: 0 0 auto; }
 
+.window-frame {
+    position: fixed;
+    inset: 0;
+    border: 1px solid color-mix(in srgb, var(--ui-border) 75%, transparent);
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 99999;
+}
+.window-frame[hidden] { display: none !important; }
+body:not(.window--maximised) { border-radius: 10px; overflow: hidden; }
+body.window--maximised { border-radius: 0; }
+
+.window-controls {
+    height: 30px;
+    display: inline-flex;
+    align-items: stretch;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+}
+.window-controls[hidden] { display: none !important; }
+.window-btn {
+    width: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--btn-text);
+    cursor: pointer;
+    padding: 0;
+}
+.window-btn:hover { background: var(--btn-hover-bg); }
+.window-btn:active { transform: translateY(1px); }
+.window-btn svg { width: 12px; height: 12px; }
+.window-btn--close:hover { background: #e11d48; color: #fff; }
+
 .btn:disabled {
     opacity: .35;
     cursor: not-allowed;

@@ -49,7 +49,10 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:   "",
-		Windows: &windows.Options{DisableWindowIcon: true},
+		Frameless: true,
+		Windows: &windows.Options{
+			DisableWindowIcon:                    true,
+		},
 		Width:   1280,
 		Height:  800,
 		AssetServer: &assetserver.Options{

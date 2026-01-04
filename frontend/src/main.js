@@ -47,6 +47,52 @@ window.addEventListener('DOMContentLoaded', async () => {
     const keyboardController = app.keyboardController;
 
     // ==========================================
+    // CUSTOM TITLEBAR (WAILS / DESKTOP ONLY)
+    // ==========================================
+
+    const windowControls = document.getElementById('window-controls');
+    const hasWailsWindowControls = typeof window.runtime?.WindowMinimise === 'function'
+        && typeof window.runtime?.WindowToggleMaximise === 'function'
+        && typeof window.runtime?.Quit === 'function';
+
+    const windowFrame = document.getElementById('window-frame');
+    const hasWailsWindowState = typeof window.runtime?.WindowIsMaximised === 'function';
+
+    const updateWindowChrome = async () => {
+        if (!hasWailsWindowState) return;
+        let isMaximised = false;
+        try {
+            isMaximised = !!(await window.runtime.WindowIsMaximised());
+        } catch {
+            isMaximised = false;
+        }
+        document.body.classList.toggle('window--maximised', isMaximised);
+        if (windowFrame) windowFrame.hidden = isMaximised;
+    };
+
+    if (hasWailsWindowControls) {
+        if (windowControls) windowControls.hidden = false;
+        const btnMin = els.btnWindowMinimize || document.getElementById('btn-window-minimize');
+        const btnMax = els.btnWindowMaximize || document.getElementById('btn-window-maximize');
+        const btnClose = els.btnWindowClose || document.getElementById('btn-window-close');
+
+        btnMin?.addEventListener('click', () => window.runtime.WindowMinimise());
+        btnMax?.addEventListener('click', async () => {
+            window.runtime.WindowToggleMaximise();
+            setTimeout(() => void updateWindowChrome(), 50);
+        });
+        btnClose?.addEventListener('click', () => window.runtime.Quit());
+
+        if (windowFrame) windowFrame.hidden = false;
+        void updateWindowChrome();
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => void updateWindowChrome(), 100);
+        });
+    }
+
+    // ==========================================
     // LAYOUT TOGGLES (Palette / Preview / Inspector)
     // ==========================================
 

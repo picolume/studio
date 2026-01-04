@@ -115,6 +115,7 @@ export class Application {
             'status-history',
             'btn-add-track-led', 'btn-add-track-audio', 'btn-settings',
             'btn-export-bin', 'btn-upload', 'btn-save', 'btn-save-as', 'btn-export', 'btn-open', 'btn-new',
+            'btn-window-minimize', 'btn-window-maximize', 'btn-window-close',
             'btn-stop', 'btn-to-start', 'chk-snap', 'sel-grid', 'btn-duplicate'
         ];
 

@@ -18,6 +18,7 @@
 <body class="h-screen flex flex-col">
     <a href="#timeline-container" class="skip-link">Skip to Timeline</a>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="window-frame" class="window-frame" aria-hidden="true" hidden></div>
 
     <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
         <symbol id="picolume-logo" viewBox="0 0 512 512">
@@ -36,15 +37,15 @@
         </symbol>
     </svg>
 
-    <header class="h-14 bg-gradient-to-b from-[var(--ui-header-from)] to-[var(--ui-header-to)] border-b border-[var(--ui-panel-border)] flex items-center justify-between px-4 shrink-0" role="banner">
-        <div class="flex items-center gap-3">
+    <header class="h-14 bg-gradient-to-b from-[var(--ui-header-from)] to-[var(--ui-header-to)] border-b border-[var(--ui-panel-border)] flex items-center justify-between px-4 shrink-0" role="banner" style="--wails-draggable: drag;">
+        <div class="flex items-center gap-3" style="--wails-draggable: drag;">
             <svg class="app-logo-svg" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
                 <use href="#picolume-logo"></use>
             </svg>
             <h1 id="app-title" class="font-bold text-lg tracking-wide text-[var(--ui-text-strong)]">PICOLUME STUDIO</h1>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4" style="--wails-draggable: no-drag;">
             <div class="flex bg-[var(--ui-toolbar-bg)] rounded p-1" role="group">
                 <button id="btn-undo" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)] disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-undo"></i></button>
                 <button id="btn-redo" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)] disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-redo"></i></button>
@@ -65,29 +66,29 @@
             <span id="time-display" class="font-mono text-cyan-400 text-lg w-24 text-center">00:00.00</span>
         </div>
 
-        <div class="menu-bar">
-            <div class="menu-group" role="group" aria-label="Project">
-                <button id="btn-upload" class="btn btn--success btn--wide">
-                    <i class="fas fa-microchip"></i><span>Upload</span>
-                </button>
-                <button id="btn-export-bin" class="btn btn--primary btn--wide">
-                    <i class="fas fa-download"></i><span>Export</span>
-                </button>
-                <button id="btn-new" class="btn btn--icon" title="New Project (Ctrl+N)">
-                    <i class="fas fa-file"></i>
-                </button>
-                <button id="btn-save" class="btn btn--icon" title="Save (Ctrl+S)">
-                    <i class="fas fa-save"></i>
-                </button>
-                <button id="btn-save-as" class="btn btn--icon" title="Save As (Ctrl+Shift+S)">
-                    <i class="fas fa-file-export"></i>
-                </button>
-                <button id="btn-open" class="btn btn--icon" title="Open Project (Ctrl+O)">
-                    <i class="fas fa-folder-open"></i>
-                </button>
-            </div>
-
-            <div class="menu-sep" aria-hidden="true"></div>
+        <div class="flex items-center gap-2" style="--wails-draggable: no-drag;">
+            <div class="menu-bar">
+                <div class="menu-group" role="group" aria-label="Project">
+                    <button id="btn-upload" class="btn btn--success btn--wide">
+                        <i class="fas fa-microchip"></i><span>Upload</span>
+                    </button>
+                    <button id="btn-export-bin" class="btn btn--primary btn--wide">
+                        <i class="fas fa-download"></i><span>Export</span>
+                    </button>
+                    <button id="btn-new" class="btn btn--icon" title="New Project (Ctrl+N)">
+                        <i class="fas fa-file"></i>
+                    </button>
+                    <button id="btn-save" class="btn btn--icon" title="Save (Ctrl+S)">
+                        <i class="fas fa-save"></i>
+                    </button>
+                    <button id="btn-save-as" class="btn btn--icon" title="Save As (Ctrl+Shift+S)">
+                        <i class="fas fa-file-export"></i>
+                    </button>
+                    <button id="btn-open" class="btn btn--icon" title="Open Project (Ctrl+O)">
+                        <i class="fas fa-folder-open"></i>
+                    </button>
+                </div>
+                <div class="menu-sep" aria-hidden="true"></div>
 
             <div class="menu-group" role="group" aria-label="Layout">
                 <button id="btn-toggle-palette" class="btn btn--icon btn--pane-toggle" aria-pressed="true" title="Toggle Palette (Alt+1)">
@@ -112,6 +113,25 @@
                 </button>
                 <button id="btn-hamburger" class="btn btn--icon" title="Menu" aria-expanded="false" aria-haspopup="true">
                     <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            </div>
+
+            <div id="window-controls" class="window-controls" aria-label="Window controls" style="--wails-draggable: no-drag;" hidden>
+                <button id="btn-window-minimize" class="window-btn" type="button" title="Minimize" aria-label="Minimize">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                        <path d="M1 7.5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                    </svg>
+                </button>
+                <button id="btn-window-maximize" class="window-btn" type="button" title="Maximize/Restore" aria-label="Maximize or restore">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                        <rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+                    </svg>
+                </button>
+                <button id="btn-window-close" class="window-btn window-btn--close" type="button" title="Close" aria-label="Close">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                        <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                    </svg>
                 </button>
             </div>
         </div>
