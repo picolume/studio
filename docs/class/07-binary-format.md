@@ -59,7 +59,7 @@ To prevent malicious or accidental “zip bomb” projects from freezing/crashin
 
 ```json
 {
-  "version": "0.2.2",
+  "version": "0.2.3",
   "name": "My Show",
   "duration": 60000,
   "settings": {

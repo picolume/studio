@@ -1140,7 +1140,7 @@ myshow.lum
 
 ```json
 {
-  "version": "0.2.2",
+  "version": "0.2.3",
   "name": "My Show",
   "duration": 60000,
   "settings": {
