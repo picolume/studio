@@ -953,7 +953,6 @@
     --ui-palette-item-hover-border: #94a3b8;
 }
 
-:root[data-theme="daylight"] header .fa-bolt { color: var(--accent); }
 :root[data-theme="daylight"] #time-display { color: var(--accent); }
 :root[data-theme="daylight"] #btn-play { color: var(--ui-text-strong); }
 
@@ -1065,7 +1064,6 @@
     --ui-palette-item-hover-border: #c4b5fd;
 }
 
-:root[data-theme="lilac"] header .fa-bolt { color: var(--accent); }
 :root[data-theme="lilac"] #time-display { color: var(--accent); }
 
 :root[data-theme="lilac"] #btn-add-track-led {
@@ -1176,7 +1174,6 @@
     --ui-palette-item-hover-border: #f9a8d4;
 }
 
-:root[data-theme="rose"] header .fa-bolt { color: var(--accent); }
 :root[data-theme="rose"] #time-display { color: var(--accent); }
 
 :root[data-theme="rose"] #btn-add-track-led {
@@ -1287,7 +1284,6 @@
     --ui-palette-item-hover-border: #bda996;
 }
 
-:root[data-theme="latte"] header .fa-bolt { color: var(--accent); }
 :root[data-theme="latte"] #time-display { color: var(--accent); }
 
 :root[data-theme="latte"] #btn-add-track-led {
@@ -1475,6 +1471,7 @@ body {
 }
 .btn:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-border); }
 .btn:active { transform: translateY(1px); }
+.app-logo-svg { width: 20px; height: 20px; display: block; overflow: hidden; border-radius: 0; flex: 0 0 auto; }
 
 .btn:disabled {
     opacity: .35;
@@ -1721,7 +1718,7 @@ body {
     justify-content: center;
     flex: 0 0 auto;
 }
-.about-logo i { font-size: 16px; }
+.about-logo-svg { width: 22px; height: 22px; display: block; overflow: hidden; border-radius: 0; }
 .about-app-name {
     color: var(--ui-text-strong);
     font-weight: 700;
