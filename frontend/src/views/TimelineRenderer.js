@@ -205,7 +205,10 @@ export class TimelineRenderer {
         el.dataset.clipId = clip.id;
         const selection = this.stateManager.get('selection') || [];
         const isSelected = selection.includes(clip.id);
-        el.className = `clip ${clip.type === 'audio' ? 'audio-clip bg-orange-900' : 'bg-' + clip.type} ${isSelected ? 'selected' : ''}`;
+        el.className = `clip ${clip.type === 'audio' ? 'audio-clip' : 'bg-' + clip.type} ${isSelected ? 'selected' : ''}`;
+        if (clip.type === 'audio') {
+            el.style.background = 'var(--ui-audio-clip-bg)';
+        }
         el.innerHTML = `<div class="clip-handle left"></div><div class="clip-handle right"></div>`;
 
         // Accessibility: Make clip focusable and add ARIA attributes
@@ -230,7 +233,8 @@ export class TimelineRenderer {
             el.appendChild(cvs);
             const assets = this.stateManager.get('assets');
             if (clip.bufferId && assets[clip.bufferId]) {
-                this.drawClipWaveform(cvs, assets[clip.bufferId], '#d97706', clip.duration);
+                const waveformColor = getComputedStyle(document.documentElement).getPropertyValue('--ui-audio-waveform').trim() || '#fb923c';
+                this.drawClipWaveform(cvs, assets[clip.bufferId], waveformColor, clip.duration);
             }
         } else {
             el.appendChild(document.createTextNode(clip.type.toUpperCase()));

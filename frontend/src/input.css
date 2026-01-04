@@ -81,6 +81,8 @@
 
     --ui-tick: #a6a7a2;
     --ui-audio-track-bg: #1d1e1b;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #1d1e1b;
     --ui-track-headers-bg: #232422;
@@ -184,6 +186,8 @@
 
     --ui-tick: #93c5fd;
     --ui-audio-track-bg: #102956;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #0b1936;
     --ui-track-headers-bg: #0f2348;
@@ -275,6 +279,8 @@
 
     --ui-tick: #aeb7c5;
     --ui-audio-track-bg: #131a24;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #111827;
     --ui-track-headers-bg: #141a26;
@@ -367,6 +373,8 @@
 
     --ui-tick: #839496;
     --ui-audio-track-bg: #00202a;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #00202a;
     --ui-track-headers-bg: #002b36;
@@ -458,6 +466,8 @@
 
     --ui-tick: #bdae93;
     --ui-audio-track-bg: #1b1b1a;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #1d2021;
     --ui-track-headers-bg: #282828;
@@ -549,6 +559,8 @@
 
     --ui-tick: #cbd5e1;
     --ui-audio-track-bg: #000000;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #000000;
     --ui-track-headers-bg: #000000;
@@ -641,6 +653,8 @@
 
     --ui-tick: #caa6a6;
     --ui-audio-track-bg: #2a0f13;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #2a0f13;
     --ui-track-headers-bg: #331217;
@@ -733,6 +747,8 @@
 
     --ui-tick: #a6a7a2;
     --ui-audio-track-bg: #2a2b29;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #1d1e1b;
     --ui-track-headers-bg: #232422;
@@ -825,6 +841,8 @@
 
     --ui-tick: #6ee7b7;
     --ui-audio-track-bg: #193124;
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fb923c;
 
     --ui-timeline-bg: #13261c;
     --ui-track-headers-bg: #193124;
@@ -918,6 +936,8 @@
 
     --ui-tick: #334155;
     --ui-audio-track-bg: var(--ui-canvas-bg);
+    --ui-audio-clip-bg: #fed7aa;
+    --ui-audio-waveform: #c2410c;
 
     --ui-timeline-bg: #f0f9ff;
     --ui-track-headers-bg: #ffffff;
@@ -1028,6 +1048,8 @@
 
     --ui-tick: #334155;
     --ui-audio-track-bg: #ede9fe;
+    --ui-audio-clip-bg: #fed7aa;
+    --ui-audio-waveform: #c2410c;
 
     --ui-timeline-bg: #f5f3ff;
     --ui-track-headers-bg: #ffffff;
@@ -1137,6 +1159,8 @@
 
     --ui-tick: #334155;
     --ui-audio-track-bg: #fce7f3;
+    --ui-audio-clip-bg: #fed7aa;
+    --ui-audio-waveform: #c2410c;
 
     --ui-timeline-bg: #fdf2f8;
     --ui-track-headers-bg: #ffffff;
@@ -1246,6 +1270,8 @@
 
     --ui-tick: #334155;
     --ui-audio-track-bg: #efe5db;
+    --ui-audio-clip-bg: #fed7aa;
+    --ui-audio-waveform: #c2410c;
 
     --ui-timeline-bg: #ede4d8;
     --ui-track-headers-bg: #fbf7f1;
