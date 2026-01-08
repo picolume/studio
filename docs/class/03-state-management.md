@@ -30,7 +30,7 @@ Here's everything StateManager tracks:
 {
     // === THE PROJECT (saved to .lum file) ===
     project: {
-        version: '0.2.2',
+        version: '0.2.4',
         name: "My Show",
         duration: 60000,           // Total show length in ms
         settings: {
