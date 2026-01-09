@@ -83,6 +83,39 @@ window.addEventListener('DOMContentLoaded', async () => {
         });
         btnClose?.addEventListener('click', () => window.runtime.Quit());
 
+        // Double-click on the titlebar/menu area should maximise (Windows-like behavior),
+        // but avoid triggering when double-clicking interactive controls.
+        const titlebar = document.querySelector('header[role="banner"]');
+        const isInteractiveTarget = (target) => {
+            if (!(target instanceof Element)) return true;
+            return Boolean(
+                target.closest('#window-controls')
+                || target.closest('button')
+                || target.closest('a')
+                || target.closest('input')
+                || target.closest('select')
+                || target.closest('textarea')
+                || target.closest('[contenteditable="true"]')
+            );
+        };
+        titlebar?.addEventListener('dblclick', async (e) => {
+            if (e.button !== 0) return;
+            if (isInteractiveTarget(e.target)) return;
+
+            let isMaximised = false;
+            if (hasWailsWindowState) {
+                try {
+                    isMaximised = !!(await window.runtime.WindowIsMaximised());
+                } catch {
+                    isMaximised = false;
+                }
+            }
+            if (isMaximised) return;
+
+            window.runtime.WindowMaximise();
+            setTimeout(() => void updateWindowChrome(), 50);
+        });
+
         if (windowFrame) windowFrame.hidden = false;
         void updateWindowChrome();
         let resizeTimer = null;
