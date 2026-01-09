@@ -83,6 +83,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         });
         btnClose?.addEventListener('click', () => window.runtime.Quit());
 
+<<<<<<< HEAD
         // Double-click on the titlebar/menu area should maximise (Windows-like behavior),
         // but avoid triggering when double-clicking interactive controls.
         const titlebar = document.querySelector('header[role="banner"]');
@@ -117,12 +118,44 @@ window.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (windowFrame) windowFrame.hidden = false;
+=======
+        // Double-click header to toggle maximize
+        const header = document.querySelector('header[role="banner"]');
+        header?.addEventListener('dblclick', (e) => {
+            // Only toggle if clicking on draggable area (not buttons)
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+            window.runtime.WindowToggleMaximise();
+            setTimeout(() => void updateWindowChrome(), 50);
+        });
+
+        // Let updateWindowChrome manage window frame visibility based on maximized state
+>>>>>>> 6b0b32b09382ff1aaf22cef04dc13072cc743127
         void updateWindowChrome();
         let resizeTimer = null;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(() => void updateWindowChrome(), 100);
         });
+
+        // Frameless window resize handles
+        const resizeHandles = document.getElementById('resize-handles');
+        if (resizeHandles && typeof window.runtime?.WindowStartResize === 'function') {
+            resizeHandles.hidden = false;
+
+            // Map edge data attributes to Wails resize edge constants
+            // Wails v2 uses these edge values: n=1, ne=2, e=3, se=4, s=5, sw=6, w=7, nw=8
+            const edgeMap = { n: 1, ne: 2, e: 3, se: 4, s: 5, sw: 6, w: 7, nw: 8 };
+
+            resizeHandles.querySelectorAll('.window-resize-handle').forEach(handle => {
+                handle.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    const edge = handle.dataset.edge;
+                    if (edge && edgeMap[edge]) {
+                        window.runtime.WindowStartResize(edgeMap[edge]);
+                    }
+                });
+            });
+        }
     }
 
     // ==========================================

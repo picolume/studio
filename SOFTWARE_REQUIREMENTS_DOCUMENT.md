@@ -1,6 +1,6 @@
 # PicoLume Studio - Software Requirements Document
 
-**Version:** 0.2.2
+**Version:** 0.2.4
 **Last Updated:** January 2026
 **Author:** PicoLume Project
 **License:** GNU General Public License v3.0
@@ -374,7 +374,7 @@ classDiagram
 ```javascript
 {
     project: {
-        version: '0.2.2',
+        version: '0.2.4',
         name: "My Show",
         duration: 60000,  // milliseconds
         settings: {
@@ -1140,7 +1140,7 @@ myshow.lum
 
 ```json
 {
-  "version": "0.2.3",
+  "version": "0.2.4",
   "name": "My Show",
   "duration": 60000,
   "settings": {
@@ -1704,6 +1704,7 @@ picolume/studio/
 | 0.2.2 | Jan 2026 | Deprecated MenuController; menu functionality consolidated into SidebarModeManager and MenuRenderer |
 | 0.2.2 | Jan 2026 | Added cue points system: FR-CU-001 through FR-CU-005 functional requirements, Shift+1/2/3/4 set shortcuts, 1/2/3/4 jump shortcuts, cue markers in timeline, cue editing in inspector, CUE1 binary block with compatibility notes, remote behavior documentation |
 | 0.2.2 | Jan 2026 | Consolidated binary generation: extracted shared `bingen` Go package, added WebAssembly build for browser, `BinaryGeneratorWasm.js` loader with JS fallback, build scripts (`npm run build:wasm`). Single source of truth for show.bin generation across desktop and web. |
+| 0.2.4 | Jan 2026 | Frameless window improvements: removed native window frame (`Frameless: true`), custom title bar with draggable header, window control buttons (minimize/maximize/close), double-click header to toggle maximize, resize handles for all 8 edges using Wails `WindowStartResize` API |
 
 ---
 

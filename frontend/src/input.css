@@ -1511,6 +1511,21 @@ body.window--maximised { border-radius: 0; }
 .window-btn svg { width: 12px; height: 12px; }
 .window-btn--close:hover { background: #e11d48; color: #fff; }
 
+/* Frameless window resize handles */
+.window-resize-handle {
+    position: fixed;
+    z-index: 99998;
+}
+.window-resize-handle--n { top: 0; left: 8px; right: 8px; height: 4px; cursor: n-resize; }
+.window-resize-handle--s { bottom: 0; left: 8px; right: 8px; height: 4px; cursor: s-resize; }
+.window-resize-handle--e { right: 0; top: 8px; bottom: 8px; width: 4px; cursor: e-resize; }
+.window-resize-handle--w { left: 0; top: 8px; bottom: 8px; width: 4px; cursor: w-resize; }
+.window-resize-handle--ne { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
+.window-resize-handle--nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; }
+.window-resize-handle--se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: se-resize; }
+.window-resize-handle--sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
+body.window--maximised .window-resize-handle { display: none; }
+
 .btn:disabled {
     opacity: .35;
     cursor: not-allowed;
