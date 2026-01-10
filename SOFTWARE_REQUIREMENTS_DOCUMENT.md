@@ -1705,6 +1705,7 @@ picolume/studio/
 | 0.2.2 | Jan 2026 | Added cue points system: FR-CU-001 through FR-CU-005 functional requirements, Shift+1/2/3/4 set shortcuts, 1/2/3/4 jump shortcuts, cue markers in timeline, cue editing in inspector, CUE1 binary block with compatibility notes, remote behavior documentation |
 | 0.2.2 | Jan 2026 | Consolidated binary generation: extracted shared `bingen` Go package, added WebAssembly build for browser, `BinaryGeneratorWasm.js` loader with JS fallback, build scripts (`npm run build:wasm`). Single source of truth for show.bin generation across desktop and web. |
 | 0.2.4 | Jan 2026 | Frameless window improvements: removed native window frame (`Frameless: true`), custom title bar with draggable header, window control buttons (minimize/maximize/close), double-click header to toggle maximize, resize handles for all 8 edges using Wails `WindowStartResize` API |
+| 0.2.4 | Jan 2026 | Added structured logging system: new `logger` Go package with DEBUG/INFO/WARN/ERROR levels, file logging to `%AppData%/PicoLume/logs/` with daily rotation, caller info in log messages. Replaced silent error handling in `SaveProjectToPath` and `LoadProject` with proper logging. Fixed auto-save race condition in `Application.js` with explicit pending state tracking to prevent missed saves during in-flight operations. |
 
 ---
 

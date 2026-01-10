@@ -38,9 +38,10 @@ export class Application {
         // UI Elements
         this.elements = {};
 
-        // Auto-save
+        // Auto-save state
         this._autoSaveTimer = null;
         this._autoSaveInFlight = false;
+        this._autoSavePending = false;  // Tracks if a save was requested while one is in-flight
         this._autoSaveLastErrorAt = 0;
     }
 
@@ -200,10 +201,22 @@ export class Application {
 
         const runAutoSave = async () => {
             this._autoSaveTimer = null;
-            if (!canAutoSaveNow()) return;
-            if (this._autoSaveInFlight) return;
+
+            if (!canAutoSaveNow()) {
+                this._autoSavePending = false;
+                return;
+            }
+
+            // If a save is already in-flight, mark as pending and exit
+            // The in-flight save will trigger the pending save when it completes
+            if (this._autoSaveInFlight) {
+                this._autoSavePending = true;
+                return;
+            }
 
             this._autoSaveInFlight = true;
+            this._autoSavePending = false;
+
             try {
                 const filePath = this.stateManager.get('filePath');
                 const result = await this.projectService.save(filePath, false, true, { allowPrompt: false });
@@ -214,9 +227,15 @@ export class Application {
                         this.errorHandler?.showToast?.(result?.message || 'Auto-save failed');
                     }
                 }
+            } catch (err) {
+                // Log unexpected errors but don't crash the auto-save system
+                console.error('Auto-save error:', err);
             } finally {
                 this._autoSaveInFlight = false;
-                if (this.stateManager.get('autoSaveEnabled') === true && this.stateManager.get('isDirty') === true) {
+
+                // If a save was requested while we were saving, or if still dirty, schedule another save
+                if (this._autoSavePending || (this.stateManager.get('autoSaveEnabled') === true && this.stateManager.get('isDirty') === true)) {
+                    this._autoSavePending = false;
                     scheduleAutoSave();
                 }
             }
@@ -225,9 +244,21 @@ export class Application {
         const scheduleAutoSave = () => {
             if (!canAutoSaveNow()) {
                 clearTimer();
+                this._autoSavePending = false;
                 return;
             }
-            clearTimer();
+
+            // If already scheduled, don't reschedule (debounce is already active)
+            if (this._autoSaveTimer) {
+                return;
+            }
+
+            // If a save is in-flight, mark as pending instead of scheduling
+            if (this._autoSaveInFlight) {
+                this._autoSavePending = true;
+                return;
+            }
+
             this._autoSaveTimer = setTimeout(runAutoSave, AUTO_SAVE_DEBOUNCE_MS);
         };
 
@@ -235,6 +266,7 @@ export class Application {
             if (!nextState) return;
             if (nextState.autoSaveEnabled !== true || nextState.isDirty !== true) {
                 clearTimer();
+                this._autoSavePending = false;
                 return;
             }
             scheduleAutoSave();

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"PicoLume/bingen"
+	"PicoLume/logger"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"go.bug.st/serial"
@@ -185,14 +186,28 @@ func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[
 		return "Error writing JSON data: " + err.Error()
 	}
 
+	var audioErrors []string
 	for id, dataUrl := range audioFiles {
 		parts := strings.Split(dataUrl, ",")
 		if len(parts) != 2 {
+			logger.Warn("SaveProject: Malformed data URL for audio file %s (expected 2 parts, got %d)", id, len(parts))
+			audioErrors = append(audioErrors, fmt.Sprintf("malformed data URL for %s", id))
 			continue
 		}
 
-		mime := strings.Split(parts[0], ":")[1]
-		mime = strings.Split(mime, ";")[0]
+		// Parse MIME type safely
+		mimeSection := parts[0]
+		colonIdx := strings.Index(mimeSection, ":")
+		if colonIdx == -1 || colonIdx >= len(mimeSection)-1 {
+			logger.Warn("SaveProject: Invalid MIME format for audio file %s: %s", id, mimeSection)
+			audioErrors = append(audioErrors, fmt.Sprintf("invalid MIME format for %s", id))
+			continue
+		}
+		mime := mimeSection[colonIdx+1:]
+		if semiIdx := strings.Index(mime, ";"); semiIdx != -1 {
+			mime = mime[:semiIdx]
+		}
+
 		ext := "bin"
 		if strings.Contains(mime, "mpeg") || strings.Contains(mime, "mp3") {
 			ext = "mp3"
@@ -204,14 +219,26 @@ func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[
 
 		decoded, err := base64.StdEncoding.DecodeString(parts[1])
 		if err != nil {
+			logger.Warn("SaveProject: Failed to decode base64 for audio file %s: %v", id, err)
+			audioErrors = append(audioErrors, fmt.Sprintf("decode error for %s", id))
 			continue
 		}
 
 		zipPath := fmt.Sprintf("audio/%s.%s", id, ext)
 		f, err := zipWriter.Create(zipPath)
-		if err == nil {
-			f.Write(decoded)
+		if err != nil {
+			logger.Warn("SaveProject: Failed to create zip entry for %s: %v", zipPath, err)
+			audioErrors = append(audioErrors, fmt.Sprintf("zip error for %s", id))
+			continue
 		}
+		if _, err := f.Write(decoded); err != nil {
+			logger.Warn("SaveProject: Failed to write audio data for %s: %v", zipPath, err)
+			audioErrors = append(audioErrors, fmt.Sprintf("write error for %s", id))
+		}
+	}
+
+	if len(audioErrors) > 0 {
+		logger.Warn("SaveProject: Completed with %d audio file errors", len(audioErrors))
 	}
 
 	return "Saved"
@@ -378,7 +405,7 @@ func (a *App) UploadToPico(projectJson string) string {
 	// 3. Force Flush to Disk
 	err = f.Sync()
 	if err != nil {
-		fmt.Println("Warning: Sync failed", err)
+		logger.Warn("UploadToPico: Sync to disk failed for %s: %v", destPath, err)
 	}
 	f.Close()
 
@@ -577,6 +604,7 @@ func (a *App) LoadProject() LoadResponse {
 
 		rc, err := f.Open()
 		if err != nil {
+			logger.Warn("LoadProject: Failed to open zip entry %s: %v", f.Name, err)
 			continue
 		}
 
@@ -593,6 +621,7 @@ func (a *App) LoadProject() LoadResponse {
 		rc.Close()
 
 		if err != nil {
+			logger.Warn("LoadProject: Failed to read zip entry %s: %v", f.Name, err)
 			continue
 		}
 
@@ -605,12 +634,14 @@ func (a *App) LoadProject() LoadResponse {
 
 		if isProjectJson {
 			response.ProjectJson = string(content)
+			logger.Info("LoadProject: Loaded project.json (%d bytes)", len(content))
 		} else if isAudioFile {
 			nameParts := strings.Split(f.Name, "/")
 			fileName := nameParts[len(nameParts)-1]
 			fileParts := strings.Split(fileName, ".")
 			if len(fileParts) < 2 {
-				continue // Skip malformed filenames
+				logger.Warn("LoadProject: Skipping malformed audio filename: %s", f.Name)
+				continue
 			}
 			id := fileParts[0]
 			ext := fileParts[len(fileParts)-1]
@@ -625,9 +656,11 @@ func (a *App) LoadProject() LoadResponse {
 
 			b64 := base64.StdEncoding.EncodeToString(content)
 			response.AudioFiles[id] = fmt.Sprintf("data:%s;base64,%s", mime, b64)
+			logger.Debug("LoadProject: Loaded audio file %s (%d bytes)", id, len(content))
 		}
 	}
 
+	logger.Info("LoadProject: Successfully loaded project with %d audio files from %s", len(response.AudioFiles), filename)
 	return response
 }
 

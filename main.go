@@ -24,6 +24,10 @@ package main
 import (
 	"embed"
 	"io/fs"
+	"os"
+	"path/filepath"
+
+	"PicoLume/logger"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -43,11 +47,27 @@ func getAssets() fs.FS {
 }
 
 func main() {
+	// Initialize logging
+	// Use user's config directory for logs
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = "."
+	}
+	logDir := filepath.Join(configDir, "PicoLume", "logs")
+
+	if err := logger.Init(logDir, logger.INFO); err != nil {
+		// Fall back to stdout-only logging if file logging fails
+		logger.Warn("Failed to initialize file logging: %v", err)
+	}
+	defer logger.Close()
+
+	logger.Info("PicoLume Studio starting...")
+
 	// Create an instance of the app structure
 	app := NewApp()
 
 	// Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:     "PicoLume Studio",
 		Frameless: true,
 		Windows: &windows.Options{
@@ -68,6 +88,8 @@ func main() {
 	})
 
 	if err != nil {
-		println("Error:", err.Error())
+		logger.Error("Application failed to start: %v", err)
 	}
+
+	logger.Info("PicoLume Studio shutting down")
 }
