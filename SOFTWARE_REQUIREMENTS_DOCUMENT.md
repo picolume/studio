@@ -1706,6 +1706,7 @@ picolume/studio/
 | 0.2.2 | Jan 2026 | Consolidated binary generation: extracted shared `bingen` Go package, added WebAssembly build for browser, `BinaryGeneratorWasm.js` loader with JS fallback, build scripts (`npm run build:wasm`). Single source of truth for show.bin generation across desktop and web. |
 | 0.2.4 | Jan 2026 | Frameless window improvements: removed native window frame (`Frameless: true`), custom title bar with draggable header, window control buttons (minimize/maximize/close), double-click header to toggle maximize, resize handles for all 8 edges using Wails `WindowStartResize` API |
 | 0.2.4 | Jan 2026 | Added structured logging system: new `logger` Go package with DEBUG/INFO/WARN/ERROR levels, file logging to `%AppData%/PicoLume/logs/` with daily rotation, caller info in log messages. Replaced silent error handling in `SaveProjectToPath` and `LoadProject` with proper logging. Fixed auto-save race condition in `Application.js` with explicit pending state tracking to prevent missed saves during in-flight operations. |
+| 0.2.4 | Jan 2026 | Fixed WASM initialization busy-wait: `waitForPicolume` now uses exponential backoff (10ms to 200ms) instead of fixed 10ms polling, reducing CPU usage. Increased timeout from 5s to 10s for slower systems. |
 
 ---
 

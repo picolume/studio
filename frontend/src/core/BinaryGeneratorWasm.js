@@ -96,17 +96,22 @@ function loadScript(src) {
 
 /**
  * Wait for the picolume namespace to be available.
+ * Uses exponential backoff to reduce CPU usage while waiting.
  */
-function waitForPicolume(timeout = 5000) {
+function waitForPicolume(timeout = 10000) {
     return new Promise((resolve, reject) => {
         const start = Date.now();
+        let delay = 10;
+        const maxDelay = 200;
+
         const check = () => {
             if (window.picolume?.generateBinaryBytes) {
                 resolve();
             } else if (Date.now() - start > timeout) {
-                reject(new Error('Timeout waiting for WASM module'));
+                reject(new Error('Timeout: WASM module failed to initialize'));
             } else {
-                setTimeout(check, 10);
+                setTimeout(check, delay);
+                delay = Math.min(delay * 1.5, maxDelay);  // Exponential backoff
             }
         };
         check();
