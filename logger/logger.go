@@ -97,13 +97,18 @@ func SetLevel(level Level) {
 	}
 }
 
+var fallbackOnce sync.Once
+
 func getDefaultLogger() *Logger {
-	if defaultLogger == nil {
+	if defaultLogger != nil {
+		return defaultLogger
+	}
+	fallbackOnce.Do(func() {
 		defaultLogger = &Logger{
 			level:  INFO,
 			logger: log.New(os.Stdout, "", 0),
 		}
-	}
+	})
 	return defaultLogger
 }
 

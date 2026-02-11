@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -350,44 +351,9 @@ func parseIDRange(idStr string) []int {
 
 func calculateMask(idStr string) [MaskArraySize]uint32 {
 	var masks [MaskArraySize]uint32
-	parts := strings.Split(idStr, ",")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		if strings.Contains(part, "-") {
-			ranges := strings.Split(part, "-")
-			if len(ranges) != 2 {
-				continue
-			}
-			start, err := strconv.Atoi(strings.TrimSpace(ranges[0]))
-			if err != nil {
-				continue
-			}
-			end, err := strconv.Atoi(strings.TrimSpace(ranges[1]))
-			if err != nil {
-				continue
-			}
-			if start > end {
-				continue
-			}
-			for i := start; i <= end; i++ {
-				if i >= 1 && i <= TotalProps {
-					idx := i - 1
-					masks[idx/32] |= (1 << (idx % 32))
-				}
-			}
-		} else {
-			i, err := strconv.Atoi(part)
-			if err != nil {
-				continue
-			}
-			if i >= 1 && i <= TotalProps {
-				idx := i - 1
-				masks[idx/32] |= (1 << (idx % 32))
-			}
-		}
+	for _, id := range parseIDRange(idStr) {
+		idx := id - 1
+		masks[idx/32] |= (1 << (idx % 32))
 	}
 	return masks
 }
@@ -413,13 +379,14 @@ func parseColor(hex string) uint32 {
 	return uint32(val)
 }
 
+var effectCodes = map[string]uint8{
+	"solid": 1, "flash": 2, "strobe": 3, "rainbow": 4, "rainbowHold": 5, "chase": 6,
+	"wipe": 9, "scanner": 10, "meteor": 11, "fire": 12, "heartbeat": 13,
+	"glitch": 14, "energy": 15, "sparkle": 16, "breathe": 17, "alternate": 18,
+}
+
 func getEffectCode(t string) uint8 {
-	codes := map[string]uint8{
-		"solid": 1, "flash": 2, "strobe": 3, "rainbow": 4, "rainbowHold": 5, "chase": 6,
-		"wipe": 9, "scanner": 10, "meteor": 11, "fire": 12, "heartbeat": 13,
-		"glitch": 14, "energy": 15, "sparkle": 16, "breathe": 17, "alternate": 18,
-	}
-	if val, ok := codes[t]; ok {
+	if val, ok := effectCodes[t]; ok {
 		return val
 	}
 	return 1
@@ -438,18 +405,7 @@ func writeEvent(buf *bytes.Buffer, startTime, duration uint32, effectType, speed
 }
 
 func sortClips(clips []Clip) {
-	for i := 0; i < len(clips)-1; i++ {
-		for j := 0; j < len(clips)-i-1; j++ {
-			if clips[j].StartTime > clips[j+1].StartTime {
-				clips[j], clips[j+1] = clips[j+1], clips[j]
-			}
-		}
-	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	sort.Slice(clips, func(i, j int) bool {
+		return clips[i].StartTime < clips[j].StartTime
+	})
 }

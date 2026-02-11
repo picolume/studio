@@ -31,20 +31,10 @@ function createWailsBackend(app) {
             return await app.LoadProject();
         },
         async saveBinary(projectJson) {
-            // Use WASM binary generator (Go→WASM), then save via Go's native file dialog.
-            // If WASM isn't available (missing assets / bad hosting), fall back to Go-side generation.
-            try {
-                const project = JSON.parse(projectJson);
-                const { generateBinaryBase64Async } = await import('./BinaryGeneratorWasm.js');
-                const { base64 } = await generateBinaryBase64Async(project);
-                return await app.SaveBinaryData(base64);
-            } catch (err) {
-                try {
-                    return await app.SaveBinary(projectJson);
-                } catch (fallbackErr) {
-                    return `Error: ${fallbackErr?.message || fallbackErr}`;
-                }
-            }
+            const project = JSON.parse(projectJson);
+            const { generateBinaryBase64Async } = await import('./BinaryGeneratorWasm.js');
+            const { base64 } = await generateBinaryBase64Async(project);
+            return await app.SaveBinaryData(base64);
         },
         async uploadToPico(projectJson) {
             return await app.UploadToPico(projectJson);
