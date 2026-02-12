@@ -13,7 +13,6 @@ This document provides a complete reference for all Go functions callable from J
 | `RequestSavePath()` | Get save path from user | `string` | Yes | No |
 | `SaveProjectToPath()` | Save .lum project | `string` | Yes | No |
 | `LoadProject()` | Load .lum project | `LoadResponse` | Yes | No |
-| `SaveBinary()` | Export show.bin (deprecated) | `string` | Yes | No |
 | `SaveBinaryData()` | Save pre-generated binary | `string` | Yes | No |
 | `UploadToPico()` | Generate + upload to device | `string` | Yes | No |
 | `GetPicoConnectionStatus()` | Check device connection | `PicoConnectionStatus` | Yes | No |
@@ -176,24 +175,6 @@ stateManager.replaceState({
 
 ---
 
-### SaveBinary(projectJson) [DEPRECATED]
-
-**Purpose:** Generate binary from project and save to user-selected location.
-
-**Signature:**
-```go
-func (a *App) SaveBinary(projectJson string) string
-```
-
-**Status:** Deprecated - Use `SaveBinaryData()` instead.
-
-**Why Deprecated:**
-- Frontend now generates binary (BinaryGenerator.js)
-- More flexibility in binary generation
-- Easier to add frontend validation
-
----
-
 ### SaveBinaryData(base64Data)
 
 **Purpose:** Save pre-generated binary data (from frontend) to user-selected file.
@@ -262,7 +243,15 @@ func (a *App) UploadToPico(projectJson string) string
 | Event | Data | Description |
 |-------|------|-------------|
 | `upload:status` | `string` | Progress message |
-| `upload:manual-eject` | `bool` | Whether manual eject needed |
+| `upload:manual-eject` | `UploadManualEject` | Drive and reason for manual eject |
+
+`UploadManualEject` struct:
+```go
+type UploadManualEject struct {
+    Drive  string `json:"drive"`  // e.g. "E:/"
+    Reason string `json:"reason"` // human-readable or structured code (e.g. "PORT_LOCKED:COM5")
+}
+```
 
 **JavaScript Usage:**
 ```javascript
@@ -290,7 +279,7 @@ const result = await window.go.main.App.UploadToPico(JSON.stringify(project));
 ```mermaid
 sequenceDiagram
     participant JS as JavaScript
-    participant Go as app.go
+    participant Go as app.go / device.go
     participant FS as File System
     participant Serial as Serial Port
 
@@ -324,16 +313,19 @@ sequenceDiagram
     end
 ```
 
-**Device Detection:**
-- Scans Windows drives D-Z
+**Device Detection** (`findPicoUSBDrives` in `device_windows.go`):
+- Scans Windows drives C-Z
 - Looks for `INDEX.HTM` or `show.bin` (indicates Pico in USB mode)
 - Skips drives with `INFO_UF2.TXT` (bootloader mode)
+- Platform-isolated behind `//go:build windows` build tags
 
-**Serial Reset:**
-- Finds USB CDC serial port by VID
-- Known VIDs: Raspberry Pi (0x2E8A), Adafruit (0x239A), SparkFun (0x1B4F)
-- Sends `'r'` character at 115200 baud
+**Serial Reset** (`trySerialReset` in `device.go`):
+- Finds USB CDC serial port via `PortEnumerator` interface
+- Known VIDs: Raspberry Pi (0x2E8A), Adafruit (0x239A), SparkFun (0x1B4F), pid.codes (0x1209)
+- Falls back to product string matching ("Pico", "PicoLume")
+- Opens port via `PortOpener` interface, sends `'r'` at 115200 baud
 - Retries up to 3 times per port
+- Reports locked ports (e.g. held by Arduino IDE) separately
 
 ---
 
@@ -641,7 +633,7 @@ async function uploadToDevice() {
 
 ### Key Takeaways
 
-1. **7 Backend Functions** - Know what each does
+1. **6 Backend Functions** - Know what each does
 2. **Error Handling Varies** - String returns vs struct errors vs events
 3. **Backend Adapter** - Use it for environment portability
 4. **Capabilities** - Check before calling environment-specific functions

@@ -141,7 +141,9 @@ flowchart TB
     end
 
     subgraph "Backend Layer (Go)"
-        APPGO[app.go<br/>App Methods]
+        APPGO[app.go<br/>Wails API Layer]
+        DEVGO[device.go<br/>Hardware I/O]
+        PROJGO[project.go<br/>File Validation]
         MAINGO[main.go<br/>Wails Setup]
         BINGEN[bingen/<br/>Binary Generation]
     end
@@ -172,6 +174,8 @@ flowchart TB
     TL --> IR
 
     PS --> APPGO
+    APPGO --> DEVGO
+    APPGO --> PROJGO
     APPGO --> WAILS
     WAILS --> WV
 ```
@@ -206,20 +210,25 @@ flowchart TB
 
 To keep the online version aligned with the Studio UI, the project maintains a static web version build that reuses the same frontend code (ES Modules + compiled Tailwind CSS) but runs without the Go/Wails backend.
 
-- **Output folder (website repo)**: `website/public/studio-demo/` (served as `/studio-demo/` by Astro)
-- **Entry URL (website repo)**: `website/public/demo.html` redirects to `/studio-demo/index.html`
-- **Sync script (studio repo)**: `scripts/sync-studio-demo.mjs` copies `studio/frontend/` into the website repo's `website/public/studio-demo/` and strips Wails-only pieces (ex: `/wailsjs/runtime/runtime.js`)
-- **Demo detection**: the frontend checks for `window.go.main.App`; if absent, it uses the demo backend adapter (`core/Backend.js`)
+- **Output folder (website repo)**: `website/public/studio-online/` (served as `/studio-online/` by Astro)
+- **Sync script**: `scripts/sync-studio-online.mjs` copies `studio/frontend/` into the website repo's `website/public/studio-online/`, patches `index.html` (strips Wails meta/runtime tags), and removes Wails bindings and test files
+- **Auto-triggered**: The sync script runs automatically as a `prebuild` hook when building the website (`npm run build` or `npm run dev` in the website directory)
+- **Online detection**: the frontend checks for `window.go.main.App`; if absent, it uses the online backend adapter (`core/Backend.js`)
   - Save/Load are supported via browser file pickers and use standard `.lum` files compatible with the desktop app
   - Export/Upload remain disabled in the online version
-- **CI/CD (website repo)**: the website repo can build and deploy automatically (e.g. GitHub Actions -> Hostinger via FTP) by building the Astro site and deploying `dist/`. In this model, `website/public/studio-demo/` is treated as a committed static asset that is updated by the sync script during development.
+- **CI/CD (website repo)**: the website repo can build and deploy automatically (e.g. GitHub Actions -> Hostinger via FTP) by building the Astro site and deploying `dist/`. In this model, `website/public/studio-online/` is treated as a committed static asset that is updated by the sync script during development.
 
 #### 3.2.2 Backend Components
 
 | Component | File | Description |
 |-----------|------|-------------|
-| **App** | `app.go` | Application struct with all exposed methods |
+| **App** | `app.go` | Wails API layer — thin orchestrator binding public methods to frontend |
+| **Device** | `device.go` | Hardware interfaces (`PortEnumerator`, `PortOpener`, `DriveScanner`), serial reset, USB detection helpers |
+| **Device (Windows)** | `device_windows.go` | Windows-specific USB drive scanning (`//go:build windows`) |
+| **Device (Other)** | `device_other.go` | Non-Windows stub (`//go:build !windows`) |
+| **Project** | `project.go` | Path validation, file size limits, MIME mapping, `LoadResponse` type |
 | **Main** | `main.go` | Wails initialization and window configuration |
+| **Logger** | `logger/logger.go` | Structured leveled logging with file output |
 | **Binary Generator** | `bingen/bingen.go` | Shared package for show.bin generation (used by desktop and WASM) |
 | **WASM Entry** | `wasm/main.go` | WebAssembly entry point exposing bingen to JavaScript |
 
@@ -1056,7 +1065,7 @@ All file write operations validate paths to prevent directory traversal attacks:
 | **Extension Validation** | File extensions are validated against allowed lists (`.lum` for projects) |
 | **Traversal Detection** | Paths containing `..` after cleaning are rejected |
 
-**Implementation** (`app.go`):
+**Implementation** (`project.go`):
 
 ```go
 func validateSavePath(path string, allowedExtensions []string) (string, error)
@@ -1064,7 +1073,6 @@ func validateSavePath(path string, allowedExtensions []string) (string, error)
 
 **Protected Functions**:
 - `SaveProjectToPath()` - Validates path has `.lum` extension
-- `SaveBinary()` - Uses native file dialog (user-controlled)
 - `UploadToPico()` - Constructs paths internally (no user input)
 
 #### 7.5.2 Input Validation
@@ -1077,13 +1085,13 @@ Frontend validation helpers (`core/validators.js`) cover:
 
 Hardware profile inputs are additionally clamped to valid ranges when edited in the Inspector (`StateManager.clampProfileValue()`), including LED count (1-1000), brightness cap (0-255), and enum fields (LED type / color order).
 
-Backend validation (`app.go`) during binary generation:
+Backend validation (`bingen/bingen.go`) during binary generation:
 - **Color parsing**: Invalid hex colors logged and default to black (0x000000)
 - **Prop ID parsing**: Invalid IDs logged and skipped
 - **Range validation**: Malformed ranges (missing parts, non-numeric, start > end) logged and skipped
 - **Bounds checking**: Prop IDs outside valid range (1-224) are silently ignored
 
-All parse errors are logged with `fmt.Printf("Warning: ...")` for debugging.
+All parse errors are logged via the `logger` package for debugging.
 
 #### 7.5.3 File Size Limits
 
@@ -1097,7 +1105,7 @@ All file loading operations enforce size limits to prevent denial-of-service att
 | **MaxTotalExtractedSize** | 1 GB | Maximum total size of all extracted files |
 | **MaxFilesInZip** | 100 | Maximum number of files in archive |
 
-**Implementation** (`app.go`):
+**Implementation** (`project.go` constants, enforced in `app.go` `LoadProject`):
 - Zip file size checked before opening
 - File count validated to prevent zip bombs
 - Individual file sizes checked against `UncompressedSize64` before extraction
@@ -1381,6 +1389,8 @@ flowchart TB
 
     subgraph "Backend"
         APPGO[app.go]
+        DEVGO[device.go]
+        PROJGO[project.go]
     end
 
     subgraph "External"
@@ -1632,9 +1642,9 @@ const CONFIG = {
 ### 11.3 Binary Format Constants
 
 ```go
-// From app.go
-const TOTAL_PROPS = 224
-const MASK_ARRAY_SIZE = 7  // 224 / 32 = 7 uint32s
+// From bingen/bingen.go
+const TotalProps = 224
+const MaskArraySize = 7  // 224 / 32 = 7 uint32s
 ```
 
 ### 11.4 File Structure Reference
@@ -1642,7 +1652,11 @@ const MASK_ARRAY_SIZE = 7  // 224 / 32 = 7 uint32s
 ```
 picolume/studio/
   main.go                      # Wails entry point
-  app.go                       # Backend methods
+  app.go                       # Wails API layer (thin orchestrator)
+  device.go                    # Hardware interfaces, serial reset, USB helpers
+  device_windows.go            # Windows USB drive scanning (build-tagged)
+  device_other.go              # Non-Windows stub (build-tagged)
+  project.go                   # Path validation, file size limits, MIME mapping
   go.mod                       # Go dependencies
   go.sum                       # Dependency checksums
   wails.json                   # Wails configuration

@@ -49,7 +49,9 @@ flowchart TB
     end
 
     subgraph "Muscle (Go Backend)"
-        APPGO[app.go<br/>💪 Heavy Lifting]
+        APPGO[app.go<br/>💪 Wails API Layer]
+        DEVGO[device.go<br/>📟 Hardware I/O]
+        PROJGO[project.go<br/>📂 File Validation]
     end
 
     subgraph "Outside World"
@@ -68,8 +70,10 @@ flowchart TB
     VIEWS --> UI
 
     SERVICES <--> |Wails Bridge| APPGO
-    APPGO <--> FILES
-    APPGO <--> PICO
+    APPGO --> PROJGO
+    APPGO --> DEVGO
+    PROJGO <--> FILES
+    DEVGO <--> PICO
 ```
 
 ### Key Insight: StateManager is Central
@@ -88,10 +92,17 @@ This pattern is called **Single Source of Truth** and prevents bugs where "the U
 ```
 studio/
 ├── main.go                     # 🚀 App starts here (Go side)
-├── app.go                      # 💪 Backend logic (wraps bingen)
+├── app.go                      # 💪 Wails API layer (thin orchestrator)
+├── device.go                   # 📟 Serial port interfaces, USB detection, reset logic
+├── device_windows.go           # 🪟 Windows USB drive scanning (build-tagged)
+├── device_other.go             # 🐧 Non-Windows stub (build-tagged)
+├── project.go                  # 📂 Path validation, file size limits, MIME mapping
 │
 ├── bingen/                     # 📦 Shared binary generation
 │   └── bingen.go               #    Single source of truth
+│
+├── logger/                     # 📋 Structured logging
+│   └── logger.go               #    Leveled logger with file output
 │
 ├── wasm/                       # 🌐 WebAssembly build
 │   └── main.go                 #    WASM entry point
@@ -354,7 +365,9 @@ Data flows **one direction** (mostly). This makes bugs easier to find:
 
 - `frontend/src/core/Application.js` - See how everything boots up
 - `frontend/src/main.js` - See how the UI wires together
-- `app.go` - See all the backend capabilities
+- `app.go` - Wails API layer (public methods bound to frontend)
+- `device.go` - Hardware interfaces and serial communication
+- `project.go` - File validation, security limits, MIME mapping
 
 ---
 
