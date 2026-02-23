@@ -1850,6 +1850,13 @@ export class InspectorRenderer {
                 const sliderSpec = (typeof value === 'number') ? sliderSpecByKey[key] : null;
                 const label = this._formatPropLabel(key);
 
+                if (typeof value === 'boolean') {
+                    this._addToggle(propsSection, label, value, (nextVal) => {
+                        updateClip({ props: { ...clip.props, [key]: nextVal } }, { skipHistory: true });
+                    });
+                    return;
+                }
+
                 if (sliderSpec) {
                     this._addSlider(propsSection, label, value, sliderSpec, (nextVal) => {
                         const prevProps = { ...clip.props, [key]: nextVal };
@@ -2128,6 +2135,25 @@ export class InspectorRenderer {
         sync();
         row.appendChild(inp);
         d.appendChild(row);
+        parent.appendChild(d);
+    }
+
+    _addToggle(parent, lbl, checked, onChange) {
+        const d = document.createElement('div');
+        d.className = "flex items-center justify-between mb-2";
+
+        const label = document.createElement('label');
+        label.className = "text-xs text-[var(--ui-text-muted)]";
+        label.textContent = String(lbl ?? '');
+
+        const inp = document.createElement('input');
+        inp.type = 'checkbox';
+        inp.checked = !!checked;
+        inp.className = 'accent-cyan-500 cursor-pointer';
+        inp.addEventListener('change', () => onChange(inp.checked));
+
+        d.appendChild(label);
+        d.appendChild(inp);
         parent.appendChild(d);
     }
 

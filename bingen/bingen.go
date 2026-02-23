@@ -83,6 +83,7 @@ type ClipProps struct {
 	ColorStart string  `json:"colorStart"`
 	Speed      float64 `json:"speed"`
 	Width      float64 `json:"width"`
+	Reverse    bool    `json:"reverse"`
 }
 
 // PropConfig represents per-prop configuration in show.bin (8 bytes).
@@ -213,7 +214,7 @@ func Generate(p *Project) (*Result, error) {
 				gapDuration := clip.StartTime - lastEndTime
 				if gapDuration > 0 {
 					eventCount++
-					writeEvent(eventBuf, uint32(lastEndTime), uint32(gapDuration), 0, 0, 0, 0, 0, mask)
+					writeEvent(eventBuf, uint32(lastEndTime), uint32(gapDuration), 0, 0, 0, 0, 0, 0, mask)
 				}
 			}
 
@@ -244,12 +245,16 @@ func Generate(p *Project) (*Result, error) {
 			}
 			speedByte := uint8(min(255, int(speedVal*50)))
 			widthByte := uint8(clip.Props.Width * 255)
+			var flagsByte uint8
+			if clip.Props.Reverse {
+				flagsByte = 0x01
+			}
 
 			writeEvent(eventBuf,
 				uint32(clip.StartTime),
 				uint32(clip.Duration),
 				getEffectCode(clip.Type),
-				speedByte, widthByte,
+				speedByte, widthByte, flagsByte,
 				parseColor(colorHex),
 				parseColor(color2Hex),
 				mask)
@@ -265,7 +270,7 @@ func Generate(p *Project) (*Result, error) {
 			finalGap := showDuration - lastEndTime
 			if finalGap > 0 {
 				eventCount++
-				writeEvent(eventBuf, uint32(lastEndTime), uint32(finalGap), 0, 0, 0, 0, 0, mask)
+				writeEvent(eventBuf, uint32(lastEndTime), uint32(finalGap), 0, 0, 0, 0, 0, 0, mask)
 			}
 		}
 	}
@@ -392,11 +397,11 @@ func getEffectCode(t string) uint8 {
 	return 1
 }
 
-func writeEvent(buf *bytes.Buffer, startTime, duration uint32, effectType, speedByte, widthByte uint8, color, color2 uint32, mask [MaskArraySize]uint32) {
+func writeEvent(buf *bytes.Buffer, startTime, duration uint32, effectType, speedByte, widthByte, flagsByte uint8, color, color2 uint32, mask [MaskArraySize]uint32) {
 	binary.Write(buf, binary.LittleEndian, startTime)
 	binary.Write(buf, binary.LittleEndian, duration)
 	binary.Write(buf, binary.LittleEndian, effectType)
-	buf.Write([]byte{speedByte, widthByte, 0})
+	buf.Write([]byte{speedByte, widthByte, flagsByte})
 	binary.Write(buf, binary.LittleEndian, color)
 	binary.Write(buf, binary.LittleEndian, color2)
 	for _, m := range mask {

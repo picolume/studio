@@ -389,17 +389,22 @@ export class PreviewRenderer {
             case 'chase':
                 const chasePos = (progress * clip.props.speed * 10) % 1;
                 const width = clip.props.width || 0.1;
-                let dist = Math.abs(pixelPct - chasePos);
+                const chasePixelPct = clip.props.reverse ? 1 - pixelPct : pixelPct;
+                let dist = Math.abs(chasePixelPct - chasePos);
                 if (dist > 0.5) dist = 1.0 - dist;
                 if (dist < width) { color = clip.props.color; glow = true; } break;
-            case 'wipe': if (pixelPct <= progress) { color = clip.props.color; glow = true; } break;
+            case 'wipe':
+                const wipeProgress = clip.props.reverse ? 1 - progress : progress;
+                if (clip.props.reverse ? pixelPct >= wipeProgress : pixelPct <= progress) { color = clip.props.color; glow = true; } break;
             case 'scanner':
                 const sPos = (Math.sin(localTime / 1000 * clip.props.speed * Math.PI * 2) + 1) / 2;
                 const sWidth = clip.props.width || 0.1;
                 if (Math.abs(pixelPct - sPos) < sWidth) { color = clip.props.color; glow = true; } break;
             case 'meteor':
                 const mSpeed = clip.props.speed || 1; const mTail = clip.props.tailLen || 0.3;
-                const mPos = (localTime / 1000 * mSpeed) % 2; let mDist = mPos - pixelPct;
+                const mPos = (localTime / 1000 * mSpeed) % 2;
+                const mPixelPct = clip.props.reverse ? 1 - pixelPct : pixelPct;
+                let mDist = mPos - mPixelPct;
                 if (mDist >= 0 && mDist < mTail) { const decay = 1 - (mDist / mTail); const mRgb = hexToRgb(clip.props.color); color = `rgb(${mRgb.r * decay}, ${mRgb.g * decay}, ${mRgb.b * decay})`; glow = true; } break;
             case 'fire':
                 const fTimeBlock = Math.floor(localTime / 80); const fRand = pseudoRandom(fTimeBlock * 1000 + ledIndex);

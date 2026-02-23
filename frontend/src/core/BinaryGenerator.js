@@ -260,12 +260,16 @@ export function generateBinaryBytes(project) {
             // Calculate width byte (0.0-1.0 -> 0-255)
             const widthByte = Math.floor((clip.props?.width || 0) * 255);
 
+            // Calculate flags byte (bit 0 = reverse direction)
+            const flagsByte = clip.props?.reverse ? 0x01 : 0x00;
+
             events.push({
                 startTime: clip.startTime,
                 duration: clip.duration,
                 effectType: getEffectCode(clip.type),
                 speed: speedByte,
                 width: widthByte,
+                flags: flagsByte,
                 color: parseColor(colorHex),
                 color2: parseColor(color2Hex),
                 mask
@@ -325,7 +329,7 @@ export function generateBinaryBytes(project) {
         view.setUint8(eventOffset + 8, evt.effectType);
         view.setUint8(eventOffset + 9, evt.speed);
         view.setUint8(eventOffset + 10, evt.width);
-        view.setUint8(eventOffset + 11, 0); // Reserved
+        view.setUint8(eventOffset + 11, evt.flags ?? 0); // flags (bit 0 = reverse direction)
         view.setUint32(eventOffset + 12, evt.color, true);
         view.setUint32(eventOffset + 16, evt.color2, true);
 
