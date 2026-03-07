@@ -1,7 +1,7 @@
 # PicoLume Studio - Software Requirements Document
 
 **Version:** 0.2.4
-**Last Updated:** January 2026
+**Last Updated:** March 2026
 **Author:** PicoLume Project
 **License:** GNU General Public License v3.0
 
@@ -54,7 +54,7 @@ This document defines the software requirements for PicoLume Studio, including:
 | Frontend | Vanilla JavaScript (ES Modules) |
 | CSS Framework | Tailwind CSS v3.4.1 |
 | Build System | Wails CLI |
-| Testing | Vitest v4.0.15 |
+| Testing | Go test + Vitest v4.x + @vitest/coverage-v8 |
 | Serial Communication | go.bug.st/serial v1.6.4 |
 
 ---
@@ -187,23 +187,30 @@ flowchart TB
 | Component | File | Description |
 |-----------|------|-------------|
 | **Application** | `core/Application.js` | Main application bootstrap, initializes all services and controllers |
+| **AppEventHub** | `core/AppEventHub.js` | Injected app-internal event hub with `window` custom-event fallback for compatibility |
 | **StateManager** | `core/StateManager.js` | Centralized immutable state management with undo/redo support |
 | **ErrorHandler** | `core/ErrorHandler.js` | Centralized error handling and toast notifications |
-| **Backend Adapter** | `core/Backend.js` | Environment adapter (Wails vs browser demo) for backend-dependent features |
+| **Backend Adapter** | `core/Backend.js` | Environment adapter (Wails vs browser demo) returning structured backend result payloads |
 | **Binary Generator** | `core/BinaryGeneratorWasm.js` | WASM-based binary generation with JavaScript fallback |
 | **Validators** | `core/validators.js` | Input validation functions for colors, times, clips, tracks |
 | **AudioService** | `services/AudioService.js` | Web Audio API management, buffer loading, playback control |
 | **ProjectService** | `services/ProjectService.js` | Project save/load/new operations via backend |
 | **TimelineController** | `controllers/TimelineController.js` | Track/clip CRUD, selection, clipboard operations |
+| **CueController** | `controllers/CueController.js` | Cue creation, editing, selection, and jump/resync operations |
 | **UndoController** | `controllers/UndoController.js` | Undo/redo stack management and UI updates |
 | **ThemeManager** | `controllers/ThemeManager.js` | Theme selection/persistence and light/dark toggle behavior |
 | **KeyboardController** | `controllers/KeyboardController.js` | Keyboard shortcut bindings and global key handling |
 | **SidebarModeManager** | `controllers/SidebarModeManager.js` | Side panel mode switching (menu vs inspector) |
+| **Project Workflow Bootstrap** | `bootstrap/projectWorkflow.js` | Wires project actions, upload UI, status bar, and load/save/export flows |
+| **Timeline Interactions Bootstrap** | `bootstrap/timelineInteractions.js` | Wires timeline keyboard/mouse/drag interactions to controllers and views |
 | **MenuRenderer** | `views/MenuRenderer.js` | Side panel menu rendering and action handling |
 | **TimelineRenderer** | `views/TimelineRenderer.js` | Renders tracks, clips, ruler, playhead |
 | **PreviewRenderer** | `views/PreviewRenderer.js` | Canvas-based LED effect simulation |
-| **InspectorRenderer** | `views/InspectorRenderer.js` | Property panel for clips and project settings |
-| **timeline.js** | `timeline.js` | Coordination layer between renderers |
+| **InspectorRenderer** | `views/InspectorRenderer.js` | Inspector shell/dispatcher with shared helpers for section renderers |
+| **Project Settings Section** | `views/inspector/ProjectSettingsSection.js` | Project-level settings section in the inspector |
+| **Cue Sections** | `views/inspector/CueSections.js` | Cue list and cue property sections in the inspector |
+| **Clip Properties Section** | `views/inspector/ClipPropertiesSection.js` | Clip timing, props, and audio-specific inspector UI |
+| **timeline.js** | `timeline.js` | Constructed timeline module that composes renderers and subscribes to app events |
 | **utils.js** | `utils.js` | Color conversion, time formatting, helpers |
 
 ##### Online Version (Static Frontend)
@@ -226,7 +233,7 @@ To keep the online version aligned with the Studio UI, the project maintains a s
 | **Device** | `device.go` | Hardware interfaces (`PortEnumerator`, `PortOpener`, `DriveScanner`), serial reset, USB detection helpers |
 | **Device (Windows)** | `device_windows.go` | Windows-specific USB drive scanning (`//go:build windows`) |
 | **Device (Other)** | `device_other.go` | Non-Windows stub (`//go:build !windows`) |
-| **Project** | `project.go` | Path validation, file size limits, MIME mapping, `LoadResponse` type |
+| **Project** | `project.go` | Path validation, file size limits, MIME mapping, `OperationResult` / `LoadResponse` types |
 | **Main** | `main.go` | Wails initialization and window configuration |
 | **Logger** | `logger/logger.go` | Structured leveled logging with file output |
 | **Binary Generator** | `bingen/bingen.go` | Shared package for show.bin generation (used by desktop and WASM) |
@@ -1128,6 +1135,18 @@ To prevent HTML/script injection:
 - User/project text is rendered via `textContent` and form control `value` properties
 - Any required markup (icons, layout wrappers) is created from fixed templates or `document.createElement`
 
+### 7.6 Maintainability and Verification
+
+- Wails-facing backend operations shall return structured result payloads with `status`, `code`, and `message` fields. Load operations may include additional payload fields such as `projectJson`, `audioFiles`, and `filePath`.
+- App-internal frontend coordination shall use `core/AppEventHub.js` as the primary event mechanism. Direct `window` custom events are reserved for compatibility fallback and runtime-specific interactions.
+- The frontend test workflow shall provide a non-interactive execution command and a separate coverage command.
+- Frontend coverage shall use the Vitest `v8` provider explicitly and generate reports in `frontend/coverage/`.
+- The standard verification baseline for Studio changes is:
+  - `go test ./...`
+  - `go test -cover ./...`
+  - `cd frontend && npm run test:run`
+  - `cd frontend && npm run test:coverage`
+
 ---
 
 ## 8. File Formats
@@ -1516,7 +1535,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TB
-    subgraph "Custom Events"
+    subgraph "AppEventHub Topics"
         E1[app:timeline-changed]
         E2[app:selection-changed]
         E3[app:time-changed]
@@ -1524,30 +1543,35 @@ flowchart TB
         E5[app:grid-changed]
         E6[app:state-changed]
         E7[app:toast]
-        E8[app:load-audio]
-        E9[app:drop-clip]
-        E10[app:clip-mousedown]
-        E11[app:stop-playback]
+        E8[app:cues-changed]
+        E9[app:cue-selected]
+        E10[app:load-audio]
+        E11[app:drop-clip]
+        E12[app:clip-mousedown]
+        E13[app:clip-keydown]
     end
 
-    subgraph "Dispatchers"
+    subgraph "Emitters"
         TC[TimelineController]
+        CC[CueController]
         UC[UndoController]
-        MAINJS[main.js]
-        IR[InspectorRenderer]
+        WF[bootstrap/projectWorkflow.js]
+        IR[InspectorRenderer / inspector sections]
         TR[TimelineRenderer]
     end
 
     subgraph "Listeners"
-        TL[timeline.js]
+        TL[timeline.js / createTimelineModule]
         APP[Application.js]
+        TI[bootstrap/timelineInteractions.js]
     end
 
-    TC -->|dispatches| E1 & E2 & E5
-    UC -->|dispatches| E6
-    MAINJS -->|dispatches| E8 & E9 & E10
-    IR -->|dispatches| E1 & E7
-    TR -->|dispatches| E1
+    TC -->|emits| E1 & E2 & E3 & E4 & E5
+    CC -->|emits| E2 & E3 & E8 & E9
+    UC -->|emits| E6
+    WF -->|emits / subscribes| E7
+    IR -->|emits| E1 & E7
+    TR -->|emits| E1 & E12 & E13
 
     E1 -->|triggers| TL
     E2 -->|triggers| TL
@@ -1556,7 +1580,15 @@ flowchart TB
     E5 -->|triggers| TL
     E6 -->|triggers| APP
     E7 -->|triggers| APP
+    E8 -->|triggers| TL
+    E9 -->|triggers| TL
+    E10 -->|triggers| TI
+    E11 -->|triggers| TI
+    E12 -->|triggers| TI
+    E13 -->|triggers| TI
 ```
+
+App events are emitted and subscribed through `emitAppEvent()` / `subscribeAppEvent()`, which use `AppEventHub` when it is injected and fall back to `window` `CustomEvent` only for compatibility.
 
 ### 10.5 Backend API (Wails Bindings)
 
@@ -1582,8 +1614,8 @@ sequenceDiagram
     App.go->>FileSystem: Write project.json
     App.go->>FileSystem: Write audio files
     FileSystem-->>App.go: success
-    App.go-->>Wails: "Saved"
-    Wails-->>Frontend: "Saved"
+    App.go-->>Wails: OperationResult
+    Wails-->>Frontend: OperationResult
 
     Note over Frontend,Serial: Load Project
     Frontend->>Wails: LoadProject()
@@ -1605,9 +1637,19 @@ sequenceDiagram
     App.go->>Serial: Write 'r'
     Serial-->>App.go: ok
 
-    App.go-->>Wails: success message
-    Wails-->>Frontend: success message
+    App.go-->>Wails: OperationResult
+    Wails-->>Frontend: OperationResult
 ```
+
+| Binding | Return Type | Notes |
+|---------|-------------|-------|
+| `RequestSavePath()` | `string` | Empty string indicates cancel/error |
+| `SaveProjectToPath()` | `OperationResult` | `{ status, code, message }` |
+| `SaveBinaryData()` | `OperationResult` | `{ status, code, message }` |
+| `UploadToPico()` | `OperationResult` | `{ status, code, message }`; may return `warning` for manual-eject cases |
+| `LoadProject()` | `LoadResponse` | `{ status, code, message, projectJson, audioFiles, filePath }` |
+
+`OperationResult.status` values are `ok`, `warning`, `error`, or `cancelled`. Frontend control flow branches on these fields, not on human-readable message text.
 
 ---
 
@@ -1673,6 +1715,7 @@ picolume/studio/
       style.css                # Compiled CSS
       core/
         Application.js         # App bootstrap
+        AppEventHub.js         # App-internal event hub
         Backend.js             # Backend adapter (Wails vs demo)
         StateManager.js        # State management
         ErrorHandler.js        # Error handling
@@ -1682,15 +1725,23 @@ picolume/studio/
         ProjectService.js      # Project I/O
       controllers/
         TimelineController.js  # Timeline ops
+        CueController.js       # Cue operations
         UndoController.js      # Undo/redo
         ThemeManager.js        # Theme selection/persistence
         KeyboardController.js  # Keyboard shortcuts
         SidebarModeManager.js  # Side panel mode switching (menu vs inspector)
+      bootstrap/
+        projectWorkflow.js     # Project/load/save/upload wiring
+        timelineInteractions.js # Timeline interaction wiring
       views/
         MenuRenderer.js        # Side panel menu rendering
         TimelineRenderer.js    # Timeline UI
         PreviewRenderer.js     # LED preview
-        InspectorRenderer.js   # Properties
+        InspectorRenderer.js   # Inspector shell / shared helpers
+        inspector/
+          ProjectSettingsSection.js # Project settings section
+          CueSections.js            # Cue list / cue properties
+          ClipPropertiesSection.js  # Clip properties section
       wailsjs/                 # Auto-generated bindings
       assets/                  # Static assets
       __tests__/               # Test files
@@ -1721,6 +1772,7 @@ picolume/studio/
 | 0.2.4 | Jan 2026 | Frameless window improvements: removed native window frame (`Frameless: true`), custom title bar with draggable header, window control buttons (minimize/maximize/close), double-click header to toggle maximize, resize handles for all 8 edges using Wails `WindowStartResize` API |
 | 0.2.4 | Jan 2026 | Added structured logging system: new `logger` Go package with DEBUG/INFO/WARN/ERROR levels, file logging to `%AppData%/PicoLume/logs/` with daily rotation, caller info in log messages. Replaced silent error handling in `SaveProjectToPath` and `LoadProject` with proper logging. Fixed auto-save race condition in `Application.js` with explicit pending state tracking to prevent missed saves during in-flight operations. |
 | 0.2.4 | Jan 2026 | Fixed WASM initialization busy-wait: `waitForPicolume` now uses exponential backoff (10ms to 200ms) instead of fixed 10ms polling, reducing CPU usage. Increased timeout from 5s to 10s for slower systems. |
+| 0.2.4 | Mar 2026 | Documentation synchronized with current code structure: structured backend result DTOs (`OperationResult` / `LoadResponse`), `AppEventHub`-based frontend coordination, split inspector section modules, and explicit verification / coverage workflow (`npm run test:run`, `npm run test:coverage`). |
 
 ---
 
