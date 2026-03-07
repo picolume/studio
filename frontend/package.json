@@ -8,8 +8,9 @@
         "build:css": "tailwindcss -i ./src/input.css -o ./src/style.css --watch",
         "build:wasm": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-wasm.ps1",
         "test": "vitest",
+        "test:run": "vitest run",
         "test:ui": "vitest --ui",
-        "test:coverage": "vitest --coverage"
+        "test:coverage": "vitest run --coverage"
     },
     "keywords": [],
     "author": "",

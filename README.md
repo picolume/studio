@@ -46,6 +46,31 @@ PicoLume Studio is built using **Wails**. To run it locally:
 wails dev
 ```
 
+## Verification
+
+Run these from the `studio/` directory unless noted otherwise.
+
+### Go backend
+
+```bash
+go test ./...
+go test -cover ./...
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm run test:run
+npm run test:coverage
+```
+
+Notes:
+
+- Frontend coverage uses the Vitest `v8` provider explicitly.
+- HTML and JSON summary coverage reports are written to `frontend/coverage/`.
+- The Vitest cache lives under `build/vitest/` so it does not interfere with the Go embed tree under `frontend/`.
+
 ## Learn the Codebase
 
 If you want a course-style walkthrough of how PicoLume Studio works (architecture, patterns, backend API, file formats), see:

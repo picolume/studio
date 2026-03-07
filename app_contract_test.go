@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,6 +118,21 @@ func TestSaveBinaryDataReturnsStructuredResults(t *testing.T) {
 	})
 }
 
+func TestSaveBinaryDataRejectsInvalidBase64(t *testing.T) {
+	app := &App{}
+	result := app.SaveBinaryData("%%%not-base64%%%")
+
+	if result.Status != ResultStatusError {
+		t.Fatalf("expected error status, got %q", result.Status)
+	}
+	if result.Code != "decode_failed" {
+		t.Fatalf("expected decode_failed code, got %q", result.Code)
+	}
+	if !strings.Contains(result.Message, "Error decoding binary data") {
+		t.Fatalf("expected decode error message, got %q", result.Message)
+	}
+}
+
 func TestUploadToPicoReturnsStructuredResults(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -183,6 +200,75 @@ func TestUploadToPicoReturnsStructuredResults(t *testing.T) {
 	})
 }
 
+func TestUploadToPicoReturnsStructuredErrors(t *testing.T) {
+	t.Run("generate failure", func(t *testing.T) {
+		app := &App{
+			generateBinaryFn: func(string) ([]byte, int, error) {
+				return nil, 0, errors.New("generator offline")
+			},
+			drives: mockDriveScanner{},
+		}
+
+		result := app.UploadToPico(`{"name":"demo"}`)
+
+		if result.Status != ResultStatusError {
+			t.Fatalf("expected error status, got %q", result.Status)
+		}
+		if result.Code != "generate_failed" {
+			t.Fatalf("expected generate_failed code, got %q", result.Code)
+		}
+		if !strings.Contains(result.Message, "generator offline") {
+			t.Fatalf("expected generator error in message, got %q", result.Message)
+		}
+	})
+
+	t.Run("no drive found and chooser cancelled", func(t *testing.T) {
+		app := &App{
+			drives: mockDriveScanner{},
+			generateBinaryFn: func(string) ([]byte, int, error) {
+				return []byte{0x01}, 1, nil
+			},
+			openDirectoryDialogFn: func(_ context.Context, _ runtime.OpenDialogOptions) (string, error) {
+				return "", nil
+			},
+		}
+
+		result := app.UploadToPico(`{"name":"demo"}`)
+
+		if result.Status != ResultStatusError {
+			t.Fatalf("expected error status, got %q", result.Status)
+		}
+		if result.Code != "pico_not_found" {
+			t.Fatalf("expected pico_not_found code, got %q", result.Code)
+		}
+	})
+
+	t.Run("write failure", func(t *testing.T) {
+		tempDir := t.TempDir()
+		app := &App{
+			drives: mockDriveScanner{drives: []DriveSearchResult{{Drive: tempDir, Mode: "USB"}}},
+			generateBinaryFn: func(string) ([]byte, int, error) {
+				return []byte{0x01}, 1, nil
+			},
+			writeBinaryFn: func(string, []byte) error {
+				return errors.New("disk full")
+			},
+		}
+
+		result := app.UploadToPico(`{"name":"demo"}`)
+
+		if result.Status != ResultStatusError {
+			t.Fatalf("expected error status, got %q", result.Status)
+		}
+		if result.Code != "write_failed" {
+			t.Fatalf("expected write_failed code, got %q", result.Code)
+		}
+		if !strings.Contains(result.Message, "disk full") {
+			t.Fatalf("expected disk error in message, got %q", result.Message)
+		}
+	})
+}
+
 func TestLoadProjectReturnsStructuredResults(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -229,6 +315,55 @@ func TestLoadProjectReturnsStructuredResults(t *testing.T) {
 	})
 }
 
+func TestLoadProjectReturnsStructuredErrors(t *testing.T) {
+	t.Run("file too large", func(t *testing.T) {
+		tempDir := t.TempDir()
+		projectPath := filepath.Join(tempDir, "too-large.lum")
+		if err := os.WriteFile(projectPath, nil, 0644); err != nil {
+			t.Fatalf("failed to create placeholder file: %v", err)
+		}
+		if err := os.Truncate(projectPath, MaxZipFileSize+1); err != nil {
+			t.Fatalf("failed to resize placeholder file: %v", err)
+		}
+
+		app := &App{
+			openFileDialogFn: func(_ context.Context, _ runtime.OpenDialogOptions) (string, error) {
+				return projectPath, nil
+			},
+		}
+		result := app.LoadProject()
+
+		if result.Status != ResultStatusError {
+			t.Fatalf("expected error status, got %q", result.Status)
+		}
+		if result.Code != "file_too_large" {
+			t.Fatalf("expected file_too_large code, got %q", result.Code)
+		}
+	})
+
+	t.Run("too many files in archive", func(t *testing.T) {
+		tempDir := t.TempDir()
+		projectPath := filepath.Join(tempDir, "too-many-files.lum")
+		if err := writeZipWithFileCount(projectPath, MaxFilesInZip+1); err != nil {
+			t.Fatalf("failed to create crowded archive: %v", err)
+		}
+
+		app := &App{
+			openFileDialogFn: func(_ context.Context, _ runtime.OpenDialogOptions) (string, error) {
+				return projectPath, nil
+			},
+		}
+		result := app.LoadProject()
+
+		if result.Status != ResultStatusError {
+			t.Fatalf("expected error status, got %q", result.Status)
+		}
+		if result.Code != "too_many_files" {
+			t.Fatalf("expected too_many_files code, got %q", result.Code)
+		}
+	})
+}
+
 func writeTestLumArchive(path string, projectJSON string, files map[string][]byte) error {
 	file, err := os.Create(path)
 	if err != nil {
@@ -252,6 +387,27 @@ func writeTestLumArchive(path string, projectJSON string, files map[string][]byt
 			return err
 		}
 		if _, err := entry.Write(data); err != nil {
+			return err
+		}
+	}
+
+	return writer.Close()
+}
+
+func writeZipWithFileCount(path string, count int) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := zip.NewWriter(file)
+	for i := 0; i < count; i++ {
+		entry, err := writer.Create(fmt.Sprintf("entry_%03d.txt", i))
+		if err != nil {
+			return err
+		}
+		if _, err := entry.Write([]byte("x")); err != nil {
 			return err
 		}
 	}

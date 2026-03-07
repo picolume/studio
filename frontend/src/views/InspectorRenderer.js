@@ -1,8 +1,7 @@
-import { formatTime, parseTime, parseIdString, validateIdString, findProfileOverlaps, formatProfileOverlaps } from '../utils.js';
+import { parseIdString, validateIdString, findProfileOverlaps, formatProfileOverlaps } from '../utils.js';
 import {
     LED_TYPES,
     LED_TYPE_LABELS,
-    COLOR_ORDERS,
     COLOR_ORDER_LABELS,
     createDefaultProfile,
     migrateProfile,
@@ -11,6 +10,9 @@ import {
     DEFAULT_PALETTES
 } from '../core/StateManager.js';
 import { APP_EVENTS, emitAppEvent } from '../core/AppEventHub.js';
+import { renderProjectSettings } from './inspector/ProjectSettingsSection.js';
+import { renderCueSection, renderCueProperties } from './inspector/CueSections.js';
+import { renderClipProperties, renderAudioClipProps } from './inspector/ClipPropertiesSection.js';
 
 const COLLAPSED_STORAGE_KEY = 'picolume:inspector:collapsed';
 
@@ -21,14 +23,6 @@ const DEFAULT_COLLAPSED = {
     hardwareProfiles: false,  // expanded
     colorPalettes: false,     // expanded
     propGroups: false         // expanded
-};
-
-// Cue marker colors (must match TimelineRenderer)
-const CUE_COLORS = {
-    A: '#ef4444', // red
-    B: '#22c55e', // green
-    C: '#3b82f6', // blue
-    D: '#f97316'  // orange
 };
 
 export class InspectorRenderer {
@@ -222,6 +216,26 @@ export class InspectorRenderer {
             .join(' ');
     }
 
+    _createSectionContext() {
+        return {
+            stateManager: this.stateManager,
+            cueController: this.cueController,
+            timelineController: this.timelineController,
+            audioService: this.deps.audioService,
+            createCollapsibleSection: this._createCollapsibleSection.bind(this),
+            addTextInput: this._addTextInput.bind(this),
+            addInput: this._addInput.bind(this),
+            addSlider: this._addSlider.bind(this),
+            addToggle: this._addToggle.bind(this),
+            formatPropLabel: this._formatPropLabel.bind(this),
+            ensureDefaultProfiles: this._ensureDefaultProfiles.bind(this),
+            renderHardwareProfiles: this._renderHardwareProfiles.bind(this),
+            renderColorPalettes: this._renderColorPalettes.bind(this),
+            renderPropGroups: this._renderPropGroups.bind(this),
+            emit: this._emit.bind(this),
+        };
+    }
+
     render(clipId) {
         const container = this.elements.inspector || document.getElementById('inspector-content');
         if (!container) return;
@@ -259,27 +273,6 @@ export class InspectorRenderer {
         }
     }
 
-    _addInput(parent, label, value, onChange) {
-        const row = document.createElement('div');
-        row.className = "mb-3";
-
-        const lbl = document.createElement('label');
-        lbl.className = "block text-xs text-[var(--ui-text-subtle)] mb-1";
-        lbl.innerText = label;
-        row.appendChild(lbl);
-
-        const inp = document.createElement('input');
-        inp.type = 'text';
-        inp.value = value;
-        inp.className = "w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1 outline-none";
-        inp.onchange = onChange;
-        inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
-        row.appendChild(inp);
-
-        parent.appendChild(row);
-        return inp;
-    }
-
     _renderMultiSelection(container, selection) {
         container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-2 border-b border-[var(--ui-border)] pb-2">MULTIPLE CLIPS</div>`;
         container.insertAdjacentHTML('beforeend', `<div class="text-xs text-[var(--ui-text-subtle)] italic mb-4">${selection.length} clips selected</div>`);
@@ -296,351 +289,15 @@ export class InspectorRenderer {
     }
 
     _renderProjectSettings(container, project) {
-        // --- SAFEGUARD --- (from original code)
-        if (!project.settings?.profiles || !project.settings?.patch) {
-            // This should technically be in a controller, but it's initialization logic
-            this._ensureDefaultProfiles();
-        }
-
-        container.innerHTML = `<div class="font-bold text-[var(--ui-text-strong)] mb-2 border-b border-[var(--ui-border)] pb-2">PROJECT SETTINGS</div>`;
-
-        // --- Project Info ---
-        const { content: infoContent } = this._createCollapsibleSection(container, 'projectInfo', 'Project Info');
-        const infoDiv = document.createElement('div');
-        infoDiv.className = "bg-[var(--ui-toolbar-bg)] p-2 rounded border border-[var(--ui-border)]";
-
-        this._addTextInput(infoDiv, "Project Name", project.name || "My Show", (val) => {
-            this.stateManager?.update(draft => {
-                draft.project.name = val;
-                draft.isDirty = true;
-            }, { skipHistory: true });
-        });
-
-        const durLbl = document.createElement('label'); durLbl.className = "block text-xs text-[var(--ui-text-subtle)] mb-1"; durLbl.innerText = "Duration (MM:SS.ss)"; infoDiv.appendChild(durLbl);
-        const durRow = document.createElement('div'); durRow.className = "flex gap-2";
-        const durInp = document.createElement('input'); durInp.type = "text";
-        durInp.className = "flex-1 bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-1 py-1 outline-none";
-        const durFormatted = formatTime(project.duration || 60000);
-        durInp.setAttribute('value', durFormatted); durInp.value = durFormatted;
-
-        const applyDuration = () => {
-            let val = parseTime(durInp.value);
-            if (isNaN(val) || val < 1000) val = 60000;
-            this.stateManager?.update(draft => {
-                draft.project.duration = val;
-                draft.isDirty = true;
-            });
-            this._emit(APP_EVENTS.TOAST, `Duration set to ${formatTime(val)}`);
-            // app:state-changed will trigger timeline rebuild
-        };
-
-        durInp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyDuration(); } });
-        const updateBtn = document.createElement('button');
-        updateBtn.className = "px-3 py-1 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] rounded text-xs text-[var(--ui-text)] hover:bg-[var(--ui-toolbar-hover-bg)] cursor-pointer";
-        updateBtn.innerText = "Set";
-        updateBtn.onmousedown = (e) => { e.stopPropagation(); e.preventDefault(); applyDuration(); };
-        durRow.appendChild(durInp); durRow.appendChild(updateBtn); infoDiv.appendChild(durRow);
-
-        // Auto Save
-        const autoSaveDiv = document.createElement('div');
-        autoSaveDiv.className = "flex items-center gap-2 mt-3 pt-2 border-t border-[var(--ui-border)]";
-        const asCheck = document.createElement('input');
-        asCheck.type = "checkbox";
-        asCheck.className = "accent-cyan-500 cursor-pointer";
-        const autoSaveEnabled = this.stateManager?.get('autoSaveEnabled');
-        asCheck.checked = (autoSaveEnabled !== undefined) ? autoSaveEnabled : true;
-        asCheck.onchange = (e) => {
-            const enabled = e.target.checked;
-            this.stateManager?.update(draft => {
-                draft.autoSaveEnabled = enabled;
-            }, { skipHistory: true });
-            this._emit(APP_EVENTS.TOAST, `Auto Save: ${enabled ? 'ON' : 'OFF'}`);
-        };
-        const asLabel = document.createElement('label'); asLabel.innerText = "Enable Auto-Save"; asLabel.className = "text-xs text-[var(--ui-text)]";
-        autoSaveDiv.appendChild(asCheck); autoSaveDiv.appendChild(asLabel); infoDiv.appendChild(autoSaveDiv);
-        infoContent.appendChild(infoDiv);
-
-        // Hardware Profiles
-        this._renderHardwareProfiles(container, project);
-
-        // Color Palettes
-        this._renderColorPalettes(container, project);
-
-        // Groups
-        this._renderPropGroups(container, project);
-
-        // Cue Points
-        this._renderCueSection(container, project);
+        renderProjectSettings(container, project, this._createSectionContext());
     }
 
     _renderCueSection(container, project) {
-        const cues = project?.cues || [];
-
-        // Create collapsible section
-        const { content: sectionContent } = this._createCollapsibleSection(
-            container, 'cuePoints', 'Cue Points'
-        );
-
-        const list = document.createElement('div');
-        list.className = "space-y-2 mb-2";
-        sectionContent.appendChild(list);
-
-        ['A', 'B', 'C', 'D'].forEach(cueId => {
-            const cue = cues.find(c => c.id === cueId) || { id: cueId, timeMs: null, enabled: false };
-            const hasTime = cue.timeMs !== null;
-            const selectedCue = this.stateManager?.get('ui.selectedCue');
-            const isSelected = selectedCue === cueId;
-
-            const row = document.createElement('div');
-            row.className = `flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer ${isSelected ? 'border-cyan-500 bg-cyan-500/10' : 'border-[var(--ui-border)] bg-[var(--ui-toolbar-bg)] hover:border-[var(--ui-border-hover)]'}`;
-
-            // Click to select
-            row.addEventListener('click', (e) => {
-                if (e.target.closest('button') || e.target.closest('input')) return;
-                if (this.cueController) {
-                    this.cueController.selectCue(cueId);
-                }
-            });
-
-            // Enable checkbox
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = cue.enabled;
-            checkbox.disabled = !hasTime;
-            checkbox.className = 'accent-cyan-500 cursor-pointer';
-            checkbox.title = hasTime ? (cue.enabled ? 'Disable cue' : 'Enable cue') : 'Set cue time first';
-            checkbox.addEventListener('change', (e) => {
-                e.stopPropagation();
-                if (this.cueController) {
-                    this.cueController.toggleCue(cueId);
-                }
-            });
-            row.appendChild(checkbox);
-
-            // Color indicator + label
-            const labelContainer = document.createElement('div');
-            labelContainer.className = 'flex items-center gap-1.5 min-w-[40px]';
-
-            const colorDot = document.createElement('span');
-            colorDot.className = 'w-2.5 h-2.5 rounded-full';
-            colorDot.style.backgroundColor = CUE_COLORS[cueId];
-            labelContainer.appendChild(colorDot);
-
-            const label = document.createElement('span');
-            label.className = 'text-sm font-bold text-[var(--ui-text-strong)]';
-            label.textContent = cueId;
-            labelContainer.appendChild(label);
-
-            row.appendChild(labelContainer);
-
-            // Time display
-            const timeDisplay = document.createElement('span');
-            timeDisplay.className = `flex-1 text-xs font-mono ${hasTime ? 'text-[var(--ui-text)]' : 'text-[var(--ui-text-faint)]'}`;
-            timeDisplay.textContent = hasTime ? formatTime(cue.timeMs) : '--:--.---';
-            row.appendChild(timeDisplay);
-
-            // Set button
-            const setBtn = document.createElement('button');
-            setBtn.className = 'px-2 py-0.5 text-xs bg-[var(--ui-select-bg)] border border-[var(--ui-border)] rounded hover:border-cyan-500 hover:text-cyan-400 transition-colors';
-            setBtn.textContent = 'Set';
-            setBtn.title = 'Set cue at current playhead position';
-            setBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (this.cueController) {
-                    this.cueController.setCueAtPlayhead(cueId);
-                }
-            });
-            row.appendChild(setBtn);
-
-            // Clear button (only show if cue has time)
-            if (hasTime) {
-                const clearBtn = document.createElement('button');
-                clearBtn.className = 'px-2 py-0.5 text-xs text-[var(--ui-text-subtle)] hover:text-red-500 transition-colors';
-                clearBtn.innerHTML = '<i class="fas fa-times"></i>';
-                clearBtn.title = 'Clear cue';
-                clearBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (this.cueController) {
-                        this.cueController.clearCue(cueId);
-                    }
-                });
-                row.appendChild(clearBtn);
-            }
-
-            list.appendChild(row);
-        });
-
-        // Help text
-        const helpText = document.createElement('div');
-        helpText.className = 'text-xs text-[var(--ui-text-faint)] italic mt-2';
-        helpText.textContent = 'Cue points allow live resync during performance. Right-click timeline ruler to set cues.';
-        sectionContent.appendChild(helpText);
+        renderCueSection(container, project, this._createSectionContext());
     }
 
     _renderCueProperties(container, cueId, project) {
-        const cues = project?.cues || [];
-        const cue = cues.find(c => c.id === cueId);
-        if (!cue) return;
-
-        const hasTime = cue.timeMs !== null;
-
-        // Header
-        const header = document.createElement('div');
-        header.className = "flex items-center gap-2 font-bold text-[var(--ui-text-strong)] mb-4 border-b border-[var(--ui-border)] pb-2";
-
-        const colorDot = document.createElement('span');
-        colorDot.className = 'w-3 h-3 rounded-full';
-        colorDot.style.backgroundColor = CUE_COLORS[cueId];
-        header.appendChild(colorDot);
-
-        const title = document.createElement('span');
-        title.textContent = `CUE ${cueId}`;
-        header.appendChild(title);
-
-        container.appendChild(header);
-
-        // Back button to deselect
-        const backBtn = document.createElement('button');
-        backBtn.className = 'flex items-center gap-1 text-xs text-[var(--ui-text-subtle)] hover:text-cyan-400 mb-4';
-        backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Project Settings';
-        backBtn.addEventListener('click', () => {
-            if (this.cueController) {
-                this.cueController.selectCue(null);
-            }
-        });
-        container.appendChild(backBtn);
-
-        // Cue properties section
-        const propsSection = document.createElement('div');
-        propsSection.className = "bg-[var(--ui-toolbar-bg)] p-3 rounded border border-[var(--ui-border)] mb-4";
-
-        // Status row
-        const statusRow = document.createElement('div');
-        statusRow.className = 'flex items-center gap-2 mb-3';
-
-        const statusLabel = document.createElement('span');
-        statusLabel.className = 'text-xs text-[var(--ui-text-subtle)]';
-        statusLabel.textContent = 'Status:';
-        statusRow.appendChild(statusLabel);
-
-        const statusBadge = document.createElement('span');
-        if (!hasTime) {
-            statusBadge.className = 'text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400';
-            statusBadge.textContent = 'Not Set';
-        } else if (cue.enabled) {
-            statusBadge.className = 'text-xs px-2 py-0.5 rounded bg-green-900 text-green-400';
-            statusBadge.textContent = 'Active';
-        } else {
-            statusBadge.className = 'text-xs px-2 py-0.5 rounded bg-yellow-900 text-yellow-400';
-            statusBadge.textContent = 'Disabled';
-        }
-        statusRow.appendChild(statusBadge);
-        propsSection.appendChild(statusRow);
-
-        // Time display/edit
-        const timeRow = document.createElement('div');
-        timeRow.className = 'mb-3';
-
-        const timeLabel = document.createElement('label');
-        timeLabel.className = 'block text-xs text-[var(--ui-text-subtle)] mb-1';
-        timeLabel.textContent = 'Time (MM:SS.sss)';
-        timeRow.appendChild(timeLabel);
-
-        if (hasTime) {
-            const timeInput = document.createElement('input');
-            timeInput.type = 'text';
-            timeInput.value = formatTime(cue.timeMs);
-            timeInput.className = 'w-full bg-[var(--ui-select-bg)] text-sm text-[var(--ui-text)] border border-[var(--ui-border)] rounded px-2 py-1 outline-none font-mono';
-            timeInput.addEventListener('change', (e) => {
-                const newTime = parseTime(e.target.value);
-                if (!isNaN(newTime) && this.cueController) {
-                    this.cueController.setCue(cueId, newTime);
-                }
-            });
-            timeInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    timeInput.blur();
-                }
-            });
-            timeRow.appendChild(timeInput);
-        } else {
-            const notSetMsg = document.createElement('div');
-            notSetMsg.className = 'text-sm text-[var(--ui-text-faint)] italic';
-            notSetMsg.textContent = 'Not set';
-            timeRow.appendChild(notSetMsg);
-        }
-
-        propsSection.appendChild(timeRow);
-
-        // Enable checkbox (only if has time)
-        if (hasTime) {
-            const enableRow = document.createElement('div');
-            enableRow.className = 'flex items-center gap-2';
-
-            const enableCheck = document.createElement('input');
-            enableCheck.type = 'checkbox';
-            enableCheck.checked = cue.enabled;
-            enableCheck.className = 'accent-cyan-500 cursor-pointer';
-            enableCheck.addEventListener('change', () => {
-                if (this.cueController) {
-                    this.cueController.toggleCue(cueId);
-                }
-            });
-            enableRow.appendChild(enableCheck);
-
-            const enableLabel = document.createElement('span');
-            enableLabel.className = 'text-xs text-[var(--ui-text)]';
-            enableLabel.textContent = 'Enabled';
-            enableRow.appendChild(enableLabel);
-
-            propsSection.appendChild(enableRow);
-        }
-
-        container.appendChild(propsSection);
-
-        // Actions
-        const actionsSection = document.createElement('div');
-        actionsSection.className = 'space-y-2';
-
-        // Set at playhead button
-        const setBtn = document.createElement('button');
-        setBtn.className = 'w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-medium transition-colors';
-        setBtn.innerHTML = '<i class="fas fa-crosshairs mr-1"></i> Set at Playhead';
-        setBtn.addEventListener('click', () => {
-            if (this.cueController) {
-                this.cueController.setCueAtPlayhead(cueId);
-            }
-        });
-        actionsSection.appendChild(setBtn);
-
-        // Jump to cue button (only if has time)
-        if (hasTime && cue.enabled) {
-            const jumpBtn = document.createElement('button');
-            jumpBtn.className = 'w-full py-1.5 bg-[var(--ui-toolbar-bg)] border border-[var(--ui-border)] hover:border-cyan-500 text-[var(--ui-text)] rounded text-xs font-medium transition-colors';
-            jumpBtn.innerHTML = '<i class="fas fa-play mr-1"></i> Jump to Cue';
-            jumpBtn.addEventListener('click', () => {
-                if (this.cueController) {
-                    this.cueController.jumpToCue(cueId);
-                }
-            });
-            actionsSection.appendChild(jumpBtn);
-        }
-
-        // Clear cue button (only if has time)
-        if (hasTime) {
-            const clearBtn = document.createElement('button');
-            clearBtn.className = 'w-full py-1.5 bg-red-900/80 hover:bg-red-700 border border-red-700/50 text-red-100 rounded text-xs font-medium transition-colors';
-            clearBtn.innerHTML = '<i class="fas fa-trash-alt mr-1"></i> Clear Cue';
-            clearBtn.addEventListener('click', () => {
-                if (this.cueController) {
-                    this.cueController.clearCue(cueId);
-                }
-            });
-            actionsSection.appendChild(clearBtn);
-        }
-
-        container.appendChild(actionsSection);
+        renderCueProperties(container, cueId, project, this._createSectionContext());
     }
 
     _renderHardwareProfiles(container, project) {
@@ -1790,191 +1447,11 @@ export class InspectorRenderer {
     }
 
     _renderClipProperties(container, clipId, project) {
-        let clip = null;
-        project.tracks.forEach(t => { const c = t.clips.find(x => x.id === clipId); if (c) clip = c; });
-        if (!clip) return;
-
-        const header = document.createElement('div');
-        header.className = "font-bold text-[var(--ui-text-strong)] mb-4 border-b border-[var(--ui-border)] pb-2";
-        header.textContent = `${String(clip.type || '').toUpperCase()} CLIP`;
-        container.innerHTML = '';
-        container.appendChild(header);
-
-        if (clip.type === 'audio') {
-            this._renderAudioClipProps(container, clip);
-        }
-
-        const updateClip = (updates, options) => {
-            this.stateManager?.update(draft => {
-                draft.project.tracks.forEach(t => {
-                    const c = t.clips.find(x => x.id === clipId);
-                    if (c) Object.assign(c, updates);
-                });
-                draft.isDirty = true;
-            }, options);
-            // We need to notify timeline to redraw if start/duration changed
-            this._emit(APP_EVENTS.TIMELINE_CHANGED);
-        };
-
-        // Timing section
-        const timingSection = document.createElement('div');
-        timingSection.className = "bg-[var(--ui-toolbar-bg)] p-3 rounded border border-[var(--ui-border)] mb-4";
-        timingSection.innerHTML = `<div class="text-xs font-bold text-cyan-400 uppercase mb-3">Timing</div>`;
-
-        this._addInput(timingSection, "Start (MM:SS.ss)", formatTime(clip.startTime), e => {
-            updateClip({ startTime: parseTime(e.target.value) });
-        });
-
-        this._addInput(timingSection, "Duration (MM:SS.ss)", formatTime(clip.duration), e => {
-            updateClip({ duration: parseTime(e.target.value) });
-        });
-
-        container.appendChild(timingSection);
-
-        const sliderSpecByKey = {
-            rate: { min: 1, max: 30, step: 1, valueLabel: v => `${Math.round(v)} /s` },
-            speed: { min: 0.1, max: 5, step: 0.1, valueLabel: v => `${Number(v).toFixed(1)}×` },
-            frequency: { min: 0.1, max: 5, step: 0.1, valueLabel: v => `${Number(v).toFixed(1)}` },
-            width: { min: 0.01, max: 0.5, step: 0.01, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
-            tailLen: { min: 0.05, max: 1, step: 0.05, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
-            density: { min: 0, max: 1, step: 0.01, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
-            amount: { min: 0, max: 1, step: 0.01, valueLabel: v => `${Math.round(Number(v) * 100)}%` },
-        };
-
-        // Effect properties section
-        // Filter out helper props like *PaletteIdx (used to track palette selection)
-        const propKeys = Object.keys(clip.props).filter(key =>
-            !['audioSrcPath', 'name', 'volume'].includes(key) && !key.endsWith('PaletteIdx')
-        );
-        if (propKeys.length > 0) {
-            const propsSection = document.createElement('div');
-            propsSection.className = "bg-[var(--ui-toolbar-bg)] p-3 rounded border border-[var(--ui-border)] mb-4";
-            propsSection.innerHTML = `<div class="text-xs font-bold text-cyan-400 uppercase mb-3">Effect Properties</div>`;
-
-            propKeys.forEach(key => {
-                const value = clip.props[key];
-                const sliderSpec = (typeof value === 'number') ? sliderSpecByKey[key] : null;
-                const label = this._formatPropLabel(key);
-
-                if (typeof value === 'boolean') {
-                    this._addToggle(propsSection, label, value, (nextVal) => {
-                        updateClip({ props: { ...clip.props, [key]: nextVal } }, { skipHistory: true });
-                    });
-                    return;
-                }
-
-                if (sliderSpec) {
-                    this._addSlider(propsSection, label, value, sliderSpec, (nextVal) => {
-                        const prevProps = { ...clip.props, [key]: nextVal };
-                        updateClip({ props: prevProps }, { skipHistory: true });
-                    });
-                    return;
-                }
-
-                // For color properties, pass palette tracking options
-                const isColor = typeof value === 'string' && value.startsWith('#');
-                const paletteOpts = isColor ? {
-                    paletteIdx: clip.props[`${key}PaletteIdx`] ?? 0,
-                    onPaletteChange: (newIdx) => {
-                        const prevProps = { ...clip.props };
-                        prevProps[`${key}PaletteIdx`] = newIdx;
-                        updateClip({ props: prevProps }, { skipHistory: true });
-                    }
-                } : undefined;
-
-                this._addInput(propsSection, label, value, e => {
-                    const next = (e.target.type === 'number') ? parseFloat(e.target.value) : e.target.value;
-                    const prevProps = { ...clip.props };
-                    prevProps[key] = next;
-                    updateClip({ props: prevProps });
-                }, typeof value === 'number' ? 'number' : undefined, paletteOpts);
-            });
-
-            container.appendChild(propsSection);
-        }
-
-        // Delete button - styled to match app conventions
-        const del = document.createElement('button');
-        del.innerHTML = "<i class='fas fa-trash-alt mr-2'></i>Delete Clip";
-        del.className = "w-full py-1.5 bg-red-900/80 hover:bg-red-700 border border-red-700/50 text-red-100 rounded text-xs font-medium transition-colors";
-        del.onclick = () => {
-            if (this.timelineController?.deleteClip) {
-                this.timelineController.deleteClip(clipId);
-            }
-        };
-        container.appendChild(del);
+        renderClipProperties(container, clipId, project, this._createSectionContext());
     }
 
     _renderAudioClipProps(container, clip) {
-        const audioInfo = document.createElement('div');
-        audioInfo.className = 'bg-[var(--ui-toolbar-bg)] p-3 rounded mb-4 border border-orange-900';
-        const fileName = clip?.props?.name != null ? String(clip.props.name) : 'Unknown audio';
-        const rawVolume = Number(clip?.props?.volume);
-        const volume = Number.isFinite(rawVolume) ? rawVolume : 1;
-
-        const titleRow = document.createElement('div');
-        titleRow.className = 'flex items-center gap-2 mb-2';
-
-        const icon = document.createElement('i');
-        icon.className = 'fas fa-music text-orange-400';
-        titleRow.appendChild(icon);
-
-        const title = document.createElement('span');
-        title.className = 'text-sm text-[var(--ui-text-strong)] font-medium';
-        title.textContent = fileName;
-        titleRow.appendChild(title);
-
-        const durationRow = document.createElement('div');
-        durationRow.className = 'text-xs text-[var(--ui-text-muted)] mb-3';
-        durationRow.textContent = `Duration: ${(Number(clip?.duration ?? 0) / 1000).toFixed(2)}s`;
-
-        const volumeLabel = document.createElement('label');
-        volumeLabel.className = 'block text-xs text-[var(--ui-text-muted)] mb-1';
-        volumeLabel.textContent = 'Volume';
-
-        const volumeRow = document.createElement('div');
-        volumeRow.className = 'flex items-center gap-2';
-
-        const volumeSlider = document.createElement('input');
-        volumeSlider.type = 'range';
-        volumeSlider.min = '0';
-        volumeSlider.max = '1';
-        volumeSlider.step = '0.01';
-        volumeSlider.value = String(volume);
-        volumeSlider.className = 'flex-1 h-1 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-orange-500';
-        volumeSlider.id = 'audio-volume-slider';
-
-        const volumeDisplay = document.createElement('span');
-        volumeDisplay.className = 'text-xs text-[var(--ui-text-muted)] w-10 text-right';
-        volumeDisplay.id = 'audio-volume-display';
-        volumeDisplay.textContent = `${Math.round(volume * 100)}%`;
-
-        volumeRow.appendChild(volumeSlider);
-        volumeRow.appendChild(volumeDisplay);
-
-        audioInfo.appendChild(titleRow);
-        audioInfo.appendChild(durationRow);
-        audioInfo.appendChild(volumeLabel);
-        audioInfo.appendChild(volumeRow);
-        container.appendChild(audioInfo);
-
-        const slider = audioInfo.querySelector('#audio-volume-slider');
-        const display = audioInfo.querySelector('#audio-volume-display');
-        slider.oninput = (e) => {
-            const val = parseFloat(e.target.value);
-            display.textContent = `${Math.round(val * 100)}%`;
-            this.stateManager?.update(draft => {
-                draft.project.tracks.forEach(t => {
-                    const c = t.clips.find(x => x.id === clip.id);
-                    if (c) {
-                        if (!c.props) c.props = {};
-                        c.props.volume = val;
-                    }
-                });
-                draft.isDirty = true;
-            }, { skipHistory: true });
-            this.deps.audioService?.setClipVolume?.(clip.id, val);
-        };
+        renderAudioClipProps(container, clip, this._createSectionContext());
     }
 
     _addTextInput(parent, lbl, val, cb) {
