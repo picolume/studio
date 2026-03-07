@@ -1,4 +1,5 @@
 import { getSnappedTime, formatTime, showConfirm } from '../utils.js';
+import { APP_EVENTS, emitAppEvent } from '../core/AppEventHub.js';
 
 // Cue marker colors
 const CUE_COLORS = {
@@ -20,6 +21,11 @@ export class TimelineRenderer {
     get cueController() { return this.deps.cueController; }
     get elements() { return this.deps.elements; }
     get audioService() { return this.deps.audioService; }
+    get appEvents() { return this.deps.appEvents; }
+
+    _emit(type, detail) {
+        emitAppEvent(this.appEvents, type, detail);
+    }
 
     getZoom() {
         return this.stateManager?.get('ui.zoom') ?? 50;
@@ -88,7 +94,7 @@ export class TimelineRenderer {
                     draft.project.tracks.splice(index, 0, moved);
                     draft.isDirty = true;
                 });
-                window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+                this._emit(APP_EVENTS.TIMELINE_CHANGED);
             }
         });
 
@@ -114,7 +120,7 @@ export class TimelineRenderer {
                         draft.isDirty = true;
                     }
                 });
-                window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+                this._emit(APP_EVENTS.TIMELINE_CHANGED);
             };
             inp.onblur = save; inp.onkeydown = (ev) => { if (ev.key === 'Enter') save(); };
             row1.replaceChild(inp, label); inp.focus();
@@ -130,7 +136,7 @@ export class TimelineRenderer {
                 const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'audio/*';
                 inp.onchange = (ev) => {
                     if (ev.target.files.length > 0) {
-                        window.dispatchEvent(new CustomEvent('app:load-audio', { detail: { file: ev.target.files[0], trackId: track.id } }));
+                        this._emit(APP_EVENTS.LOAD_AUDIO, { file: ev.target.files[0], trackId: track.id });
                     }
                 };
                 inp.click();
@@ -191,7 +197,7 @@ export class TimelineRenderer {
         lane.ondrop = e => {
             e.preventDefault();
             lane.classList.remove('drag-over');
-            window.dispatchEvent(new CustomEvent('app:drop-clip', { detail: { event: e, trackId: track.id } }));
+            this._emit(APP_EVENTS.DROP_CLIP, { event: e, trackId: track.id });
         };
         container.appendChild(lane);
     }
@@ -241,15 +247,12 @@ export class TimelineRenderer {
         }
         el.onmousedown = (e) => {
             e.stopPropagation();
-            window.dispatchEvent(new CustomEvent('app:clip-mousedown', { detail: { event: e, clipId: clip.id } }));
+            this._emit(APP_EVENTS.CLIP_MOUSEDOWN, { event: e, clipId: clip.id });
         };
 
         // Keyboard handler for clip-level actions
         el.onkeydown = (e) => {
-            // Dispatch keyboard event for centralized handling in main.js
-            window.dispatchEvent(new CustomEvent('app:clip-keydown', {
-                detail: { event: e, clipId: clip.id }
-            }));
+            this._emit(APP_EVENTS.CLIP_KEYDOWN, { event: e, clipId: clip.id });
         };
 
         return el;

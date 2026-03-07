@@ -12,7 +12,7 @@ function hasWailsBackend() {
         && window.go.main.App;
 }
 
-function createWailsBackend(app) {
+export function createWailsBackend(app) {
     return {
         kind: 'wails',
         capabilities: {
@@ -45,7 +45,7 @@ function createWailsBackend(app) {
     };
 }
 
-function createOnlineBackend() {
+export function createOnlineBackend() {
     const saveHandleByName = new Map();
     const MAX_LUM_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
@@ -148,14 +148,14 @@ function createOnlineBackend() {
                     const writable = await handle.createWritable();
                     await writable.write(blob);
                     await writable.close();
-                    return 'Saved';
+                    return { status: 'ok', code: 'saved', message: 'Saved' };
                 } catch (err) {
-                    return `Error: ${err?.message || err}`;
+                    return { status: 'error', code: 'save_failed', message: `Error: ${err?.message || err}` };
                 }
             }
 
             if (!allowPrompt) {
-                return 'Auto-save skipped: no file handle available';
+                return { status: 'error', code: 'autosave_skipped', message: 'Auto-save skipped: no file handle available' };
             }
 
             // Fallback: download via anchor.
@@ -168,14 +168,16 @@ function createOnlineBackend() {
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                return 'Saved';
+                return { status: 'ok', code: 'saved', message: 'Saved' };
             } catch (err) {
-                return `Error: ${err?.message || err}`;
+                return { status: 'error', code: 'save_failed', message: `Error: ${err?.message || err}` };
             }
         },
         async loadProject() {
             const picked = await pickOpenFile();
-            if (!picked) return { error: 'Cancelled' };
+            if (!picked) {
+                return { status: 'cancelled', code: 'cancelled', message: 'Load cancelled' };
+            }
 
             const file = picked.file;
             const handle = picked.handle;
@@ -191,13 +193,15 @@ function createOnlineBackend() {
                 const ab = await file.arrayBuffer();
                 const { projectJson, audioFiles } = await parseLumBytes(new Uint8Array(ab));
                 return {
+                    status: 'ok',
+                    code: 'loaded',
+                    message: 'Loaded',
                     projectJson,
                     audioFiles,
-                    filePath: file.name,
-                    error: ''
+                    filePath: file.name
                 };
             } catch (err) {
-                return { error: `Failed to load .lum: ${err?.message || err}` };
+                return { status: 'error', code: 'load_failed', message: `Failed to load .lum: ${err?.message || err}` };
             }
         },
         async saveBinary(projectJson) {
@@ -233,11 +237,11 @@ function createOnlineBackend() {
                         const writable = await handle.createWritable();
                         await writable.write(blob);
                         await writable.close();
-                        return 'OK';
+                        return { status: 'ok', code: 'saved', message: 'OK' };
                     } catch (err) {
                         // User cancelled or API not available, fall through to download
                         if (err?.name === 'AbortError') {
-                            return 'Cancelled';
+                            return { status: 'cancelled', code: 'cancelled', message: 'Cancelled' };
                         }
                     }
                 }
@@ -251,14 +255,18 @@ function createOnlineBackend() {
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                return 'OK';
+                return { status: 'ok', code: 'saved', message: 'OK' };
             } catch (err) {
                 hideExportModal();
-                return `Error: ${err?.message || err} (WASM binary generator unavailable; rebuild and deploy /src/wasm/bingen.wasm + wasm_exec.js)`;
+                return {
+                    status: 'error',
+                    code: 'export_failed',
+                    message: `Error: ${err?.message || err} (WASM binary generator unavailable; rebuild and deploy /src/wasm/bingen.wasm + wasm_exec.js)`
+                };
             }
         },
         async uploadToPico() {
-            return 'Not available in online version';
+            return { status: 'error', code: 'not_available', message: 'Not available in online version' };
         }
     };
 }

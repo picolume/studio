@@ -15,12 +15,14 @@ import { KeyboardController } from '../controllers/KeyboardController.js';
 import { SidebarModeManager } from '../controllers/SidebarModeManager.js';
 import { MenuRenderer } from '../views/MenuRenderer.js';
 import { ErrorHandler } from './ErrorHandler.js';
+import { AppEventHub, APP_EVENTS } from './AppEventHub.js';
 
 export class Application {
     constructor() {
         // Core
         this.stateManager = null;
         this.errorHandler = null;
+        this.appEvents = null;
 
         // Services
         this.audioService = null;
@@ -52,6 +54,7 @@ export class Application {
         try {
             // 1. Initialize error handler first
             this.errorHandler = new ErrorHandler();
+            this.appEvents = new AppEventHub();
 
             // 2. Initialize state manager
             const initialState = createInitialState();
@@ -59,12 +62,12 @@ export class Application {
 
             // 3. Initialize services
             this.audioService = new AudioService(this.stateManager);
-            this.projectService = new ProjectService(this.stateManager, this.audioService);
+            this.projectService = new ProjectService(this.stateManager, this.audioService, undefined, this.appEvents);
 
             // 4. Initialize controllers
-            this.undoController = new UndoController(this.stateManager, this.errorHandler);
-            this.timelineController = new TimelineController(this.stateManager, this.errorHandler);
-            this.cueController = new CueController(this.stateManager, this.errorHandler);
+            this.undoController = new UndoController(this.stateManager, this.errorHandler, this.appEvents);
+            this.timelineController = new TimelineController(this.stateManager, this.errorHandler, this.appEvents);
+            this.cueController = new CueController(this.stateManager, this.errorHandler, this.appEvents);
             this.themeManager = new ThemeManager();
             this.keyboardController = new KeyboardController(this.stateManager, this.errorHandler);
             this.sidebarModeManager = new SidebarModeManager();
@@ -169,14 +172,8 @@ export class Application {
      * @private
      */
     _setupEventListeners() {
-        // Custom app events
-        window.addEventListener('app:toast', (e) => {
+        this.appEvents.on(APP_EVENTS.TOAST, (e) => {
             this.errorHandler.showToast(e.detail);
-        });
-
-        window.addEventListener('app:state-changed', () => {
-            // Notify timeline to rebuild
-            window.dispatchEvent(new CustomEvent('app:timeline-changed'));
         });
     }
 
@@ -318,4 +315,11 @@ export const app = new Application();
 // Expose globally for debugging
 if (typeof window !== 'undefined') {
     window.app = app;
+    Object.defineProperty(window, 'appEvents', {
+        configurable: true,
+        enumerable: false,
+        get() {
+            return app.appEvents;
+        }
+    });
 }

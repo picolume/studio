@@ -10,6 +10,7 @@ import {
     createPalette,
     DEFAULT_PALETTES
 } from '../core/StateManager.js';
+import { APP_EVENTS, emitAppEvent } from '../core/AppEventHub.js';
 
 const COLLAPSED_STORAGE_KEY = 'picolume:inspector:collapsed';
 
@@ -38,6 +39,11 @@ export class InspectorRenderer {
 
     get stateManager() { return this.deps.stateManager; }
     get timelineController() { return this.deps.timelineController; }
+    get appEvents() { return this.deps.appEvents; }
+
+    _emit(type, detail) {
+        emitAppEvent(this.appEvents, type, detail);
+    }
     get cueController() { return this.deps.cueController; }
     get elements() { return this.deps.elements; }
     get ui() { return this.deps.ui; } // For toast methods
@@ -324,7 +330,7 @@ export class InspectorRenderer {
                 draft.project.duration = val;
                 draft.isDirty = true;
             });
-            window.dispatchEvent(new CustomEvent('app:toast', { detail: `Duration set to ${formatTime(val)}` }));
+            this._emit(APP_EVENTS.TOAST, `Duration set to ${formatTime(val)}`);
             // app:state-changed will trigger timeline rebuild
         };
 
@@ -348,7 +354,7 @@ export class InspectorRenderer {
             this.stateManager?.update(draft => {
                 draft.autoSaveEnabled = enabled;
             }, { skipHistory: true });
-            window.dispatchEvent(new CustomEvent('app:toast', { detail: `Auto Save: ${enabled ? 'ON' : 'OFF'}` }));
+            this._emit(APP_EVENTS.TOAST, `Auto Save: ${enabled ? 'ON' : 'OFF'}`);
         };
         const asLabel = document.createElement('label'); asLabel.innerText = "Enable Auto-Save"; asLabel.className = "text-xs text-[var(--ui-text)]";
         autoSaveDiv.appendChild(asCheck); autoSaveDiv.appendChild(asLabel); infoDiv.appendChild(autoSaveDiv);
@@ -1720,7 +1726,7 @@ export class InspectorRenderer {
                     if (g) { g.name = e.target.value; draft.isDirty = true; }
                 }, { skipHistory: true });
                 // Trigger timeline update safely? Actually names of prop groups only affect dropdowns on timeline, so yes.
-                window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+                this._emit(APP_EVENTS.TIMELINE_CHANGED);
             };
             gName.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); gName.blur(); } };
             const del = document.createElement('button');
@@ -1807,7 +1813,7 @@ export class InspectorRenderer {
                 draft.isDirty = true;
             }, options);
             // We need to notify timeline to redraw if start/duration changed
-            window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+            this._emit(APP_EVENTS.TIMELINE_CHANGED);
         };
 
         // Timing section

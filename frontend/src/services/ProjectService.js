@@ -14,10 +14,11 @@ import { getBackend } from '../core/Backend.js';
 import { showConfirm, findProfileOverlaps, formatProfileOverlaps } from '../utils.js';
 
 export class ProjectService {
-    constructor(stateManager, audioService, backend = getBackend()) {
+    constructor(stateManager, audioService, backend = getBackend(), appEvents = null) {
         this.stateManager = stateManager;
         this.audioService = audioService;
         this.backend = backend;
+        this.appEvents = appEvents;
     }
 
     /**
@@ -60,7 +61,7 @@ export class ProjectService {
                 { allowPrompt }
             );
 
-            if (result === "Saved") {
+            if (result?.status === 'ok') {
                 // Update state
                 this.stateManager.update(draft => {
                     draft.filePath = targetPath;
@@ -72,9 +73,9 @@ export class ProjectService {
                     message: silent ? '' : 'Project Saved',
                     path: targetPath
                 };
-            } else {
-                return { success: false, message: result };
             }
+
+            return { success: false, message: result?.message || 'Save failed' };
         } catch (error) {
             return {
                 success: false,
@@ -95,13 +96,12 @@ export class ProjectService {
 
             const result = await this.backend.loadProject();
 
-            // Check for cancellation or error
-            if (!result || result.error === "Cancelled") {
-                return { success: false, message: 'Load cancelled' };
+            if (!result || result.status === 'cancelled') {
+                return { success: false, message: result?.message || 'Load cancelled' };
             }
 
-            if (result.error) {
-                return { success: false, message: result.error };
+            if (result.status === 'error') {
+                return { success: false, message: result.message || 'Load failed' };
             }
 
             // Parse the project JSON string from the response
@@ -167,7 +167,7 @@ export class ProjectService {
         // Stop playback if playing
         const isPlaying = this.stateManager.get('playback.isPlaying');
         if (isPlaying) {
-            window.dispatchEvent(new CustomEvent('app:stop-playback'));
+            this.audioService.stopPlayback?.();
         }
 
         // Clear audio assets
@@ -207,11 +207,11 @@ export class ProjectService {
                 JSON.stringify(project)
             );
 
-            if (result === "OK") {
+            if (result?.status === 'ok') {
                 return { success: true, message: 'Binary Exported' };
-            } else {
-                return { success: false, message: result };
             }
+
+            return { success: false, message: result?.message || 'Export failed' };
         } catch (error) {
             return {
                 success: false,
@@ -247,11 +247,11 @@ export class ProjectService {
                 JSON.stringify(project)
             );
 
-            if (result.startsWith("Success")) {
-                return { success: true, message: result };
-            } else {
-                return { success: false, message: result };
+            if (result?.status === 'ok' || result?.status === 'warning') {
+                return { success: true, message: result.message };
             }
+
+            return { success: false, message: result?.message || 'Upload failed' };
         } catch (error) {
             return {
                 success: false,

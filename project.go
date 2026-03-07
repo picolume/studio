@@ -38,12 +38,61 @@ const (
 	MaxFilesInZip = 100
 )
 
+const (
+	ResultStatusOK        = "ok"
+	ResultStatusWarning   = "warning"
+	ResultStatusError     = "error"
+	ResultStatusCancelled = "cancelled"
+)
+
+// OperationResult is the structured response type for backend actions that do
+// not need to return additional payload data.
+type OperationResult struct {
+	Status  string `json:"status"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 // LoadResponse is the return type for LoadProject.
 type LoadResponse struct {
+	Status      string            `json:"status"`
+	Code        string            `json:"code"`
+	Message     string            `json:"message"`
 	ProjectJson string            `json:"projectJson"`
 	AudioFiles  map[string]string `json:"audioFiles"`
 	FilePath    string            `json:"filePath"`
-	Error       string            `json:"error"`
+}
+
+func newOperationResult(status string, code string, message string) OperationResult {
+	return OperationResult{
+		Status:  status,
+		Code:    code,
+		Message: message,
+	}
+}
+
+func okResult(code string, message string) OperationResult {
+	return newOperationResult(ResultStatusOK, code, message)
+}
+
+func warningResult(code string, message string) OperationResult {
+	return newOperationResult(ResultStatusWarning, code, message)
+}
+
+func errorResult(code string, message string) OperationResult {
+	return newOperationResult(ResultStatusError, code, message)
+}
+
+func cancelledResult(code string, message string) OperationResult {
+	return newOperationResult(ResultStatusCancelled, code, message)
+}
+
+func newLoadResponse(status string, code string, message string) LoadResponse {
+	return LoadResponse{
+		Status:  status,
+		Code:    code,
+		Message: message,
+	}
 }
 
 // validateSavePath validates a file path for safe write operations.

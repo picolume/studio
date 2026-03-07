@@ -1,40 +1,16 @@
-/**
- * Main Application Entry Point (Refactored Architecture)
- *
- * This version uses the new StateManager, Services, and Controllers
- */
-
 import { app } from './core/Application.js';
-import { CONFIG, getSnappedTime, showConfirm, formatPicoStatus } from './utils.js';
-
-import {
-    initTimeline,
-    buildTimeline,
-    renderPreview,
-    updatePlayheadUI,
-    updateTimeDisplay,
-    selectClip,
-    updateGridBackground,
-    updateSelectionUI,
-    populateInspector,
-    updateAudioClipWaveform,
-    getPreviewRenderer,
-    getInspectorRenderer
-} from './timeline.js';
-
+import { APP_EVENTS } from './core/AppEventHub.js';
+import { showConfirm, formatPicoStatus } from './utils.js';
+import { createTimelineModule } from './timeline.js';
+import { setupProjectWorkflow } from './bootstrap/projectWorkflow.js';
+import { setupTimelineInteractions } from './bootstrap/timelineInteractions.js';
 import { initBinaryInspector } from './ui/BinaryInspector.js';
 
-// Global references for legacy code compatibility
 let stateManager, audioService, projectService, timelineController, undoController, errorHandler;
 
-// ==========================================
-// INITIALIZATION
-// ==========================================
 window.addEventListener('DOMContentLoaded', async () => {
-    // Initialize application
     await app.init();
 
-    // Get service references
     stateManager = app.stateManager;
     audioService = app.audioService;
     projectService = app.projectService;
@@ -42,19 +18,182 @@ window.addEventListener('DOMContentLoaded', async () => {
     undoController = app.undoController;
     errorHandler = app.errorHandler;
 
+    const appEvents = app.appEvents;
+    const cueController = app.cueController;
     const els = app.elements;
     const themeManager = app.themeManager;
     const keyboardController = app.keyboardController;
+    const sidebarModeManager = app.sidebarModeManager;
+    const menuRenderer = app.menuRenderer;
 
-    // ==========================================
-    // CUSTOM TITLEBAR (WAILS / DESKTOP ONLY)
-    // ==========================================
+    const timeline = createTimelineModule({
+        stateManager,
+        timelineController,
+        cueController,
+        audioService,
+        errorHandler,
+        appEvents,
+        elements: els
+    });
 
+    const {
+        buildTimeline,
+        renderPreview,
+        updatePlayheadUI,
+        updateTimeDisplay,
+        updateGridBackground,
+        populateInspector,
+        getPreviewRenderer,
+        getInspectorRenderer
+    } = timeline;
+
+    setupWindowChrome(els);
+
+    const shell = setupLayoutShell({
+        stateManager,
+        timeline,
+        themeManager,
+        appEvents,
+        els
+    });
+
+    const menuActionHandlers = {
+        'new': () => els.btnNew?.click(),
+        'open': () => els.btnOpen?.click(),
+        'save': () => els.btnSave?.click(),
+        'save-as': () => els.btnSaveAs?.click(),
+        'export': () => els.btnExportBin?.click(),
+        'upload': () => els.btnUpload?.click(),
+        'settings': () => els.btnSettings?.click(),
+        'about': () => shell.setAboutOpen(true),
+        'inspect': () => shell.binaryInspector?.open(),
+        'manual': () => shell.setManualOpen(true),
+        'theme': (themeName) => themeManager.setTheme(themeName)
+    };
+
+    sidebarModeManager.init({
+        inspectorRenderer: getInspectorRenderer(),
+        menuRenderer,
+        paneInspector: document.getElementById('pane-inspector'),
+        sidebarHeader: document.getElementById('sidebar-header'),
+        sidebarTitle: document.getElementById('sidebar-title'),
+        sidebarIcon: document.getElementById('sidebar-icon'),
+        sidebarBackBtn: document.getElementById('sidebar-back-btn'),
+        sidebarCloseBtn: document.getElementById('sidebar-close-btn'),
+        hamburgerButton: document.getElementById('btn-hamburger'),
+    });
+
+    menuRenderer.init({
+        sidebarModeManager,
+        menuContent: document.getElementById('menu-content'),
+        sidebarTitle: document.getElementById('sidebar-title'),
+        sidebarBackBtn: document.getElementById('sidebar-back-btn'),
+        themeManager,
+        actionHandlers: menuActionHandlers
+    });
+
+    document.querySelectorAll('.palette-item').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            const type = item.dataset.type;
+            if (!type) return;
+            e.dataTransfer.setData('type', type);
+            e.dataTransfer.setData('text/plain', type);
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+    });
+
+    const timelineUi = setupTimelineInteractions({
+        appEvents,
+        stateManager,
+        audioService,
+        timelineController,
+        cueController,
+        errorHandler,
+        els,
+        timeline
+    });
+
+    const { updateClipboardUI } = timelineUi;
+
+    setupProjectWorkflow({
+        appEvents,
+        stateManager,
+        projectService,
+        cueController,
+        errorHandler,
+        els,
+        timeline,
+        showConfirm,
+        formatPicoStatus,
+        onSelectionChanged: updateClipboardUI
+    });
+
+    if (els.btnUndo) {
+        els.btnUndo.onclick = () => {
+            undoController.undo();
+            buildTimeline();
+            populateInspectorFromSelection();
+        };
+    }
+
+    if (els.btnRedo) {
+        els.btnRedo.onclick = () => {
+            undoController.redo();
+            buildTimeline();
+            populateInspectorFromSelection();
+        };
+    }
+
+    keyboardController.init({
+        undoController,
+        timelineController,
+        cueController,
+        themeManager,
+        elements: els,
+        modalChecks: [
+            {
+                isOpen: () => shell.aboutModal?.getAttribute('aria-hidden') === 'false',
+                close: () => shell.setAboutOpen(false)
+            },
+            {
+                isOpen: () => shell.manualModal?.getAttribute('aria-hidden') === 'false',
+                close: () => shell.setManualOpen(false)
+            }
+        ],
+        callbacks: {
+            togglePane: shell.togglePane,
+            onBuildTimeline: () => buildTimeline(),
+            onUpdateSelectionUI: () => populateInspectorFromSelection(),
+            onUpdateClipboardUI: () => updateClipboardUI()
+        }
+    });
+
+    setupTransportControls({
+        stateManager,
+        audioService,
+        timelineController,
+        els,
+        updateGridBackground
+    });
+
+    buildTimeline();
+    updatePlayheadUI();
+    updateTimeDisplay();
+    updateGridBackground();
+    updateClipboardUI();
+    populateInspector(null);
+
+    function populateInspectorFromSelection() {
+        const selection = stateManager.get('selection') || [];
+        populateInspector(selection.length === 1 ? selection[0] : null);
+    }
+});
+
+function setupWindowChrome(els) {
     const windowControls = document.getElementById('window-controls');
     const hasWailsWindowControls = typeof window.runtime?.WindowMinimise === 'function'
         && typeof window.runtime?.WindowToggleMaximise === 'function'
         && typeof window.runtime?.Quit === 'function';
-
     const windowFrame = document.getElementById('window-frame');
     const hasWailsWindowState = typeof window.runtime?.WindowIsMaximised === 'function';
 
@@ -70,85 +209,79 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (windowFrame) windowFrame.hidden = isMaximised;
     };
 
-    if (hasWailsWindowControls) {
-        if (windowControls) windowControls.hidden = false;
-        const btnMin = els.btnWindowMinimize || document.getElementById('btn-window-minimize');
-        const btnMax = els.btnWindowMaximize || document.getElementById('btn-window-maximize');
-        const btnClose = els.btnWindowClose || document.getElementById('btn-window-close');
-
-        btnMin?.addEventListener('click', () => window.runtime.WindowMinimise());
-        btnMax?.addEventListener('click', async () => {
-            window.runtime.WindowToggleMaximise();
-            setTimeout(() => void updateWindowChrome(), 50);
-        });
-        btnClose?.addEventListener('click', () => window.runtime.Quit());
-
-        // Double-click on the titlebar/menu area should maximise (Windows-like behavior),
-        // but avoid triggering when double-clicking interactive controls.
-        const titlebar = document.querySelector('header[role="banner"]');
-        const isInteractiveTarget = (target) => {
-            if (!(target instanceof Element)) return true;
-            return Boolean(
-                target.closest('#window-controls')
-                || target.closest('button')
-                || target.closest('a')
-                || target.closest('input')
-                || target.closest('select')
-                || target.closest('textarea')
-                || target.closest('[contenteditable="true"]')
-            );
-        };
-        titlebar?.addEventListener('dblclick', async (e) => {
-            if (e.button !== 0) return;
-            if (isInteractiveTarget(e.target)) return;
-
-            let isMaximised = false;
-            if (hasWailsWindowState) {
-                try {
-                    isMaximised = !!(await window.runtime.WindowIsMaximised());
-                } catch {
-                    isMaximised = false;
-                }
-            }
-            if (isMaximised) return;
-
-            window.runtime.WindowMaximise();
-            setTimeout(() => void updateWindowChrome(), 50);
-        });
-
-        if (windowFrame) windowFrame.hidden = false;
-        void updateWindowChrome();
-        let resizeTimer = null;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => void updateWindowChrome(), 100);
-        });
-
-        // Frameless window resize handles
-        const resizeHandles = document.getElementById('resize-handles');
-        if (resizeHandles && typeof window.runtime?.WindowStartResize === 'function') {
-            resizeHandles.hidden = false;
-
-            // Map edge data attributes to Wails resize edge constants
-            // Wails v2 uses these edge values: n=1, ne=2, e=3, se=4, s=5, sw=6, w=7, nw=8
-            const edgeMap = { n: 1, ne: 2, e: 3, se: 4, s: 5, sw: 6, w: 7, nw: 8 };
-
-            resizeHandles.querySelectorAll('.window-resize-handle').forEach(handle => {
-                handle.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    const edge = handle.dataset.edge;
-                    if (edge && edgeMap[edge]) {
-                        window.runtime.WindowStartResize(edgeMap[edge]);
-                    }
-                });
-            });
-        }
+    if (!hasWailsWindowControls) {
+        return;
     }
 
-    // ==========================================
-    // LAYOUT TOGGLES (Palette / Preview / Inspector)
-    // ==========================================
+    if (windowControls) windowControls.hidden = false;
+    const btnMin = els.btnWindowMinimize || document.getElementById('btn-window-minimize');
+    const btnMax = els.btnWindowMaximize || document.getElementById('btn-window-maximize');
+    const btnClose = els.btnWindowClose || document.getElementById('btn-window-close');
 
+    btnMin?.addEventListener('click', () => window.runtime.WindowMinimise());
+    btnMax?.addEventListener('click', () => {
+        window.runtime.WindowToggleMaximise();
+        setTimeout(() => void updateWindowChrome(), 50);
+    });
+    btnClose?.addEventListener('click', () => window.runtime.Quit());
+
+    const titlebar = document.querySelector('header[role="banner"]');
+    const isInteractiveTarget = (target) => {
+        if (!(target instanceof Element)) return true;
+        return Boolean(
+            target.closest('#window-controls')
+            || target.closest('button')
+            || target.closest('a')
+            || target.closest('input')
+            || target.closest('select')
+            || target.closest('textarea')
+            || target.closest('[contenteditable="true"]')
+        );
+    };
+
+    titlebar?.addEventListener('dblclick', async (e) => {
+        if (e.button !== 0 || isInteractiveTarget(e.target)) return;
+
+        let isMaximised = false;
+        if (hasWailsWindowState) {
+            try {
+                isMaximised = !!(await window.runtime.WindowIsMaximised());
+            } catch {
+                isMaximised = false;
+            }
+        }
+        if (!isMaximised) {
+            window.runtime.WindowMaximise();
+            setTimeout(() => void updateWindowChrome(), 50);
+        }
+    });
+
+    if (windowFrame) windowFrame.hidden = false;
+    void updateWindowChrome();
+
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => void updateWindowChrome(), 100);
+    });
+
+    const resizeHandles = document.getElementById('resize-handles');
+    if (resizeHandles && typeof window.runtime?.WindowStartResize === 'function') {
+        resizeHandles.hidden = false;
+        const edgeMap = { n: 1, ne: 2, e: 3, se: 4, s: 5, sw: 6, w: 7, nw: 8 };
+        resizeHandles.querySelectorAll('.window-resize-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const edge = handle.dataset.edge;
+                if (edge && edgeMap[edge]) {
+                    window.runtime.WindowStartResize(edgeMap[edge]);
+                }
+            });
+        });
+    }
+}
+
+function setupLayoutShell({ stateManager, timeline, themeManager, appEvents, els }) {
     const UI_LAYOUT_KEY = 'picolume:ui';
     const panePalette = document.getElementById('pane-palette');
     const panePreview = document.getElementById('pane-preview');
@@ -158,90 +291,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     const btnToggleInspector = document.getElementById('btn-toggle-inspector');
     const manualModal = document.getElementById('manual-modal');
     const manualFrame = document.getElementById('manual-frame');
-    const btnManualClose = document.getElementById('btn-manual-close');
     const aboutModal = document.getElementById('about-modal');
-    const btnAboutClose = document.getElementById('btn-about-close');
     const aboutVersion = document.getElementById('about-version');
     const aboutWailsVersion = document.getElementById('about-wails-version');
-    const uploadModal = document.getElementById('upload-modal');
-    const uploadMessage = document.getElementById('upload-message');
-
-    const uploadButtonIcon = els.btnUpload?.querySelector('i') || null;
-    const uploadButtonLabel = els.btnUpload?.querySelector('span') || null;
-    const uploadButtonDefaultIconClass = uploadButtonIcon?.className || 'fas fa-microchip';
-    const uploadButtonDefaultLabel = uploadButtonLabel?.textContent || 'Upload';
-
-    let uploadInProgress = false;
-
-    const setUploadStatus = (message) => {
-        if (!uploadMessage) return;
-        const text = String(message || '').trim();
-        if (text) uploadMessage.textContent = text;
-    };
-
-    const setUploadUiBusy = (busy) => {
-        uploadInProgress = busy;
-
-        uploadModal?.setAttribute('aria-hidden', String(!busy));
-
-        if (busy) {
-            document.body?.setAttribute('aria-busy', 'true');
-            setUploadStatus('Preparing upload...');
-        } else {
-            document.body?.removeAttribute('aria-busy');
-        }
-
-        if (els.btnUpload) {
-            els.btnUpload.disabled = busy;
-        }
-
-        if (uploadButtonIcon) {
-            uploadButtonIcon.className = busy ? 'fas fa-spinner fa-spin' : uploadButtonDefaultIconClass;
-        }
-
-        if (uploadButtonLabel) {
-            uploadButtonLabel.textContent = busy ? 'Uploading...' : uploadButtonDefaultLabel;
-        }
-    };
-
-    try {
-        if (window.runtime?.EventsOn) {
-            window.runtime.EventsOn('upload:status', (message) => {
-                if (!uploadInProgress) return;
-                setUploadStatus(message);
-            });
-            window.runtime.EventsOn('upload:manual-eject', async (payload) => {
-                if (!uploadInProgress) return;
-                const drive = payload?.drive ? String(payload.drive) : '';
-                const reason = payload?.reason ? String(payload.reason) : '';
-
-                // Parse structured error codes from backend.
-                let title = 'Manual Eject Required';
-                let explanation = '';
-
-                if (reason.startsWith('PORT_LOCKED:')) {
-                    const port = reason.split(':')[1] || 'serial port';
-                    title = 'Serial Port In Use';
-                    explanation = `Another application is using ${port}.\n\nClose any other application that utilizes the serial port (i.e. Arduino IDE, PuTTY, Serial Monitor...) then try uploading again.`;
-                } else if (reason === 'RESET_FAILED') {
-                    explanation = 'The device did not respond to the reset command.';
-                } else if (reason) {
-                    explanation = reason;
-                }
-
-                const driveText = drive ? ` (${drive})` : '';
-                const message = [
-                    `Upload complete${driveText}, but auto-reset failed.`,
-                    ' ',
-                    explanation,
-                    ' ',
-                    'Alternatively, you can Safely eject the Pico drive. This will flush and load the show.bin file',
-                ].filter(Boolean).join('\n');
-
-                await showConfirm(message, title);
-            });
-        }
-    } catch { }
 
     const readCssPx = (name, fallback) => {
         const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -259,7 +311,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         paletteOpen: true,
         previewOpen: true,
         inspectorOpen: true,
-        previewHeight: null, // null = use default, otherwise custom height in px
+        previewHeight: null,
     };
 
     const loadUILayout = () => {
@@ -267,8 +319,9 @@ window.addEventListener('DOMContentLoaded', async () => {
             const raw = localStorage.getItem(UI_LAYOUT_KEY);
             if (!raw) return;
             const saved = JSON.parse(raw);
-            if (!saved || typeof saved !== 'object') return;
-            UI_LAYOUT = { ...UI_LAYOUT, ...saved };
+            if (saved && typeof saved === 'object') {
+                UI_LAYOUT = { ...UI_LAYOUT, ...saved };
+            }
         } catch { }
     };
 
@@ -278,11 +331,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         } catch { }
     };
 
-    const setPressed = (btn, pressed) => {
-        if (!btn) return;
-        btn.setAttribute('aria-pressed', String(pressed));
-    };
-
+    const setPressed = (btn, pressed) => btn?.setAttribute('aria-pressed', String(pressed));
     const setPaneOpen = (pane, open) => {
         if (!pane) return;
         pane.classList.toggle('pane-collapsed', !open);
@@ -293,21 +342,18 @@ window.addEventListener('DOMContentLoaded', async () => {
         const rootStyle = document.documentElement.style;
         rootStyle.setProperty('--palette-width', UI_LAYOUT.paletteOpen ? `${UI_DEFAULTS.paletteWidth}px` : '0px');
         rootStyle.setProperty('--inspector-width', UI_LAYOUT.inspectorOpen ? `${UI_DEFAULTS.inspectorWidth}px` : '0px');
-
-        // Use custom preview height if set, otherwise use default
         const previewHeight = UI_LAYOUT.previewHeight ?? UI_DEFAULTS.previewHeight;
         rootStyle.setProperty('--preview-height', UI_LAYOUT.previewOpen ? `${previewHeight}px` : '0px');
 
         setPressed(btnTogglePalette, UI_LAYOUT.paletteOpen);
         setPressed(btnTogglePreview, UI_LAYOUT.previewOpen);
         setPressed(btnToggleInspector, UI_LAYOUT.inspectorOpen);
-
         setPaneOpen(panePalette, UI_LAYOUT.paletteOpen);
         setPaneOpen(panePreview, UI_LAYOUT.previewOpen);
         setPaneOpen(paneInspector, UI_LAYOUT.inspectorOpen);
 
-        updatePlayheadUI();
-        updateGridBackground();
+        timeline.updatePlayheadUI();
+        timeline.updateGridBackground();
     };
 
     const togglePane = (which) => {
@@ -343,24 +389,19 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    btnManualClose?.addEventListener('click', () => setManualOpen(false));
+    document.getElementById('btn-manual-close')?.addEventListener('click', () => setManualOpen(false));
     manualModal?.addEventListener('mousedown', (e) => {
         if (e.target === manualModal) setManualOpen(false);
     });
-    btnAboutClose?.addEventListener('click', () => setAboutOpen(false));
+    document.getElementById('btn-about-close')?.addEventListener('click', () => setAboutOpen(false));
     aboutModal?.addEventListener('mousedown', (e) => {
         if (e.target === aboutModal) setAboutOpen(false);
     });
 
-    // Initialize binary inspector modal
     const binaryInspector = initBinaryInspector();
 
     loadUILayout();
     applyLayout();
-
-    // ==========================================
-    // PREVIEW MODE SELECTOR
-    // ==========================================
 
     const previewModeSelector = document.getElementById('preview-mode-selector');
     const previewCanvas = document.getElementById('preview-canvas');
@@ -374,143 +415,101 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     previewModeSelector?.addEventListener('click', (e) => {
         const btn = e.target.closest('.preview-mode-btn');
-        if (!btn) return;
-        const mode = btn.dataset.mode;
-        if (mode) {
-            stateManager.update(draft => {
-                draft.ui.previewMode = mode;
-            }, { skipHistory: true });
-            updatePreviewModeUI();
-            renderPreview();
-        }
+        const mode = btn?.dataset.mode;
+        if (!mode) return;
+
+        stateManager.update(draft => {
+            draft.ui.previewMode = mode;
+        }, { skipHistory: true });
+        updatePreviewModeUI();
+        timeline.renderPreview();
     });
-
-    // Initialize mode UI
     updatePreviewModeUI();
-
-    // ==========================================
-    // CANVAS RESIZE OBSERVER
-    // ==========================================
 
     const resizeCanvas = () => {
         if (!previewCanvas || !panePreview) return;
-
         const rect = panePreview.getBoundingClientRect();
         const newWidth = Math.floor(rect.width);
         const newHeight = Math.floor(rect.height);
-
-        // Only resize if dimensions actually changed
         if (previewCanvas.width !== newWidth || previewCanvas.height !== newHeight) {
             previewCanvas.width = newWidth;
             previewCanvas.height = newHeight;
-            renderPreview();
+            timeline.renderPreview();
         }
     };
 
-    // Use ResizeObserver to watch for container size changes
     if (typeof ResizeObserver !== 'undefined' && panePreview) {
-        const previewResizeObserver = new ResizeObserver(() => {
-            resizeCanvas();
-        });
-        previewResizeObserver.observe(panePreview);
+        new ResizeObserver(() => resizeCanvas()).observe(panePreview);
     }
-
-    // Initial canvas sizing
     resizeCanvas();
 
-    // ==========================================
-    // FIELD VIEW DRAG INTERACTION
-    // ==========================================
-
-    let fieldDragState = null; // { propId, startX, startY, origX, origY }
-
+    let fieldDragState = null;
     const getCanvasCoords = (e) => {
         if (!previewCanvas) return { x: 0, y: 0 };
         const rect = previewCanvas.getBoundingClientRect();
-        const scaleX = previewCanvas.width / rect.width;
-        const scaleY = previewCanvas.height / rect.height;
         return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
+            x: (e.clientX - rect.left) * (previewCanvas.width / rect.width),
+            y: (e.clientY - rect.top) * (previewCanvas.height / rect.height)
         };
     };
 
     previewCanvas?.addEventListener('mousedown', (e) => {
         if (stateManager.get('ui.previewMode') !== 'field') return;
-
         const coords = getCanvasCoords(e);
-        const previewRenderer = getPreviewRenderer();
-        if (!previewRenderer) return;
+        const previewRenderer = timeline.getPreviewRenderer();
+        const propId = previewRenderer?.hitTestProp(coords.x, coords.y);
+        if (!propId) return;
 
-        const propId = previewRenderer.hitTestProp(coords.x, coords.y);
-        if (propId) {
-            const fieldLayout = stateManager.get('project.settings.fieldLayout') || {};
-            const usedProps = previewRenderer._getUsedProps(stateManager.get('project'));
-            const index = usedProps.indexOf(propId);
-            const pos = previewRenderer._getPropPosition(propId, index, fieldLayout, previewCanvas.width, previewCanvas.height, usedProps.length);
+        const fieldLayout = stateManager.get('project.settings.fieldLayout') || {};
+        const usedProps = previewRenderer._getUsedProps(stateManager.get('project'));
+        const index = usedProps.indexOf(propId);
+        const pos = previewRenderer._getPropPosition(propId, index, fieldLayout, previewCanvas.width, previewCanvas.height, usedProps.length);
 
-            fieldDragState = {
-                propId,
-                startX: coords.x,
-                startY: coords.y,
-                origX: pos.x,
-                origY: pos.y
-            };
-            previewCanvas.style.cursor = 'grabbing';
-            e.preventDefault();
-        }
+        fieldDragState = {
+            propId,
+            startX: coords.x,
+            startY: coords.y,
+            origX: pos.x,
+            origY: pos.y
+        };
+        previewCanvas.style.cursor = 'grabbing';
+        e.preventDefault();
     });
 
     window.addEventListener('mousemove', (e) => {
         if (!fieldDragState || !previewCanvas) return;
-
         const coords = getCanvasCoords(e);
         const dx = coords.x - fieldDragState.startX;
         const dy = coords.y - fieldDragState.startY;
-
         const newX = Math.max(20, Math.min(previewCanvas.width - 20, fieldDragState.origX + dx));
         const newY = Math.max(20, Math.min(previewCanvas.height - 20, fieldDragState.origY + dy));
 
-        // Update position in state (without adding to undo history during drag)
         stateManager.update(draft => {
-            if (!draft.project.settings.fieldLayout) {
-                draft.project.settings.fieldLayout = {};
-            }
+            draft.project.settings.fieldLayout = draft.project.settings.fieldLayout || {};
             draft.project.settings.fieldLayout[fieldDragState.propId] = { x: newX, y: newY };
         }, { skipHistory: true });
 
-        renderPreview();
+        timeline.renderPreview();
     });
 
     window.addEventListener('mouseup', () => {
-        if (fieldDragState) {
-            // Mark project as dirty since we moved a prop
-            stateManager.update(draft => {
-                draft.isDirty = true;
-            }, { skipHistory: true });
-            fieldDragState = null;
-            if (previewCanvas) previewCanvas.style.cursor = '';
-        }
+        if (!fieldDragState) return;
+        stateManager.update(draft => {
+            draft.isDirty = true;
+        }, { skipHistory: true });
+        fieldDragState = null;
+        if (previewCanvas) previewCanvas.style.cursor = '';
     });
 
-    // ==========================================
-    // PREVIEW RESIZE HANDLE
-    // ==========================================
-
     const previewResizeHandle = document.getElementById('preview-resize-handle');
-    let previewResizeState = null; // { startY, startHeight }
-
     const MIN_PREVIEW_HEIGHT = 80;
     const MAX_PREVIEW_HEIGHT = 600;
+    let previewResizeState = null;
 
     previewResizeHandle?.addEventListener('mousedown', (e) => {
         if (!panePreview || !UI_LAYOUT.previewOpen) return;
-
         const currentHeight = UI_LAYOUT.previewHeight ?? UI_DEFAULTS.previewHeight;
-        previewResizeState = {
-            startY: e.clientY,
-            startHeight: currentHeight
-        };
+        previewResizeState = { startY: e.clientY, startHeight: currentHeight };
         previewResizeHandle.classList.add('dragging');
         document.body.style.cursor = 'ns-resize';
         document.body.style.userSelect = 'none';
@@ -519,1172 +518,47 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     window.addEventListener('mousemove', (e) => {
         if (!previewResizeState) return;
-
         const deltaY = e.clientY - previewResizeState.startY;
         const newHeight = Math.max(MIN_PREVIEW_HEIGHT, Math.min(MAX_PREVIEW_HEIGHT, previewResizeState.startHeight + deltaY));
-
         UI_LAYOUT.previewHeight = newHeight;
         document.documentElement.style.setProperty('--preview-height', `${newHeight}px`);
     });
 
     window.addEventListener('mouseup', () => {
-        if (previewResizeState) {
-            previewResizeHandle?.classList.remove('dragging');
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-            previewResizeState = null;
-            saveUILayout();
-        }
+        if (!previewResizeState) return;
+        previewResizeHandle?.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        previewResizeState = null;
+        saveUILayout();
     });
 
-    // ==========================================
-    // INITIALIZE CONTROLLERS
-    // ==========================================
-
-    // Initialize ThemeManager
     themeManager.init({
         toggleButton: document.getElementById('btn-theme-toggle'),
-        onThemeChange: () => {
-            window.dispatchEvent(new CustomEvent('app:timeline-changed'));
-            try { renderPreview(); } catch { }
-        }
+        onThemeChange: () => appEvents.emit(APP_EVENTS.TIMELINE_CHANGED)
     });
 
-    // Menu action handlers (passed directly to MenuRenderer)
-    const menuActionHandlers = {
-        'new': () => els.btnNew?.click(),
-        'open': () => els.btnOpen?.click(),
-        'save': () => els.btnSave?.click(),
-        'save-as': () => els.btnSaveAs?.click(),
-        'export': () => els.btnExportBin?.click(),
-        'upload': () => els.btnUpload?.click(),
-        'settings': () => els.btnSettings?.click(),
-        'about': () => setAboutOpen(true),
-        'inspect': () => binaryInspector?.open(),
-        'manual': () => setManualOpen(true),
-        'theme': (themeName) => themeManager.setTheme(themeName)
+    return {
+        aboutModal,
+        manualModal,
+        binaryInspector,
+        togglePane,
+        setAboutOpen,
+        setManualOpen
     };
+}
 
-    // Get cueController reference
-    const cueController = app.cueController;
-
-    // Wire timeline module to the application state/services (no bridge/proxy).
-    initTimeline({
-        stateManager,
-        timelineController,
-        cueController,
-        audioService,
-        errorHandler,
-        elements: els
-    });
-
-    // ==========================================
-    // SIDEBAR MODE MANAGER & MENU RENDERER
-    // ==========================================
-
-    const sidebarModeManager = app.sidebarModeManager;
-    const menuRenderer = app.menuRenderer;
-
-    // Initialize SidebarModeManager with dependencies
-    sidebarModeManager.init({
-        inspectorRenderer: getInspectorRenderer(),
-        menuRenderer: menuRenderer,
-        paneInspector: document.getElementById('pane-inspector'),
-        sidebarHeader: document.getElementById('sidebar-header'),
-        sidebarTitle: document.getElementById('sidebar-title'),
-        sidebarIcon: document.getElementById('sidebar-icon'),
-        sidebarBackBtn: document.getElementById('sidebar-back-btn'),
-        sidebarCloseBtn: document.getElementById('sidebar-close-btn'),
-        hamburgerButton: document.getElementById('btn-hamburger'),
-    });
-
-    // Initialize MenuRenderer with action handlers and dependencies
-    menuRenderer.init({
-        sidebarModeManager: sidebarModeManager,
-        menuContent: document.getElementById('menu-content'),
-        sidebarTitle: document.getElementById('sidebar-title'),
-        sidebarBackBtn: document.getElementById('sidebar-back-btn'),
-        themeManager: themeManager,
-        actionHandlers: menuActionHandlers
-    });
-
-    // ==========================================
-    // PALETTE DRAG INITIALIZATION
-    // ==========================================
-    document.querySelectorAll('.palette-item').forEach(item => {
-        item.addEventListener('dragstart', (e) => {
-            const type = item.dataset.type;
-            if (type) {
-                e.dataTransfer.setData('type', type);
-                e.dataTransfer.setData('text/plain', type);
-                e.dataTransfer.effectAllowed = 'copy';
-            }
-        });
-    });
-
-    // ==========================================
-    // PROJECT OPERATIONS
-    // ==========================================
-
-    const statusEls = {
-        project: document.getElementById('status-project'),
-        dirty: document.getElementById('status-dirty'),
-        pico: document.getElementById('status-pico'),
-        selection: document.getElementById('status-selection'),
-        snap: document.getElementById('status-snap'),
-        grid: document.getElementById('status-grid'),
-    };
-
-    const formatGridSize = (ms) => {
-        const n = Number(ms);
-        if (!Number.isFinite(n) || n <= 0) return '—';
-        if (n % 1000 === 0) return `${n / 1000}s`;
-        return `${n}ms`;
-    };
-
-    const findClipInProject = (project, clipId) => {
-        if (!project?.tracks || !clipId) return null;
-        for (const track of project.tracks) {
-            const clip = (track?.clips || []).find(c => c.id === clipId);
-            if (clip) return clip;
-        }
-        return null;
-    };
-
-    const updateStatusBar = () => {
-        if (statusEls.project) {
-            statusEls.project.textContent = projectService.getProjectName() || 'Untitled';
-        }
-
-        const isDirty = Boolean(stateManager.get('isDirty'));
-        if (statusEls.dirty) {
-            statusEls.dirty.classList.toggle('hidden', !isDirty);
-        }
-
-        const selection = stateManager.get('selection') || [];
-        if (statusEls.selection) {
-            if (selection.length === 0) {
-                statusEls.selection.textContent = 'Selection: none';
-            } else if (selection.length === 1) {
-                const project = stateManager.get('project');
-                const clip = findClipInProject(project, selection[0]);
-                const typeLabel = clip?.type ? String(clip.type) : 'clip';
-                statusEls.selection.textContent = `Selection: ${typeLabel}`;
-            } else {
-                statusEls.selection.textContent = `Selection: ${selection.length} clips`;
-            }
-        }
-
-        const snapEnabled = Boolean(stateManager.get('ui.snapEnabled'));
-        const gridSize = stateManager.get('ui.gridSize') || 1000;
-
-        if (statusEls.snap) statusEls.snap.textContent = `Snap: ${snapEnabled ? 'On' : 'Off'}`;
-        if (statusEls.grid) statusEls.grid.textContent = `Grid: ${formatGridSize(gridSize)}`;
-    };
-
-    // ==========================================
-    // PICO CONNECTION STATUS (Status Bar)
-    // ==========================================
-
-    let picoStatusText = 'Pico: Not detected';
-    let picoStatusTitle = 'No PicoLume device detected';
-
-    const renderPicoStatus = () => {
-        if (!statusEls.pico) return;
-        // Hide the Pico status entirely in the online version (no hardware access)
-        if (!projectService?.backend?.capabilities?.picoStatus) {
-            statusEls.pico.style.display = 'none';
-            // Also hide the separator before the Pico status
-            const picoSep = document.getElementById('status-pico-sep');
-            if (picoSep) picoSep.style.display = 'none';
-            return;
-        }
-        statusEls.pico.textContent = picoStatusText;
-        statusEls.pico.title = picoStatusTitle;
-    };
-
-    const startPicoStatusPolling = () => {
-        if (!projectService?.backend?.capabilities?.picoStatus) return;
-        if (typeof projectService.backend.getPicoConnectionStatus !== 'function') return;
-        if (!statusEls.pico) return;
-
-        let inflight = false;
-        const tick = async () => {
-            if (inflight) return;
-            inflight = true;
-            try {
-                const status = await projectService.backend.getPicoConnectionStatus();
-                const formatted = formatPicoStatus(status);
-                picoStatusText = formatted.text;
-                picoStatusTitle = formatted.title;
-                renderPicoStatus();
-            } catch {
-                // Ignore transient errors (e.g., enumerator failures)
-            } finally {
-                inflight = false;
-            }
-        };
-
-        // Prime immediately, then poll.
-        tick();
-        window.setInterval(tick, 1500);
-    };
-
-    const refreshUIForProject = () => {
-        stateManager?.set('selection', [], { skipHistory: true });
-        populateInspector(null);
-        buildTimeline();
-        updatePlayheadUI();
-        updateGridBackground();
-        try { renderPreview(); } catch { }
-        updateStatusBar();
-    };
-
-    if (els.btnNew) {
-        els.btnNew.onclick = async () => {
-            const result = await projectService.createNew(true);
-            if (result.success) {
-                errorHandler.success(result.message);
-                refreshUIForProject();
-            }
-        };
-    }
-
-    if (els.btnSave) {
-        els.btnSave.onclick = async () => {
-            const result = await projectService.save();
-            if (result.success) {
-                if (result.message) errorHandler.success(result.message);
-                updateStatusBar();
-            } else {
-                errorHandler.handle(result.message);
-            }
-        };
-    }
-
-    if (els.btnSaveAs) {
-        els.btnSaveAs.onclick = async () => {
-            const result = await projectService.save(null, true);
-            if (result.success) {
-                errorHandler.success(result.message);
-                updateStatusBar();
-            } else {
-                errorHandler.handle(result.message);
-            }
-        };
-    }
-
-    if (els.btnOpen) {
-        els.btnOpen.onclick = async () => {
-            const result = await projectService.load();
-            if (result.success) {
-                errorHandler.success(result.message);
-                refreshUIForProject();
-            } else if (result.message !== 'Load cancelled') {
-                errorHandler.handle(result.message);
-            }
-        };
-    }
-
-    if (els.btnExportBin) {
-        els.btnExportBin.onclick = async () => {
-            const result = await projectService.exportBinary();
-            if (result.success) {
-                errorHandler.success(result.message);
-            } else {
-                errorHandler.handle(result.message);
-            }
-        };
-    }
-
-    // Make the app title a clickable link to picolume.com in the online version
-    const appTitle = document.getElementById('app-title');
-    if (appTitle && projectService?.backend?.kind === 'online') {
-        appTitle.style.cursor = 'pointer';
-        appTitle.title = 'Visit picolume.com';
-        appTitle.addEventListener('click', () => {
-            window.open('https://picolume.com', '_blank', 'noopener,noreferrer');
-        });
-    }
-
-    if (els.btnUpload) {
-        // Disable upload button in online version (no hardware access)
-        if (!projectService?.backend?.capabilities?.upload) {
-            els.btnUpload.disabled = true;
-            els.btnUpload.title = 'Upload requires the desktop app';
-            els.btnUpload.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-
-        els.btnUpload.onclick = async () => {
-            if (uploadInProgress) return;
-
-            if (!projectService?.backend?.capabilities?.upload) {
-                return; // Button is disabled, but guard anyway
-            }
-
-            setUploadUiBusy(true);
-            await new Promise((resolve) => (window.requestAnimationFrame ? window.requestAnimationFrame(resolve) : setTimeout(resolve, 0)));
-
-            try {
-                const result = await projectService.uploadToDevice();
-                if (result.success) {
-                    errorHandler.success(result.message);
-                } else {
-                    errorHandler.handle(result.message);
-                }
-            } finally {
-                setUploadUiBusy(false);
-            }
-        };
-    }
-
-    if (els.btnSettings) {
-        els.btnSettings.onclick = () => {
-            // Clear selection and show project settings in inspector
-            stateManager.set('selection', [], { skipHistory: true });
-            updateSelectionUI();
-            // Also clear cue selection
-            if (cueController.getSelectedCue()) {
-                cueController.selectCue(null);
-            }
-            populateInspector(null);
-            updateStatusBar();
-        };
-    }
-
-    // ==========================================
-    // UNDO / REDO
-    // ==========================================
-
-    if (els.btnUndo) {
-        els.btnUndo.onclick = () => {
-            undoController.undo();
-            buildTimeline();
-            updateSelectionUI();
-        };
-    }
-
-    if (els.btnRedo) {
-        els.btnRedo.onclick = () => {
-            undoController.redo();
-            buildTimeline();
-            updateSelectionUI();
-        };
-    }
-
-    // Initialize KeyboardController
-    keyboardController.init({
-        undoController,
-        timelineController,
-        cueController,
-        themeManager,
-        elements: els,
-        modalChecks: [
-            {
-                isOpen: () => aboutModal?.getAttribute('aria-hidden') === 'false',
-                close: () => setAboutOpen(false)
-            },
-            {
-                isOpen: () => manualModal?.getAttribute('aria-hidden') === 'false',
-                close: () => setManualOpen(false)
-            }
-        ],
-        callbacks: {
-            togglePane,
-            onBuildTimeline: () => buildTimeline(),
-            onUpdateSelectionUI: () => updateSelectionUI(),
-            onUpdateClipboardUI: () => updateClipboardUI()
-        }
-    });
-
-    // Status bar updates (project/selection/snap/grid)
-    window.addEventListener('app:timeline-changed', updateStatusBar);
-    window.addEventListener('app:selection-changed', updateStatusBar);
-    window.addEventListener('app:grid-changed', updateStatusBar);
-
-    updateStatusBar();
-    renderPicoStatus();
-    startPicoStatusPolling();
-
-    // ==========================================
-    // KEYBOARD NAVIGATION FOR TIMELINE (Accessibility)
-    // ==========================================
-
-    // Helper: Get all clip elements in DOM order
-    const getAllClipElements = () => {
-        return Array.from(document.querySelectorAll('.clip[data-clip-id]'));
-    };
-
-    // Helper: Get clip data by ID
-    const getClipById = (clipId) => {
-        const tracks = stateManager.get('project.tracks') || [];
-        for (const track of tracks) {
-            const clip = (track.clips || []).find(c => c.id === clipId);
-            if (clip) return { clip, track };
-        }
-        return null;
-    };
-
-    // Helper: Find adjacent clip for navigation
-    const findAdjacentClip = (currentClipId, direction) => {
-        const clips = getAllClipElements();
-        const currentIndex = clips.findIndex(el => el.dataset.clipId === currentClipId);
-        if (currentIndex === -1) return null;
-
-        if (direction === 'next' && currentIndex < clips.length - 1) {
-            return clips[currentIndex + 1].dataset.clipId;
-        }
-        if (direction === 'prev' && currentIndex > 0) {
-            return clips[currentIndex - 1].dataset.clipId;
-        }
-        return null;
-    };
-
-    // Helper: Find clip in adjacent track (up/down navigation)
-    const findClipInAdjacentTrack = (currentClipId, direction) => {
-        const tracks = stateManager.get('project.tracks') || [];
-        let currentTrackIndex = -1;
-        let currentClip = null;
-
-        for (let i = 0; i < tracks.length; i++) {
-            const clip = tracks[i].clips.find(c => c.id === currentClipId);
-            if (clip) {
-                currentTrackIndex = i;
-                currentClip = clip;
-                break;
-            }
-        }
-
-        if (currentTrackIndex === -1 || !currentClip) return null;
-
-        const targetTrackIndex = direction === 'up' ? currentTrackIndex - 1 : currentTrackIndex + 1;
-        if (targetTrackIndex < 0 || targetTrackIndex >= tracks.length) return null;
-
-        const targetTrack = tracks[targetTrackIndex];
-        if (!targetTrack.clips || targetTrack.clips.length === 0) return null;
-
-        // Find clip closest to current clip's start time
-        let closest = targetTrack.clips[0];
-        let closestDist = Math.abs(closest.startTime - currentClip.startTime);
-
-        for (const clip of targetTrack.clips) {
-            const dist = Math.abs(clip.startTime - currentClip.startTime);
-            if (dist < closestDist) {
-                closest = clip;
-                closestDist = dist;
-            }
-        }
-
-        return closest.id;
-    };
-
-    // Helper: Nudge selected clips by time amount
-    // Returns the clipId that should be refocused (for keyboard navigation)
-    const nudgeSelectedClips = (deltaMs, focusClipId = null) => {
-        const selection = stateManager.get('selection') || [];
-        if (selection.length === 0) return;
-
-        const gridSize = stateManager.get('ui.gridSize') || 1000;
-        const snapEnabled = stateManager.get('ui.snapEnabled');
-        // Preserve direction (sign) when using grid size
-        const nudgeAmount = snapEnabled ? Math.sign(deltaMs) * gridSize : deltaMs;
-
-        stateManager.update(draft => {
-            const tracks = draft.project.tracks || [];
-            for (const track of tracks) {
-                for (const clip of track.clips || []) {
-                    if (selection.includes(clip.id)) {
-                        const newTime = Math.max(0, clip.startTime + nudgeAmount);
-                        clip.startTime = newTime;
-                    }
-                }
-            }
-            draft.isDirty = true;
-        });
-
-        buildTimeline();
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
-
-        // Restore focus to the clip after DOM rebuild
-        if (focusClipId) {
-            requestAnimationFrame(() => {
-                const el = document.getElementById(`clip-${focusClipId}`);
-                if (el) el.focus();
-            });
-        }
-    };
-
-    // Helper: Resize selected clips
-    const resizeSelectedClips = (deltaMs, focusClipId = null) => {
-        const selection = stateManager.get('selection') || [];
-        if (selection.length === 0) return;
-
-        const gridSize = stateManager.get('ui.gridSize') || 1000;
-        const snapEnabled = stateManager.get('ui.snapEnabled');
-        // Preserve direction (sign) when using grid size
-        const resizeAmount = snapEnabled ? Math.sign(deltaMs) * gridSize : deltaMs;
-        const minDuration = 100; // Minimum clip duration
-
-        stateManager.update(draft => {
-            const tracks = draft.project.tracks || [];
-            for (const track of tracks) {
-                for (const clip of track.clips || []) {
-                    if (selection.includes(clip.id)) {
-                        const newDuration = Math.max(minDuration, clip.duration + resizeAmount);
-                        clip.duration = newDuration;
-                    }
-                }
-            }
-            draft.isDirty = true;
-        });
-
-        buildTimeline();
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
-
-        // Restore focus to the clip after DOM rebuild
-        if (focusClipId) {
-            requestAnimationFrame(() => {
-                const el = document.getElementById(`clip-${focusClipId}`);
-                if (el) el.focus();
-            });
-        }
-    };
-
-    // Handle keyboard events on focused clips
-    window.addEventListener('app:clip-keydown', (e) => {
-        const { event, clipId } = e.detail;
-        const key = event.key;
-
-        // Enter or Space: Toggle selection
-        if (key === 'Enter' || key === ' ') {
-            event.preventDefault();
-            event.stopPropagation();
-            const selection = stateManager.get('selection') || [];
-            if (event.ctrlKey || event.metaKey) {
-                // Toggle in multi-select
-                timelineController.selectClips(clipId, true);
-            } else {
-                // Replace selection
-                timelineController.selectClips(clipId);
-            }
-            updateSelectionUI();
-            updateClipboardUI();
-            return;
-        }
-
-        // Tab: Navigate to next clip
-        if (key === 'Tab') {
-            event.preventDefault();
-            const nextClipId = findAdjacentClip(clipId, event.shiftKey ? 'prev' : 'next');
-            if (nextClipId) {
-                const nextEl = document.getElementById(`clip-${nextClipId}`);
-                if (nextEl) {
-                    nextEl.focus();
-                    // Select on navigation
-                    timelineController.selectClips(nextClipId);
-                    updateSelectionUI();
-                }
-            }
-            return;
-        }
-
-        // Arrow keys
-        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) {
-            event.preventDefault();
-
-            // Shift+Arrow: Resize selected clips
-            if (event.shiftKey) {
-                if (key === 'ArrowLeft') {
-                    resizeSelectedClips(-250, clipId); // Shrink, maintain focus
-                } else if (key === 'ArrowRight') {
-                    resizeSelectedClips(250, clipId); // Grow, maintain focus
-                }
-                return;
-            }
-
-            // Alt+Arrow or plain Arrow: Nudge selected clips (move in time)
-            if (event.altKey || (!event.ctrlKey && !event.metaKey)) {
-                const selection = stateManager.get('selection') || [];
-
-                // Left/Right: Nudge in time
-                if (key === 'ArrowLeft') {
-                    if (selection.includes(clipId)) {
-                        nudgeSelectedClips(-250, clipId); // Maintain focus
-                    }
-                    return;
-                }
-                if (key === 'ArrowRight') {
-                    if (selection.includes(clipId)) {
-                        nudgeSelectedClips(250, clipId); // Maintain focus
-                    }
-                    return;
-                }
-
-                // Up/Down: Navigate to clip in adjacent track
-                if (key === 'ArrowUp' || key === 'ArrowDown') {
-                    const targetClipId = findClipInAdjacentTrack(clipId, key === 'ArrowUp' ? 'up' : 'down');
-                    if (targetClipId) {
-                        const targetEl = document.getElementById(`clip-${targetClipId}`);
-                        if (targetEl) {
-                            targetEl.focus();
-                            timelineController.selectClips(targetClipId);
-                            updateSelectionUI();
-                        }
-                    }
-                    return;
-                }
-            }
-        }
-
-        // Delete/Backspace: Delete selected clips
-        if (key === 'Delete' || key === 'Backspace') {
-            event.preventDefault();
-            timelineController.deleteSelected();
-            buildTimeline();
-            updateSelectionUI();
-            // Focus first remaining clip
-            const clips = getAllClipElements();
-            if (clips.length > 0) {
-                clips[0].focus();
-            }
-            return;
-        }
-
-        // Escape: Clear selection and blur
-        if (key === 'Escape') {
-            event.preventDefault();
-            timelineController.clearSelection();
-            updateSelectionUI();
-            // Also clear cue selection
-            if (cueController.getSelectedCue()) {
-                cueController.selectCue(null);
-            }
-            document.activeElement.blur();
-            return;
-        }
-    });
-
-    // ==========================================
-    // CLIPBOARD OPERATIONS
-    // ==========================================
-
-    if (els.btnCopy) {
-        els.btnCopy.onclick = () => {
-            timelineController.copySelected();
-            updateClipboardUI();
-        };
-    }
-
-    if (els.btnPaste) {
-        els.btnPaste.onclick = () => {
-            timelineController.paste();
-            buildTimeline();
-        };
-    }
-
-    if (els.btnDuplicate) {
-        els.btnDuplicate.onclick = () => {
-            timelineController.duplicateSelected();
-            buildTimeline();
-        };
-    }
-
-    function updateClipboardUI() {
-        const selection = stateManager.get('selection');
-        const clipboard = stateManager.get('clipboard');
-
-        if (els.btnCopy) els.btnCopy.disabled = selection.length === 0;
-        if (els.btnPaste) els.btnPaste.disabled = !clipboard || clipboard.length === 0;
-        if (els.btnDuplicate) els.btnDuplicate.disabled = selection.length === 0;
-    }
-
-    // ==========================================
-    // TIMELINE EVENT HANDLERS (Migrated from timeline.js)
-    // ==========================================
-
-    // Handler: Load audio file into track
-    window.addEventListener('app:load-audio', async (e) => {
-        const { file, trackId } = e.detail;
-
-        try {
-            const bufferId = `audio_${Date.now()}`;
-            const buffer = await audioService.loadAudioFile(file, bufferId);
-
-            const clip = {
-                id: `c${Date.now()}`,
-                type: 'audio',
-                startTime: stateManager.get('playback.currentTime') || 0,
-                duration: buffer.duration * 1000,
-                bufferId,
-                props: { name: file.name }
-            };
-
-            const result = timelineController.addClip(trackId, clip);
-            if (!result?.success) return;
-            buildTimeline();
-            errorHandler.success(`Loaded: ${file.name}`);
-        } catch (error) {
-            errorHandler.handle(error, { prefix: 'Audio Load Failed' });
-        }
-    });
-
-    // Handler: Drop clip from palette to timeline (or audio file from filesystem)
-    window.addEventListener('app:drop-clip', (e) => {
-        const { event, trackId } = e.detail;
-
-        // Check for external audio file drop
-        const files = event.dataTransfer.files;
-        if (files && files.length > 0) {
-            const file = files[0];
-            const track = stateManager.get('project.tracks')?.find(t => t.id === trackId);
-
-            if (file.type.startsWith('audio/')) {
-                if (track?.type === 'audio') {
-                    window.dispatchEvent(new CustomEvent('app:load-audio', {
-                        detail: { file, trackId }
-                    }));
-                } else {
-                    errorHandler.warning('Audio files can only be dropped on audio tracks');
-                }
-                return;
-            }
-        }
-
-        const type = event.dataTransfer.getData('type') || event.dataTransfer.getData('text/plain');
-
-        if (!type) return;
-
-        const scrollRect = els.timelineScroll?.getBoundingClientRect();
-        const scrollLeft = els.timelineScroll?.scrollLeft || 0;
-        // Calculate position relative to scroll area (no need to subtract headerWidth since
-        // scrollRect.left is already positioned after the headers due to flex layout)
-        const x = event.clientX - (scrollRect?.left || 0) + scrollLeft;
-        const zoom = stateManager.get('ui.zoom');
-        let startTime = Math.max(0, (x / zoom) * 1000); // Ensure non-negative
-
-        const snapEnabled = stateManager.get('ui.snapEnabled');
-        const gridSize = stateManager.get('ui.gridSize');
-        startTime = getSnappedTime(startTime, { snapEnabled, gridSize });
-
-        // Get existing clips on the target track to avoid overlaps
-        const track = stateManager.get('project.tracks')?.find(t => t.id === trackId);
-        const newClipDuration = CONFIG.defaultDuration;
-
-        if (track && track.clips.length > 0) {
-            // Sort clips by start time for proper overlap detection
-            const sortedClips = [...track.clips].sort((a, b) => a.startTime - b.startTime);
-
-            // Keep checking until we find a non-overlapping position
-            let foundOverlap = true;
-            let iterations = 0;
-            const maxIterations = sortedClips.length + 1; // Safety limit
-
-            while (foundOverlap && iterations < maxIterations) {
-                foundOverlap = false;
-                iterations++;
-                const newClipEnd = startTime + newClipDuration;
-
-                for (const existingClip of sortedClips) {
-                    const existingStart = existingClip.startTime;
-                    const existingEnd = existingStart + existingClip.duration;
-
-                    // Check for overlap
-                    const overlaps = (startTime < existingEnd && newClipEnd > existingStart);
-
-                    if (overlaps) {
-                        // Snap to the end of the overlapped clip
-                        startTime = existingEnd;
-                        if (snapEnabled) {
-                            startTime = getSnappedTime(startTime, { snapEnabled, gridSize });
-                        }
-                        foundOverlap = true;
-                        break; // Re-check from the start with new position
-                    }
-                }
-            }
-        }
-
-        const clip = createDefaultClip(type, startTime);
-        const result = timelineController.addClip(trackId, clip);
-        if (!result?.success) return;
-        buildTimeline();
-        selectClip(clip.id);
-    });
-
-    // --- SCRUBBER & DESELECT (timeline click to set playhead) ---
-    const handleScrub = (e) => {
-        if (e.target.closest('.clip') || e.target.closest('.clip-handle')) return;
-
-        const clickedTimelineArea =
-            e.target.closest('.track-header') ||
-            e.target.classList.contains('track-lane') ||
-            e.target === els.timelineContent ||
-            e.target === els.timelineScroll ||
-            e.target === els.tracksContainer;
-
-        if (clickedTimelineArea) {
-            if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-                document.activeElement.blur();
-            }
-
-            // Clear selection when clicking empty space
-            stateManager.set('selection', [], { skipHistory: true });
-            updateSelectionUI();
-            updateClipboardUI();
-
-            // Also clear cue selection
-            if (cueController.getSelectedCue()) {
-                cueController.selectCue(null);
-            }
-        }
-
-        // Only allow scrubbing from the ruler area
-        const clickedRuler = e.target.closest('.ruler');
-        if (!clickedRuler) return;
-
-        const scrollRect = els.timelineScroll.getBoundingClientRect();
-        // No need to subtract headerWidth - scrollRect.left is already after the headers
-        const startX = e.clientX - scrollRect.left + els.timelineScroll.scrollLeft;
-        const zoom = stateManager.get('ui.zoom');
-        const duration = stateManager.get('project.duration');
-
-        const updateTime = (xPos) => {
-            const t = (xPos / zoom) * 1000;
-            timelineController.setCurrentTime(Math.max(0, Math.min(duration, t)));
-            updatePlayheadUI();
-            renderPreview();
-            updateTimeDisplay();
-        };
-
-        updateTime(startX);
-
-        const move = (ev) => {
-            updateTime(ev.clientX - scrollRect.left + els.timelineScroll.scrollLeft);
-        };
-        const up = () => {
-            window.removeEventListener('mousemove', move);
-            window.removeEventListener('mouseup', up);
-        };
-
-        window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', up);
-    };
-
-    if (els.timelineScroll) {
-        els.timelineScroll.addEventListener('mousedown', handleScrub);
-    }
-
-    // Handler: Clip mousedown for selection and drag/resize
-    // Uses direct DOM manipulation during drag for smooth visual feedback
-    window.addEventListener('app:clip-mousedown', (e) => {
-        const { event, clipId } = e.detail;
-        const startX = event.clientX;
-
-        const zoom = stateManager.get('ui.zoom');
-        const pxPerMs = zoom / 1000;
-        const snapEnabled = stateManager.get('ui.snapEnabled');
-        const gridSize = stateManager.get('ui.gridSize');
-
-        // --- 1) SELECTION LOGIC ---
-        const selection = stateManager.get('selection') || [];
-        let nextSelection = selection;
-
-        if (event.ctrlKey || event.metaKey) {
-            nextSelection = selection.includes(clipId)
-                ? selection.filter(id => id !== clipId)
-                : [...selection, clipId];
-        } else {
-            if (!selection.includes(clipId)) {
-                nextSelection = [clipId];
-            }
-        }
-
-        stateManager.set('selection', nextSelection, { skipHistory: true });
-        updateSelectionUI();
-        updateClipboardUI();
-
-        // --- 2) DRAG/RESIZE PREP ---
-        const isResizeRight = event.target.classList.contains('right');
-        const isResizeLeft = event.target.classList.contains('left');
-        const isMove = !isResizeRight && !isResizeLeft;
-
-        // Find clip data and DOM elements for all selected clips
-        const clipInfos = {};
-        const state = stateManager.state;
-        const clipsToManipulate = isMove ? nextSelection : [clipId];
-
-        for (const id of clipsToManipulate) {
-            const el = document.getElementById(`clip-${id}`);
-            if (!el) continue;
-
-            for (const track of (state.project?.tracks || [])) {
-                const clip = (track.clips || []).find(c => c.id === id);
-                    if (clip) {
-                        clipInfos[id] = {
-                            el,
-                            trackId: track.id,
-                            trackType: track.type,
-                            clipType: clip.type,
-                            origLeft: parseFloat(el.style.left),
-                            origWidth: parseFloat(el.style.width),
-                            origStart: clip.startTime,
-                            origDur: clip.duration
-                        };
-                        break;
-                    }
-            }
-        }
-
-        // Track current computed values during drag
-        const currentValues = {};
-        for (const id in clipInfos) {
-            currentValues[id] = {
-                startTime: clipInfos[id].origStart,
-                duration: clipInfos[id].origDur
-            };
-        }
-
-        let hasMoved = false;
-        let targetTrackId = null;
-        let sourceTrackId = clipInfos[clipId]?.trackId || null;
-        let sourceTrackType = clipInfos[clipId]?.trackType || null;
-
-        // Set cursor style
-        document.body.style.cursor = isResizeLeft || isResizeRight ? 'col-resize' : 'grabbing';
-
-        const moveHandler = (ev) => {
-            const dx = ev.clientX - startX;
-            if (Math.abs(dx) > 3 && !hasMoved) {
-                hasMoved = true;
-            }
-            if (!hasMoved) return;
-
-            if (isResizeRight) {
-                // Resize from right edge
-                const info = clipInfos[clipId];
-                if (!info) return;
-
-                let newWidth = info.origWidth + dx;
-                const minWidth = (CONFIG.minClipDuration / 1000) * zoom;
-                if (newWidth < minWidth) newWidth = minWidth;
-
-                let newDur = (newWidth / zoom) * 1000;
-                if (snapEnabled) {
-                    const endTime = info.origStart + newDur;
-                    const snappedEnd = getSnappedTime(endTime, { snapEnabled, gridSize });
-                    newDur = snappedEnd - info.origStart;
-                    newWidth = (newDur / 1000) * zoom;
-                }
-
-                info.el.style.width = `${newWidth}px`;
-                currentValues[clipId].duration = newDur;
-                if (info.clipType === 'audio') {
-                    updateAudioClipWaveform(clipId, newDur);
-                }
-
-            } else if (isResizeLeft) {
-                // Resize from left edge
-                const info = clipInfos[clipId];
-                if (!info) return;
-
-                let newLeft = info.origLeft + dx;
-                let newWidth = info.origWidth - dx;
-                const minWidth = (CONFIG.minClipDuration / 1000) * zoom;
-
-                if (newWidth < minWidth) {
-                    newLeft = info.origLeft + info.origWidth - minWidth;
-                    newWidth = minWidth;
-                }
-                if (newLeft < 0) {
-                    newWidth += newLeft;
-                    newLeft = 0;
-                }
-
-                let newStart = (newLeft / zoom) * 1000;
-                let newDur = (newWidth / zoom) * 1000;
-
-                if (snapEnabled) {
-                    const snappedStart = getSnappedTime(newStart, { snapEnabled, gridSize });
-                    const delta = newStart - snappedStart;
-                    newStart = snappedStart;
-                    newDur += delta;
-                    newLeft = (newStart / 1000) * zoom;
-                    newWidth = (newDur / 1000) * zoom;
-                }
-
-                info.el.style.left = `${newLeft}px`;
-                info.el.style.width = `${newWidth}px`;
-                currentValues[clipId].startTime = newStart;
-                currentValues[clipId].duration = newDur;
-                if (info.clipType === 'audio') {
-                    updateAudioClipWaveform(clipId, newDur);
-                }
-
-            } else {
-                // Move clips
-                // Calculate delta time based on lead clip
-                const leadInfo = clipInfos[clipId];
-                if (!leadInfo) return;
-
-                let newLeadLeft = leadInfo.origLeft + dx;
-                if (newLeadLeft < 0) newLeadLeft = 0;
-
-                let newLeadStart = (newLeadLeft / zoom) * 1000;
-                if (snapEnabled) {
-                    newLeadStart = getSnappedTime(newLeadStart, { snapEnabled, gridSize });
-                    newLeadLeft = (newLeadStart / 1000) * zoom;
-                }
-
-                const dt = newLeadStart - leadInfo.origStart;
-
-                // Move all selected clips by the same delta
-                for (const id in clipInfos) {
-                    const info = clipInfos[id];
-                    let newStart = info.origStart + dt;
-                    if (newStart < 0) newStart = 0;
-                    const newLeft = (newStart / 1000) * zoom;
-
-                    info.el.style.left = `${newLeft}px`;
-                    currentValues[id].startTime = newStart;
-                }
-
-                // Cross-track detection: find lane under cursor and move clip element there
-                const lanes = document.querySelectorAll('.track-lane');
-                lanes.forEach(lane => lane.classList.remove('drag-over'));
-
-                for (const lane of lanes) {
-                    const rect = lane.getBoundingClientRect();
-                    if (ev.clientY >= rect.top && ev.clientY <= rect.bottom) {
-                        const laneTrackId = lane.dataset.trackId;
-                        const laneTrack = state.project.tracks.find(t => t.id === laneTrackId);
-                        // Only allow if same track type
-                        if (laneTrack && laneTrack.type === sourceTrackType) {
-                            lane.classList.add('drag-over');
-                            targetTrackId = laneTrackId;
-
-                            // Move clip elements to target lane visually (during drag)
-                            for (const id in clipInfos) {
-                                const info = clipInfos[id];
-                                if (info.el.parentElement !== lane) {
-                                    lane.appendChild(info.el);
-                                }
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-
-            renderPreview();
-        };
-
-        const upHandler = () => {
-            window.removeEventListener('mousemove', moveHandler);
-            window.removeEventListener('mouseup', upHandler);
-            document.body.style.cursor = '';
-
-            // Clear drag-over highlights
-            document.querySelectorAll('.track-lane').forEach(lane => lane.classList.remove('drag-over'));
-
-            if (hasMoved) {
-                // Commit changes to state
-                stateManager.update(draft => {
-                    // Update clip positions/durations
-                    for (const id in currentValues) {
-                        for (const track of draft.project.tracks) {
-                            const clip = track.clips.find(c => c.id === id);
-                            if (clip) {
-                                clip.startTime = currentValues[id].startTime;
-                                clip.duration = currentValues[id].duration;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Handle cross-track move
-                    if (isMove && targetTrackId && targetTrackId !== sourceTrackId) {
-                        const targetTrack = draft.project.tracks.find(t => t.id === targetTrackId);
-                        const sourceTrack = draft.project.tracks.find(t => t.id === sourceTrackId);
-
-                        if (targetTrack && sourceTrack && targetTrack.type === sourceTrack.type) {
-                            for (const id in clipInfos) {
-                                const clipIndex = sourceTrack.clips.findIndex(c => c.id === id);
-                                if (clipIndex !== -1) {
-                                    const [movedClip] = sourceTrack.clips.splice(clipIndex, 1);
-                                    targetTrack.clips.push(movedClip);
-                                }
-                            }
-                        }
-                    }
-
-                    draft.isDirty = true;
-                });
-
-                buildTimeline();
-                updateSelectionUI();
-            } else {
-                // Click without drag - collapse multi-selection if needed
-                const finalSelection = stateManager.get('selection') || [];
-                if (!event.ctrlKey && !event.metaKey && finalSelection.length > 1) {
-                    if (finalSelection.includes(clipId)) {
-                        stateManager.set('selection', [clipId], { skipHistory: true });
-                        updateSelectionUI();
-                        updateClipboardUI();
-                    }
-                }
-            }
-        };
-
-        window.addEventListener('mousemove', moveHandler);
-        window.addEventListener('mouseup', upHandler);
-    });
-
-    // Helper: Create default clip based on type
-    function createDefaultClip(type, startTime) {
-        const defaultProps = {
-            solid: { color: '#ff0000' },
-            flash: { color: '#ffffff' },
-            strobe: { color: '#ff0000', rate: 10 },
-            rainbow: { speed: 1, frequency: 1 },
-            rainbowHold: { frequency: 1 },
-            chase: { color: '#00ff00', speed: 1, width: 0.1, reverse: false },
-            wipe: { color: '#0000ff', reverse: false },
-            scanner: { color: '#ff00ff', speed: 1, width: 0.1 },
-            meteor: { color: '#ffaa00', speed: 1, tailLen: 0.3, reverse: false },
-            fire: {},
-            sparkle: { color: '#0000ff', density: 0.3 },
-            glitch: { color: '#ff0000', color2: '#00ff00', amount: 0.2 },
-            breathe: { color: '#00ffff', speed: 1 },
-            heartbeat: { color: '#ff0000', speed: 1 },
-            alternate: { colorA: '#ff0000', colorB: '#0000ff' },
-            energy: { color: '#ff00ff', color2: '#00ffff', speed: 1 }
-        };
-
-        return {
-            id: `c${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            type,
-            startTime,
-            duration: CONFIG.defaultDuration,
-            props: defaultProps[type] || {}
-        };
-    }
-
-    // ==========================================
-    // PLAYBACK CONTROLS
-    // ==========================================
-
+function setupTransportControls({ stateManager, audioService, timelineController, els, updateGridBackground }) {
     if (els.btnPlay) {
         els.btnPlay.onclick = async () => {
-            const isPlaying = stateManager.get('playback.isPlaying');
-
-            if (isPlaying) {
+            if (stateManager.get('playback.isPlaying')) {
                 audioService.stopPlayback();
                 els.btnPlay.innerHTML = '<i class="fas fa-play"></i>';
-            } else {
-                await audioService.startPlayback();
-                els.btnPlay.innerHTML = '<i class="fas fa-pause"></i>';
-                startAnimationLoop();
+                return;
             }
+            await audioService.startPlayback();
+            els.btnPlay.innerHTML = '<i class="fas fa-pause"></i>';
+            startAnimationLoop();
         };
     }
 
@@ -1692,9 +566,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         els.btnStop.onclick = () => {
             audioService.stopPlayback();
             timelineController.setCurrentTime(0);
-            updatePlayheadUI();
-            renderPreview();
-            updateTimeDisplay();
             if (els.btnPlay) els.btnPlay.innerHTML = '<i class="fas fa-play"></i>';
         };
     }
@@ -1702,72 +573,28 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (els.btnToStart) {
         els.btnToStart.onclick = () => {
             timelineController.setCurrentTime(0);
-            updatePlayheadUI();
-            renderPreview();
-            updateTimeDisplay();
         };
     }
-
-    function startAnimationLoop() {
-        function animate() {
-            const isPlaying = stateManager.get('playback.isPlaying');
-            if (!isPlaying) return;
-
-            const audioCtx = audioService.ctx;
-            const startTime = stateManager.get('playback.startTime');
-
-            if (audioCtx && startTime !== undefined) {
-                const currentTime = (audioCtx.currentTime - startTime) * 1000;
-                timelineController.setCurrentTime(currentTime);
-                updatePlayheadUI();
-                renderPreview();
-                updateTimeDisplay();
-
-                const duration = stateManager.get('project.duration');
-                if (currentTime >= duration) {
-                    audioService.stopPlayback();
-                    if (els.btnPlay) els.btnPlay.innerHTML = '<i class="fas fa-play"></i>';
-                    return;
-                }
-            }
-
-            requestAnimationFrame(animate);
-        }
-        animate();
-    }
-
-    // ==========================================
-    // VOLUME CONTROL
-    // ==========================================
 
     if (els.volSlider) {
         els.volSlider.addEventListener('input', (e) => {
             const volume = parseFloat(e.target.value);
             audioService.setVolume(volume);
-
             const icon = document.getElementById('vol-icon');
-            if (icon) {
-                if (volume === 0) {
-                    icon.className = "fas fa-volume-mute text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center";
-                } else if (volume < 0.5) {
-                    icon.className = "fas fa-volume-down text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center";
-                } else {
-                    icon.className = "fas fa-volume-up text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center";
-                }
+            if (!icon) return;
+            if (volume === 0) {
+                icon.className = 'fas fa-volume-mute text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center';
+            } else if (volume < 0.5) {
+                icon.className = 'fas fa-volume-down text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center';
+            } else {
+                icon.className = 'fas fa-volume-up text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center';
             }
         });
     }
 
-    // ==========================================
-    // ZOOM & GRID CONTROLS
-    // ==========================================
-
     if (els.zoomSlider) {
         els.zoomSlider.oninput = (e) => {
-            const zoom = parseInt(e.target.value);
-            timelineController.setZoom(zoom);
-            buildTimeline();
-            updatePlayheadUI();
+            timelineController.setZoom(parseInt(e.target.value, 10));
             updateGridBackground();
         };
     }
@@ -1781,32 +608,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     if (els.selGrid) {
         els.selGrid.onchange = (e) => {
-            timelineController.setGridSize(parseInt(e.target.value));
-            updateGridBackground();
+            timelineController.setGridSize(parseInt(e.target.value, 10));
         };
     }
 
-    // ==========================================
-    // TRACK CONTROLS
-    // ==========================================
-
     if (els.btnAddTrackLed) {
-        els.btnAddTrackLed.onclick = () => {
-            timelineController.addTrack('led');
-            buildTimeline();
-        };
+        els.btnAddTrackLed.onclick = () => timelineController.addTrack('led');
     }
 
     if (els.btnAddTrackAudio) {
-        els.btnAddTrackAudio.onclick = () => {
-            timelineController.addTrack('audio');
-            buildTimeline();
-        };
+        els.btnAddTrackAudio.onclick = () => timelineController.addTrack('audio');
     }
-
-    // ==========================================
-    // TIMELINE SCROLLING
-    // ==========================================
 
     if (els.timelineScroll) {
         els.timelineScroll.addEventListener('wheel', (e) => {
@@ -1817,8 +629,6 @@ window.addEventListener('DOMContentLoaded', async () => {
                 const newZoom = Math.max(10, Math.min(200, currentZoom + delta));
                 if (newZoom !== currentZoom) {
                     timelineController.setZoom(newZoom);
-                    buildTimeline();
-                    updatePlayheadUI();
                     updateGridBackground();
                 }
                 return;
@@ -1836,7 +646,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (els.trackHeaders) {
-        els.trackHeaders.addEventListener('wheel', e => {
+        els.trackHeaders.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (els.timelineScroll) {
                 els.timelineScroll.scrollTop += e.deltaY;
@@ -1844,15 +654,26 @@ window.addEventListener('DOMContentLoaded', async () => {
         }, { passive: false });
     }
 
-    // ==========================================
-    // INITIAL RENDER
-    // ==========================================
+    function startAnimationLoop() {
+        const animate = () => {
+            if (!stateManager.get('playback.isPlaying')) return;
 
-    buildTimeline();
-    updatePlayheadUI();
-    updateTimeDisplay();
-    updateGridBackground();
-    updateClipboardUI();
-    // Show project settings by default when nothing is selected.
-    populateInspector(null);
-});
+            const audioCtx = audioService.ctx;
+            const startTime = stateManager.get('playback.startTime');
+            if (audioCtx && startTime !== undefined) {
+                const currentTime = (audioCtx.currentTime - startTime) * 1000;
+                timelineController.setCurrentTime(currentTime);
+
+                if (currentTime >= stateManager.get('project.duration')) {
+                    audioService.stopPlayback();
+                    if (els.btnPlay) els.btnPlay.innerHTML = '<i class="fas fa-play"></i>';
+                    return;
+                }
+            }
+
+            requestAnimationFrame(animate);
+        };
+
+        animate();
+    }
+}

@@ -2,10 +2,17 @@
  * CueController - Manages cue point operations for live resync
  */
 
+import { APP_EVENTS, emitAppEvent } from '../core/AppEventHub.js';
+
 export class CueController {
-    constructor(stateManager, errorHandler) {
+    constructor(stateManager, errorHandler, appEvents = null) {
         this.stateManager = stateManager;
         this.errorHandler = errorHandler;
+        this.appEvents = appEvents;
+    }
+
+    _emit(type, detail) {
+        emitAppEvent(this.appEvents, type, detail);
     }
 
     /**
@@ -70,7 +77,7 @@ export class CueController {
             draft.isDirty = true;
         });
 
-        window.dispatchEvent(new CustomEvent('app:cues-changed'));
+        this._emit(APP_EVENTS.CUES_CHANGED);
         this.errorHandler.success(`Cue ${cueId} set at ${this._formatTime(timeMs)}`);
         return true;
     }
@@ -111,7 +118,7 @@ export class CueController {
             this.selectCue(null);
         }
 
-        window.dispatchEvent(new CustomEvent('app:cues-changed'));
+        this._emit(APP_EVENTS.CUES_CHANGED);
         this.errorHandler.success(`Cue ${cueId} cleared`);
         return true;
     }
@@ -139,7 +146,7 @@ export class CueController {
             draft.isDirty = true;
         });
 
-        window.dispatchEvent(new CustomEvent('app:cues-changed'));
+        this._emit(APP_EVENTS.CUES_CHANGED);
         return true;
     }
 
@@ -149,12 +156,17 @@ export class CueController {
      */
     selectCue(cueId) {
         // Clear clip selection when selecting a cue
+        let clearedSelection = false;
         if (cueId !== null) {
             this.stateManager.set('selection', [], { skipHistory: true });
+            clearedSelection = true;
         }
 
         this.stateManager.set('ui.selectedCue', cueId, { skipHistory: true });
-        window.dispatchEvent(new CustomEvent('app:cue-selected', { detail: { cueId } }));
+        if (clearedSelection) {
+            this._emit(APP_EVENTS.SELECTION_CHANGED);
+        }
+        this._emit(APP_EVENTS.CUE_SELECTED, { cueId });
     }
 
     /**
@@ -177,7 +189,7 @@ export class CueController {
         }
 
         this.stateManager.set('playback.currentTime', cue.timeMs, { skipHistory: true });
-        window.dispatchEvent(new CustomEvent('app:time-changed'));
+        this._emit(APP_EVENTS.TIME_CHANGED);
         return true;
     }
 
@@ -201,7 +213,7 @@ export class CueController {
             draft.isDirty = true;
         });
 
-        window.dispatchEvent(new CustomEvent('app:cues-changed'));
+        this._emit(APP_EVENTS.CUES_CHANGED);
         return true;
     }
 

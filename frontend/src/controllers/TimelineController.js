@@ -4,11 +4,17 @@
 
 import { CONFIG, getSnappedTime } from '../utils.js';
 import { validateClip } from '../core/validators.js';
+import { APP_EVENTS, emitAppEvent } from '../core/AppEventHub.js';
 
 export class TimelineController {
-    constructor(stateManager, errorHandler) {
+    constructor(stateManager, errorHandler, appEvents = null) {
         this.stateManager = stateManager;
         this.errorHandler = errorHandler;
+        this.appEvents = appEvents;
+    }
+
+    _emit(type, detail) {
+        emitAppEvent(this.appEvents, type, detail);
     }
 
     _isClipCompatibleWithTrack(trackType, clipType) {
@@ -37,7 +43,7 @@ export class TimelineController {
         });
 
         this.errorHandler.success(`${type.toUpperCase()} track added`);
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
     }
 
     /**
@@ -53,7 +59,8 @@ export class TimelineController {
             }
         });
 
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
+        this._emit(APP_EVENTS.SELECTION_CHANGED);
     }
 
     /**
@@ -88,7 +95,7 @@ export class TimelineController {
             draft.isDirty = true;
         });
 
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
         return { success: true };
     }
 
@@ -110,7 +117,7 @@ export class TimelineController {
             draft.selection = draft.selection.filter(id => id !== clipId);
         });
 
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
     }
 
     /**
@@ -129,7 +136,8 @@ export class TimelineController {
         });
 
         this.errorHandler.success(`Deleted ${selection.length} clip(s)`);
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
+        this._emit(APP_EVENTS.SELECTION_CHANGED);
     }
 
     /**
@@ -148,7 +156,7 @@ export class TimelineController {
             });
         });
 
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
     }
 
     /**
@@ -210,7 +218,7 @@ export class TimelineController {
             draft.isDirty = true;
         });
 
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
         return { success: true, movedCount: clipsToMove.length };
     }
 
@@ -247,7 +255,7 @@ export class TimelineController {
             }
         }, { skipHistory: true });
 
-        window.dispatchEvent(new CustomEvent('app:selection-changed'));
+        this._emit(APP_EVENTS.SELECTION_CHANGED);
     }
 
     /**
@@ -258,7 +266,7 @@ export class TimelineController {
             draft.selection = [];
         }, { skipHistory: true });
 
-        window.dispatchEvent(new CustomEvent('app:selection-changed'));
+        this._emit(APP_EVENTS.SELECTION_CHANGED);
     }
 
     /**
@@ -393,7 +401,7 @@ export class TimelineController {
         });
 
         this.errorHandler.success(`Pasted ${clipboard.length} clip(s)`);
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
         return { success: true };
     }
 
@@ -421,7 +429,7 @@ export class TimelineController {
         });
 
         this.errorHandler.success(`Duplicated ${selectedClips.length} clip(s)`);
-        window.dispatchEvent(new CustomEvent('app:timeline-changed'));
+        this._emit(APP_EVENTS.TIMELINE_CHANGED);
         return { success: true };
     }
 
@@ -437,7 +445,7 @@ export class TimelineController {
             draft.playback.currentTime = clampedTime;
         }, { skipHistory: true, skipNotify: true });
 
-        window.dispatchEvent(new CustomEvent('app:time-changed'));
+        this._emit(APP_EVENTS.TIME_CHANGED);
     }
 
     /**
@@ -451,7 +459,7 @@ export class TimelineController {
             draft.ui.zoom = clampedZoom;
         }, { skipHistory: true, skipNotify: true });
 
-        window.dispatchEvent(new CustomEvent('app:zoom-changed'));
+        this._emit(APP_EVENTS.ZOOM_CHANGED);
     }
 
     /**
@@ -462,6 +470,8 @@ export class TimelineController {
         this.stateManager.update(draft => {
             draft.ui.snapEnabled = enabled;
         }, { skipHistory: true, skipNotify: true });
+
+        this._emit(APP_EVENTS.GRID_CHANGED);
     }
 
     /**
@@ -473,6 +483,6 @@ export class TimelineController {
             draft.ui.gridSize = gridSize;
         }, { skipHistory: true, skipNotify: true });
 
-        window.dispatchEvent(new CustomEvent('app:grid-changed'));
+        this._emit(APP_EVENTS.GRID_CHANGED);
     }
 }

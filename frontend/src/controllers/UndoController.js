@@ -2,10 +2,13 @@
  * UndoController - Manages undo/redo operations
  */
 
+import { APP_EVENTS, emitAppEvent } from '../core/AppEventHub.js';
+
 export class UndoController {
-    constructor(stateManager, errorHandler) {
+    constructor(stateManager, errorHandler, appEvents = null) {
         this.stateManager = stateManager;
         this.errorHandler = errorHandler;
+        this.appEvents = appEvents;
         this.undoButton = null;
         this.redoButton = null;
         this.statusElement = null;
@@ -35,8 +38,7 @@ export class UndoController {
 
         if (success) {
             this.errorHandler.info('Undo');
-            // Dispatch event for UI updates
-            window.dispatchEvent(new CustomEvent('app:state-changed'));
+            emitAppEvent(this.appEvents, APP_EVENTS.STATE_CHANGED);
         }
 
         this.updateUI();
@@ -51,8 +53,7 @@ export class UndoController {
 
         if (success) {
             this.errorHandler.info('Redo');
-            // Dispatch event for UI updates
-            window.dispatchEvent(new CustomEvent('app:state-changed'));
+            emitAppEvent(this.appEvents, APP_EVENTS.STATE_CHANGED);
         }
 
         this.updateUI();

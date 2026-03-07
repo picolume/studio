@@ -18,23 +18,77 @@ import (
 
 // App struct
 type App struct {
-	ctx        context.Context
-	portEnum   PortEnumerator
-	portOpener PortOpener
-	drives     DriveScanner
+	ctx                   context.Context
+	portEnum              PortEnumerator
+	portOpener            PortOpener
+	drives                DriveScanner
+	saveFileDialogFn      func(context.Context, runtime.SaveDialogOptions) (string, error)
+	openFileDialogFn      func(context.Context, runtime.OpenDialogOptions) (string, error)
+	openDirectoryDialogFn func(context.Context, runtime.OpenDialogOptions) (string, error)
+	generateBinaryFn      func(string) ([]byte, int, error)
+	writeBinaryFn         func(string, []byte) error
+	serialResetFn         func(string, PortEnumerator, PortOpener, func(string), func(string, string)) SerialResetResult
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		portEnum:   realPortEnumerator{},
-		portOpener: realPortOpener{},
-		drives:     realDriveScanner{},
+		portEnum:              realPortEnumerator{},
+		portOpener:            realPortOpener{},
+		drives:                realDriveScanner{},
+		saveFileDialogFn:      runtime.SaveFileDialog,
+		openFileDialogFn:      runtime.OpenFileDialog,
+		openDirectoryDialogFn: runtime.OpenDirectoryDialog,
+		generateBinaryFn:      generateBinaryBytes,
+		writeBinaryFn:         writeBinaryToUSBDrive,
+		serialResetFn:         trySerialReset,
 	}
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+func (a *App) saveFileDialog(options runtime.SaveDialogOptions) (string, error) {
+	if a != nil && a.saveFileDialogFn != nil {
+		return a.saveFileDialogFn(a.ctx, options)
+	}
+	return runtime.SaveFileDialog(a.ctx, options)
+}
+
+func (a *App) openFileDialog(options runtime.OpenDialogOptions) (string, error) {
+	if a != nil && a.openFileDialogFn != nil {
+		return a.openFileDialogFn(a.ctx, options)
+	}
+	return runtime.OpenFileDialog(a.ctx, options)
+}
+
+func (a *App) openDirectoryDialog(options runtime.OpenDialogOptions) (string, error) {
+	if a != nil && a.openDirectoryDialogFn != nil {
+		return a.openDirectoryDialogFn(a.ctx, options)
+	}
+	return runtime.OpenDirectoryDialog(a.ctx, options)
+}
+
+func (a *App) generateBinary(projectJSON string) ([]byte, int, error) {
+	if a != nil && a.generateBinaryFn != nil {
+		return a.generateBinaryFn(projectJSON)
+	}
+	return generateBinaryBytes(projectJSON)
+}
+
+func (a *App) writeBinary(targetDrive string, data []byte) error {
+	if a != nil && a.writeBinaryFn != nil {
+		return a.writeBinaryFn(targetDrive, data)
+	}
+	return writeBinaryToUSBDrive(targetDrive, data)
+}
+
+func (a *App) serialReset(targetDrive string) SerialResetResult {
+	if a != nil && a.serialResetFn != nil {
+		return a.serialResetFn(targetDrive, a.portEnum, a.portOpener, a.emitUploadStatus, a.emitUploadManualEject)
+	}
+	return trySerialReset(targetDrive, a.portEnum, a.portOpener, a.emitUploadStatus, a.emitUploadManualEject)
 }
 
 func (a *App) emitUploadStatus(message string) {
@@ -92,16 +146,16 @@ func (a *App) RequestSavePath() string {
 	return filename
 }
 
-func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[string]string) string {
+func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[string]string) OperationResult {
 	// Validate and sanitize path to prevent directory traversal
 	safePath, err := validateSavePath(path, []string{".lum"})
 	if err != nil {
-		return "Error: Invalid path - " + err.Error()
+		return errorResult("invalid_path", "Error: Invalid path - "+err.Error())
 	}
 
 	outFile, err := os.Create(safePath)
 	if err != nil {
-		return "Error creating file: " + err.Error()
+		return errorResult("create_failed", "Error creating file: "+err.Error())
 	}
 	defer outFile.Close()
 
@@ -110,11 +164,11 @@ func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[
 
 	f, err := zipWriter.Create("project.json")
 	if err != nil {
-		return "Error writing project.json: " + err.Error()
+		return errorResult("zip_entry_failed", "Error writing project.json: "+err.Error())
 	}
 	_, err = f.Write([]byte(projectJson))
 	if err != nil {
-		return "Error writing JSON data: " + err.Error()
+		return errorResult("write_failed", "Error writing JSON data: "+err.Error())
 	}
 
 	var audioErrors []string
@@ -165,18 +219,18 @@ func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[
 		logger.Warn("SaveProject: Completed with %d audio file errors", len(audioErrors))
 	}
 
-	return "Saved"
+	return okResult("saved", "Saved")
 }
 
 // SaveBinaryData saves pre-generated binary data (base64 encoded) using native file dialog.
 // Binary generation is now handled in JavaScript for consistency.
-func (a *App) SaveBinaryData(base64Data string) string {
+func (a *App) SaveBinaryData(base64Data string) OperationResult {
 	data, err := base64.StdEncoding.DecodeString(base64Data)
 	if err != nil {
-		return "Error decoding binary data: " + err.Error()
+		return errorResult("decode_failed", "Error decoding binary data: "+err.Error())
 	}
 
-	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	filename, err := a.saveFileDialog(runtime.SaveDialogOptions{
 		DefaultFilename: "show.bin",
 		Title:           "Export Show Binary",
 		Filters: []runtime.FileFilter{
@@ -185,24 +239,24 @@ func (a *App) SaveBinaryData(base64Data string) string {
 	})
 
 	if err != nil || filename == "" {
-		return "Cancelled"
+		return cancelledResult("cancelled", "Cancelled")
 	}
 
 	err = os.WriteFile(filename, data, 0644)
 	if err != nil {
-		return "Error saving file: " + err.Error()
+		return errorResult("save_failed", "Error saving file: "+err.Error())
 	}
 
-	return "OK"
+	return okResult("saved", "OK")
 }
 
 // UploadToPico: Writes file and resets via Native Serial
-func (a *App) UploadToPico(projectJson string) string {
+func (a *App) UploadToPico(projectJson string) OperationResult {
 	// 1. Generate binary
 	a.emitUploadStatus("Generating show.bin...")
-	data, count, err := generateBinaryBytes(projectJson)
+	data, count, err := a.generateBinary(projectJson)
 	if err != nil {
-		return "Error generating binary: " + err.Error()
+		return errorResult("generate_failed", "Error generating binary: "+err.Error())
 	}
 
 	// 2. Find USB drive
@@ -216,11 +270,11 @@ func (a *App) UploadToPico(projectJson string) string {
 
 	if len(possibleDrives) == 0 {
 		a.emitUploadStatus("Select the PicoLume USB drive...")
-		dir, derr := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		dir, derr := a.openDirectoryDialog(runtime.OpenDialogOptions{
 			Title: "Select PicoLume USB Drive (USB MODE)",
 		})
 		if derr != nil || dir == "" {
-			return "No Pico found. (Hold CONFIG btn while plugging in?)"
+			return errorResult("pico_not_found", "No Pico found. (Hold CONFIG btn while plugging in?)")
 		}
 		possibleDrives = append(possibleDrives, dir)
 	}
@@ -229,14 +283,14 @@ func (a *App) UploadToPico(projectJson string) string {
 
 	// 3. Write binary to drive
 	a.emitUploadStatus(fmt.Sprintf("Uploading show.bin to %s...", targetDrive))
-	if err := writeBinaryToUSBDrive(targetDrive, data); err != nil {
-		return err.Error()
+	if err := a.writeBinary(targetDrive, data); err != nil {
+		return errorResult("write_failed", err.Error())
 	}
 
 	// 4. Attempt serial reset
-	result := trySerialReset(targetDrive, a.portEnum, a.portOpener, a.emitUploadStatus, a.emitUploadManualEject)
+	result := a.serialReset(targetDrive)
 	if result.Success {
-		return fmt.Sprintf("Success! Uploaded %d events. Device is reloading.", count)
+		return okResult("uploaded", fmt.Sprintf("Success! Uploaded %d events. Device is reloading.", count))
 	}
 
 	// 5. Handle reset failure
@@ -246,7 +300,7 @@ func (a *App) UploadToPico(projectJson string) string {
 		a.emitUploadManualEject(targetDrive, "RESET_FAILED")
 	}
 	a.emitUploadStatus("Auto-reset failed; please safely eject the drive before unplugging.")
-	return fmt.Sprintf("Success! Uploaded %d events to %s. Manual eject required.", count, targetDrive)
+	return warningResult("manual_eject_required", fmt.Sprintf("Success! Uploaded %d events to %s. Manual eject required.", count, targetDrive))
 }
 
 type PicoConnectionStatus struct {
@@ -307,7 +361,7 @@ func (a *App) GetPicoConnectionStatus() PicoConnectionStatus {
 }
 
 func (a *App) LoadProject() LoadResponse {
-	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+	filename, err := a.openFileDialog(runtime.OpenDialogOptions{
 		Title: "Open Project",
 		Filters: []runtime.FileFilter{
 			{DisplayName: "PicoLume Project (*.lum)", Pattern: "*.lum"},
@@ -315,30 +369,33 @@ func (a *App) LoadProject() LoadResponse {
 	})
 
 	if err != nil || filename == "" {
-		return LoadResponse{Error: "Cancelled"}
+		return newLoadResponse(ResultStatusCancelled, "cancelled", "Load cancelled")
 	}
 
 	// Security: Check zip file size before opening
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
-		return LoadResponse{Error: "Failed to stat file: " + err.Error()}
+		return newLoadResponse(ResultStatusError, "stat_failed", "Failed to stat file: "+err.Error())
 	}
 	if fileInfo.Size() > MaxZipFileSize {
-		return LoadResponse{Error: fmt.Sprintf("Project file too large (max %dMB)", MaxZipFileSize/(1024*1024))}
+		return newLoadResponse(ResultStatusError, "file_too_large", fmt.Sprintf("Project file too large (max %dMB)", MaxZipFileSize/(1024*1024)))
 	}
 
 	r, err := zip.OpenReader(filename)
 	if err != nil {
-		return LoadResponse{Error: "Failed to open zip: " + err.Error()}
+		return newLoadResponse(ResultStatusError, "zip_open_failed", "Failed to open zip: "+err.Error())
 	}
 	defer r.Close()
 
 	// Security: Check file count to prevent zip bombs
 	if len(r.File) > MaxFilesInZip {
-		return LoadResponse{Error: fmt.Sprintf("Too many files in archive (max %d)", MaxFilesInZip)}
+		return newLoadResponse(ResultStatusError, "too_many_files", fmt.Sprintf("Too many files in archive (max %d)", MaxFilesInZip))
 	}
 
 	response := LoadResponse{
+		Status:     ResultStatusOK,
+		Code:       "loaded",
+		Message:    "Loaded",
 		AudioFiles: make(map[string]string),
 		FilePath:   filename,
 	}
@@ -358,15 +415,15 @@ func (a *App) LoadProject() LoadResponse {
 
 		// Apply appropriate size limits based on file type
 		if isProjectJson && uncompressedSize > MaxProjectJsonSize {
-			return LoadResponse{Error: fmt.Sprintf("project.json too large (max %dMB)", MaxProjectJsonSize/(1024*1024))}
+			return newLoadResponse(ResultStatusError, "project_too_large", fmt.Sprintf("project.json too large (max %dMB)", MaxProjectJsonSize/(1024*1024)))
 		}
 		if isAudioFile && uncompressedSize > MaxAudioFileSize {
-			return LoadResponse{Error: fmt.Sprintf("Audio file too large (max %dMB)", MaxAudioFileSize/(1024*1024))}
+			return newLoadResponse(ResultStatusError, "audio_too_large", fmt.Sprintf("Audio file too large (max %dMB)", MaxAudioFileSize/(1024*1024)))
 		}
 
 		// Security: Check total extracted size
 		if totalExtracted+uncompressedSize > MaxTotalExtractedSize {
-			return LoadResponse{Error: fmt.Sprintf("Total extracted size exceeds limit (max %dMB)", MaxTotalExtractedSize/(1024*1024))}
+			return newLoadResponse(ResultStatusError, "extract_limit_exceeded", fmt.Sprintf("Total extracted size exceeds limit (max %dMB)", MaxTotalExtractedSize/(1024*1024)))
 		}
 
 		// Only process known file types
@@ -399,7 +456,7 @@ func (a *App) LoadProject() LoadResponse {
 
 		// Security: Verify we didn't exceed the limit
 		if int64(len(content)) > maxSize {
-			return LoadResponse{Error: "File exceeded size limit during extraction"}
+			return newLoadResponse(ResultStatusError, "extract_limit_exceeded", "File exceeded size limit during extraction")
 		}
 
 		totalExtracted += uint64(len(content))
