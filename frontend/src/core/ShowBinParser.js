@@ -176,6 +176,7 @@ export function parseShowBin(bytes) {
         const effectCode = readU8(dv, base + 8);
         const speed = readU8(dv, base + 9);
         const width = readU8(dv, base + 10);
+        const flags = readU8(dv, base + 11);
         const color1 = readU32LE(dv, base + 12);
         const color2 = readU32LE(dv, base + 16);
 
@@ -197,6 +198,8 @@ export function parseShowBin(bytes) {
             effectCode,
             speed,
             width,
+            flags,
+            reverse: (flags & 0x01) !== 0,
             color1,
             color2,
             propMask,
@@ -364,6 +367,8 @@ export function exportAsJSON(parsed) {
             duration: e.dur,
             effect: EFFECT[e.effectCode]?.name || `UNKNOWN(${e.effectCode})`,
             effectCode: e.effectCode,
+            flags: e.flags,
+            reverse: e.reverse,
             color1: fmtRgb(e.color1),
             color2: fmtRgb(e.color2),
             speed: e.speed,
@@ -379,12 +384,14 @@ export function exportAsJSON(parsed) {
 export function exportAsCSV(parsed) {
     if (!parsed || parsed.error) return null;
 
-    const headers = ['Index', 'Start (ms)', 'Duration (ms)', 'Effect', 'Color 1', 'Color 2', 'Speed', 'Width', 'Prop Count'];
+    const headers = ['Index', 'Start (ms)', 'Duration (ms)', 'Effect', 'Reverse', 'Flags', 'Color 1', 'Color 2', 'Speed', 'Width', 'Prop Count'];
     const rows = parsed.events.map(e => [
         e.index,
         e.start,
         e.dur,
         EFFECT[e.effectCode]?.name || `UNKNOWN(${e.effectCode})`,
+        e.reverse ? 'Yes' : 'No',
+        fmtHex(e.flags, 2),
         fmtRgb(e.color1),
         fmtRgb(e.color2),
         e.speed,

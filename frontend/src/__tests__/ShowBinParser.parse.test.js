@@ -14,6 +14,34 @@ function writeU16LE(bytes, offset, value) {
 }
 
 describe('ShowBinParser.parseShowBin', () => {
+  it('parses the reverse flag from event flags byte', () => {
+    const headerSize = 16;
+    const lutSize = 224 * 8;
+    const eventSize = 48;
+    const eventCount = 1;
+
+    const totalSize = headerSize + lutSize + eventSize * eventCount;
+    const bytes = new Uint8Array(totalSize);
+
+    writeU32LE(bytes, 0, 0x5049434f);
+    writeU16LE(bytes, 4, 3);
+    writeU16LE(bytes, 6, eventCount);
+
+    const eventBase = headerSize + lutSize;
+    writeU32LE(bytes, eventBase + 0, 1000);
+    writeU32LE(bytes, eventBase + 4, 500);
+    bytes[eventBase + 8] = 6; // CHASE
+    bytes[eventBase + 9] = 50;
+    bytes[eventBase + 10] = 25;
+    bytes[eventBase + 11] = 0x01; // reverse flag
+
+    const parsed = parseShowBin(bytes);
+    expect(parsed.error).toBeUndefined();
+    expect(parsed.events).toHaveLength(1);
+    expect(parsed.events[0].flags).toBe(0x01);
+    expect(parsed.events[0].reverse).toBe(true);
+  });
+
   it('parses optional CUE1 trailer', () => {
     const headerSize = 16;
     const lutSize = 224 * 8;
@@ -51,4 +79,3 @@ describe('ShowBinParser.parseShowBin', () => {
     expect(parsed.trailingBytes).toBe(cueSize);
   });
 });
-

@@ -245,7 +245,7 @@ export function initBinaryInspector() {
         }
 
         if (events.length === 0) {
-            els.eventsTbody.innerHTML = '<tr><td colspan="9" class="inspector-empty">No events match filter</td></tr>';
+            els.eventsTbody.innerHTML = '<tr><td colspan="10" class="inspector-empty">No events match filter</td></tr>';
             return;
         }
 
@@ -271,6 +271,7 @@ export function initBinaryInspector() {
                             ${effect.name}
                         </span>
                     </td>
+                    <td>${e.reverse ? 'Yes' : 'No'}</td>
                     <td><span class="inspector-swatch" style="background: ${fmtRgb(e.color1)};"></span>${fmtRgb(e.color1)}</td>
                     <td class="${color2Class}"><span class="inspector-swatch" style="background: ${fmtRgb(e.color2)};"></span>${fmtRgb(e.color2)}</td>
                     <td>${speedVal}</td>
@@ -281,7 +282,7 @@ export function initBinaryInspector() {
         }).join('');
 
         if (events.length > displayEvents.length) {
-            els.eventsTbody.innerHTML += `<tr><td colspan="9" class="inspector-empty">Showing ${displayEvents.length}/${events.length} events</td></tr>`;
+            els.eventsTbody.innerHTML += `<tr><td colspan="10" class="inspector-empty">Showing ${displayEvents.length}/${events.length} events</td></tr>`;
         }
     }
 
