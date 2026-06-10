@@ -4,9 +4,9 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "build": "tailwindcss -i ./src/input.css -o ./src/style.css",
+        "build": "tailwindcss -i ./src/input.css -o ./src/style.css && node ../scripts/build-wasm.mjs",
         "build:css": "tailwindcss -i ./src/input.css -o ./src/style.css --watch",
-        "build:wasm": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-wasm.ps1",
+        "build:wasm": "node ../scripts/build-wasm.mjs",
         "test": "vitest",
         "test:run": "vitest run",
         "test:ui": "vitest --ui",

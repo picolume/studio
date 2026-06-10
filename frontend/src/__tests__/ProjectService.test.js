@@ -95,6 +95,22 @@ describe('ProjectService', () => {
         expect(stateManager.get('isDirty')).toBe(true);
     });
 
+    it('treats save warnings as success and surfaces the warning message', async () => {
+        backend.saveProjectToPath.mockResolvedValue({
+            status: 'warning',
+            code: 'saved_with_audio_errors',
+            message: 'Saved, but 1 audio file(s) could not be written: decode error for buffer9'
+        });
+
+        const result = await service.save('C:/shows/demo.lum');
+
+        expect(result.success).toBe(true);
+        expect(result.warning).toBe(true);
+        expect(result.message).toContain('audio');
+        expect(stateManager.get('isDirty')).toBe(false);
+        expect(stateManager.get('filePath')).toBe('C:/shows/demo.lum');
+    });
+
     it('loads using status-based responses and restores audio assets', async () => {
         const loadedProject = {
             ...createInitialState().project,
@@ -121,6 +137,60 @@ describe('ProjectService', () => {
             'buffer1',
             'data:audio/wav;base64,UklGRg=='
         );
+    });
+
+    it('migrates legacy projects on load', async () => {
+        const legacyProject = {
+            name: 'Legacy',
+            duration: 60000,
+            settings: {
+                profiles: [{ id: 'p1', name: 'Old', assignedIds: '1-10', ledCount: 60 }]
+            },
+            propGroups: [],
+            tracks: []
+        };
+        backend.loadProject.mockResolvedValue({
+            status: 'ok',
+            code: 'loaded',
+            message: 'Loaded',
+            projectJson: JSON.stringify(legacyProject),
+            filePath: 'legacy.lum',
+            audioFiles: {}
+        });
+
+        const result = await service.load();
+
+        expect(result).toEqual({ success: true, message: 'Project Loaded' });
+        const project = stateManager.get('project');
+        expect(project.version).toBe('1.0.0');
+        expect(project.cues).toHaveLength(4);
+        expect(project.settings.palettes.length).toBeGreaterThan(0);
+        expect(project.settings.patch).toEqual({});
+        expect(project.settings.fieldLayout).toEqual({});
+
+        // Legacy profile gains firmware fields with defaults
+        const profile = project.settings.profiles[0];
+        expect(profile.ledType).toBe(0);
+        expect(profile.brightnessCap).toBe(255);
+        expect(profile.ledCount).toBe(60);
+    });
+
+    it('rejects structurally invalid project files', async () => {
+        backend.loadProject.mockResolvedValue({
+            status: 'ok',
+            code: 'loaded',
+            message: 'Loaded',
+            projectJson: JSON.stringify({ name: 'Broken' }), // no tracks array
+            filePath: 'broken.lum',
+            audioFiles: {}
+        });
+
+        const result = await service.load();
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('Invalid project file');
+        expect(stateManager.get('project.name')).not.toBe('Broken');
+        expect(audioService.loadAudioFromDataURL).not.toHaveBeenCalled();
     });
 
     it('treats cancelled loads as a non-success without parsing project data', async () => {

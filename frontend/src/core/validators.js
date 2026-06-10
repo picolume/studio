@@ -237,9 +237,10 @@ export function validateProject(project) {
         }
     }
 
-    // Validate duration
+    // Validate duration (up to 1 hour; this guards against corrupt files,
+    // not legitimate long shows)
     if (project.duration !== undefined) {
-        const durationValidation = validateDuration(project.duration, 1000, 600000);
+        const durationValidation = validateDuration(project.duration, 1000, 3600000);
         if (!durationValidation.valid) {
             errors.push(`Project ${durationValidation.error}`);
         }

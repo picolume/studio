@@ -148,8 +148,10 @@ export class Application {
             this._updateTitle();
         });
 
-        this.stateManager.subscribeTo('isDirty', () => {
+        this.stateManager.subscribeTo('isDirty', (isDirty) => {
             this._updateTitle();
+            // Keep the backend's close guard in sync with unsaved changes.
+            this.projectService?.backend?.setDirty?.(Boolean(isDirty));
         });
 
         this.stateManager.subscribeTo('filePath', () => {
@@ -175,6 +177,18 @@ export class Application {
         this.appEvents.on(APP_EVENTS.TOAST, (e) => {
             this.errorHandler.showToast(e.detail);
         });
+
+        // In the browser build there is no native close hook, so warn about
+        // unsaved changes via beforeunload. The desktop build handles this in
+        // Go (OnBeforeClose).
+        if (this.projectService?.backend?.kind === 'online' && typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', (e) => {
+                if (this.stateManager.get('isDirty') === true) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+        }
     }
 
     _setupAutoSave() {

@@ -209,27 +209,28 @@ export function setupProjectWorkflow(options = {}) {
         };
     }
 
+    const notifySaveResult = (result) => {
+        if (result.success) {
+            if (result.warning) {
+                errorHandler.warning(result.message);
+            } else if (result.message) {
+                errorHandler.success(result.message);
+            }
+            updateStatusBar();
+        } else {
+            errorHandler.handle(result.message);
+        }
+    };
+
     if (els.btnSave) {
         els.btnSave.onclick = async () => {
-            const result = await projectService.save();
-            if (result.success) {
-                if (result.message) errorHandler.success(result.message);
-                updateStatusBar();
-            } else {
-                errorHandler.handle(result.message);
-            }
+            notifySaveResult(await projectService.save());
         };
     }
 
     if (els.btnSaveAs) {
         els.btnSaveAs.onclick = async () => {
-            const result = await projectService.save(null, true);
-            if (result.success) {
-                errorHandler.success(result.message);
-                updateStatusBar();
-            } else {
-                errorHandler.handle(result.message);
-            }
+            notifySaveResult(await projectService.save(null, true));
         };
     }
 

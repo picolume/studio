@@ -105,8 +105,9 @@ export class KeyboardController {
         // Ctrl/Cmd shortcuts
         if (ctrl) {
             switch (key.toLowerCase()) {
-                // Ctrl+Z: Undo
+                // Ctrl+Z: Undo (leave native text undo alone while typing)
                 case 'z':
+                    if (this._isTypingTarget(document.activeElement)) return;
                     if (!shift) {
                         e.preventDefault();
                         this._performUndo();
@@ -115,6 +116,13 @@ export class KeyboardController {
                         e.preventDefault();
                         this._performRedo();
                     }
+                    return;
+
+                // Ctrl+Y: Redo (Windows convention)
+                case 'y':
+                    if (this._isTypingTarget(document.activeElement)) return;
+                    e.preventDefault();
+                    this._performRedo();
                     return;
 
                 // Ctrl+S: Save

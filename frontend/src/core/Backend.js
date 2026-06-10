@@ -41,6 +41,15 @@ export function createWailsBackend(app) {
         },
         async getPicoConnectionStatus() {
             return await app.GetPicoConnectionStatus();
+        },
+        async setDirty(dirty) {
+            // Keeps the Go side informed so it can prompt about unsaved
+            // changes before the window closes.
+            try {
+                await app.SetDirty(Boolean(dirty));
+            } catch {
+                // Older backend without SetDirty; close guard simply won't prompt.
+            }
         }
     };
 }

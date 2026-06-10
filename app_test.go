@@ -172,15 +172,15 @@ func TestCalculateMaskInBinaryGeneration(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name: "reversed range handled gracefully",
+			name: "reversed range normalized to min..max",
 			projectJson: `{
 				"settings": {"ledCount": 10, "brightness": 100, "profiles": [], "patch": {}, "showDuration": 1000},
-				"propGroups": [{"id": "g1", "name": "Test", "ids": "5-1,10"}],
+				"propGroups": [{"id": "g1", "name": "Test", "ids": "5-1"}],
 				"tracks": [{"type": "led", "groupId": "g1", "clips": [
 					{"startTime": 0, "duration": 1000, "type": "solid", "props": {"color": "#FF0000"}}
 				]}]
 			}`,
-			wantEvents: 1, // Only valid ID (10) is used, 5-1 is invalid
+			wantEvents: 1, // 5-1 is treated as 1-5, matching the UI/preview
 			wantErr:    false,
 		},
 		{

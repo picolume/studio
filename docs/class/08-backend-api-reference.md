@@ -196,18 +196,15 @@ func (a *App) SaveBinaryData(base64Data string) string
 
 **JavaScript Usage:**
 ```javascript
-import { generateBinary } from './core/BinaryGenerator.js';
+import { generateBinaryBase64Async } from './core/BinaryGeneratorWasm.js';
 
-// Generate binary in JavaScript
-const binaryBytes = generateBinary(projectJson);
-
-// Encode as base64
-const base64 = btoa(String.fromCharCode(...new Uint8Array(binaryBytes)));
+// Generate binary via the shared Go/WASM generator
+const { base64 } = await generateBinaryBase64Async(project);
 
 // Save via backend
 const result = await window.go.main.App.SaveBinaryData(base64);
 
-if (result === 'OK') {
+if (result.status === 'ok') {
     // Success
 }
 ```

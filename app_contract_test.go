@@ -58,6 +58,95 @@ func TestSaveProjectToPathReturnsStructuredResult(t *testing.T) {
 	}
 }
 
+func TestSaveProjectToPathWarnsOnAudioErrors(t *testing.T) {
+	tempDir := t.TempDir()
+	targetPath := filepath.Join(tempDir, "project.lum")
+
+	app := &App{}
+	result := app.SaveProjectToPath(targetPath, `{"name":"Test"}`, map[string]string{
+		"good": "data:audio/wav;base64," + base64.StdEncoding.EncodeToString([]byte("RIFF")),
+		"bad":  "not-a-data-url",
+	})
+
+	if result.Status != ResultStatusWarning {
+		t.Fatalf("expected warning status, got %q", result.Status)
+	}
+	if result.Code != "saved_with_audio_errors" {
+		t.Fatalf("expected saved_with_audio_errors code, got %q", result.Code)
+	}
+	if !strings.Contains(result.Message, "bad") {
+		t.Fatalf("expected failing audio id in message, got %q", result.Message)
+	}
+
+	// The archive should still contain the project and the good audio file.
+	reader, err := zip.OpenReader(targetPath)
+	if err != nil {
+		t.Fatalf("expected project archive to be readable: %v", err)
+	}
+	defer reader.Close()
+
+	var foundGoodAudio bool
+	for _, file := range reader.File {
+		if file.Name == "audio/good.wav" {
+			foundGoodAudio = true
+		}
+	}
+	if !foundGoodAudio {
+		t.Fatal("expected successfully encoded audio to be written")
+	}
+}
+
+func TestBeforeClose(t *testing.T) {
+	t.Run("allows close when not dirty", func(t *testing.T) {
+		app := &App{
+			messageDialogFn: func(_ context.Context, _ runtime.MessageDialogOptions) (string, error) {
+				t.Fatal("dialog should not be shown when state is clean")
+				return "", nil
+			},
+		}
+
+		if prevent := app.beforeClose(context.Background()); prevent {
+			t.Fatal("expected clean state to allow close")
+		}
+	})
+
+	t.Run("prompts when dirty and respects answer", func(t *testing.T) {
+		tests := []struct {
+			answer      string
+			wantPrevent bool
+		}{
+			{answer: "Yes", wantPrevent: false},
+			{answer: "No", wantPrevent: true},
+		}
+
+		for _, tt := range tests {
+			app := &App{
+				messageDialogFn: func(_ context.Context, _ runtime.MessageDialogOptions) (string, error) {
+					return tt.answer, nil
+				},
+			}
+			app.SetDirty(true)
+
+			if prevent := app.beforeClose(context.Background()); prevent != tt.wantPrevent {
+				t.Fatalf("answer %q: expected prevent=%v, got %v", tt.answer, tt.wantPrevent, prevent)
+			}
+		}
+	})
+
+	t.Run("allows close if dialog fails", func(t *testing.T) {
+		app := &App{
+			messageDialogFn: func(_ context.Context, _ runtime.MessageDialogOptions) (string, error) {
+				return "", errors.New("dialog unavailable")
+			},
+		}
+		app.SetDirty(true)
+
+		if prevent := app.beforeClose(context.Background()); prevent {
+			t.Fatal("expected dialog failure to allow close rather than trap the user")
+		}
+	})
+}
+
 func TestSaveProjectToPathRejectsInvalidPath(t *testing.T) {
 	app := &App{}
 	result := app.SaveProjectToPath("relative.lum", `{}`, nil)

@@ -108,6 +108,7 @@ studio/
 │   └── main.go                 #    WASM entry point
 │
 ├── scripts/                    # 🔨 Build scripts
+│   ├── build-wasm.mjs          #    WASM build (cross-platform, runs in `npm run build`)
 │   ├── build-wasm.ps1          #    PowerShell WASM build
 │   └── build-wasm.bat          #    Batch WASM build
 │

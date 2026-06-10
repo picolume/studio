@@ -243,8 +243,8 @@ func Generate(p *Project) (*Result, error) {
 			if speedVal <= 0 {
 				speedVal = 1.0
 			}
-			speedByte := uint8(min(255, int(speedVal*50)))
-			widthByte := uint8(clip.Props.Width * 255)
+			speedByte := clampToByte(speedVal * 50)
+			widthByte := clampToByte(clip.Props.Width * 255)
 			var flagsByte uint8
 			if clip.Props.Reverse {
 				flagsByte = 0x01
@@ -276,6 +276,12 @@ func Generate(p *Project) (*Result, error) {
 	}
 
 	// --- 5. WRITE HEADER ---
+	// The header stores the event count as uint16; reject overflow instead of
+	// silently truncating.
+	if eventCount > 65535 {
+		return nil, fmt.Errorf("show has too many events (%d; max 65535)", eventCount)
+	}
+
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(0x5049434F)) // Magic "PICO"
 	binary.Write(buf, binary.LittleEndian, uint16(3))          // Version 3
@@ -336,7 +342,12 @@ func parseIDRange(idStr string) []int {
 			if len(rangeParts) == 2 {
 				start, err1 := strconv.Atoi(strings.TrimSpace(rangeParts[0]))
 				end, err2 := strconv.Atoi(strings.TrimSpace(rangeParts[1]))
-				if err1 == nil && err2 == nil && start <= end {
+				if err1 == nil && err2 == nil {
+					// Normalize reversed ranges ("18-1") to match the UI and
+					// preview, which treat them as min..max.
+					if start > end {
+						start, end = end, start
+					}
 					for i := start; i <= end; i++ {
 						if i >= 1 && i <= TotalProps {
 							ids = append(ids, i)
@@ -370,6 +381,19 @@ func isMaskEmpty(mask [MaskArraySize]uint32) bool {
 		}
 	}
 	return true
+}
+
+// clampToByte converts a float to a byte, clamping out-of-range values.
+// Direct uint8 conversion of an out-of-range float is implementation-defined
+// in Go, so values like width > 1.0 must be clamped explicitly.
+func clampToByte(v float64) uint8 {
+	if v <= 0 {
+		return 0
+	}
+	if v >= 255 {
+		return 255
+	}
+	return uint8(v)
 }
 
 func parseColor(hex string) uint32 {

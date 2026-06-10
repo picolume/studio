@@ -7,8 +7,7 @@
 # Windows artifacts
 nul
 
-# Go
-/go.sum
+# Go (go.sum is intentionally tracked for reproducible, verified builds)
 *.exe
 *.dll
 *.so

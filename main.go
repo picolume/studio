@@ -35,7 +35,11 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
-//go:embed all:frontend
+// Embed only the assets the app serves at runtime. A bare "all:frontend"
+// would also embed node_modules (~44MB) into the shipped binary.
+//
+//go:embed frontend/index.html frontend/manual.html frontend/interface.jpg
+//go:embed all:frontend/src
 var assets embed.FS
 
 func getAssets() fs.FS {
@@ -80,6 +84,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,
+		OnBeforeClose:    app.beforeClose,
 		Bind: []interface{}{
 			app,
 		},

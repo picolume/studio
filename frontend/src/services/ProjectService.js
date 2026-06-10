@@ -9,7 +9,8 @@
  * - Upload to devices
  */
 
-import { createInitialState } from '../core/StateManager.js';
+import { createInitialState, migrateProjectProfiles, createDefaultCues, DEFAULT_PALETTES } from '../core/StateManager.js';
+import { validateProject } from '../core/validators.js';
 import { getBackend } from '../core/Backend.js';
 import { showConfirm, findProfileOverlaps, formatProfileOverlaps } from '../utils.js';
 
@@ -61,12 +62,22 @@ export class ProjectService {
                 { allowPrompt }
             );
 
-            if (result?.status === 'ok') {
+            if (result?.status === 'ok' || result?.status === 'warning') {
                 // Update state
                 this.stateManager.update(draft => {
                     draft.filePath = targetPath;
                     draft.isDirty = false;
                 }, { skipHistory: true });
+
+                if (result.status === 'warning') {
+                    // Saved, but something (e.g. an audio file) was dropped.
+                    return {
+                        success: true,
+                        warning: true,
+                        message: result.message || 'Saved with warnings',
+                        path: targetPath
+                    };
+                }
 
                 return {
                     success: true,
@@ -107,15 +118,19 @@ export class ProjectService {
             // Parse the project JSON string from the response
             const project = JSON.parse(result.projectJson);
 
-            // Validate project data
-            if (!project) {
+            // Validate project data before it can reach app state
+            if (!project || typeof project !== 'object') {
                 return { success: false, message: 'Invalid project file' };
             }
-
-            // Ensure project has version field (migration)
-            if (!project.version) {
-                project.version = '1.0.0';
+            const validation = validateProject(project);
+            if (!validation.valid) {
+                return {
+                    success: false,
+                    message: `Invalid project file: ${validation.errors.join('; ')}`
+                };
             }
+
+            this._migrateProject(project);
 
             // Replace state with loaded project FIRST
             const newState = createInitialState();
@@ -285,6 +300,32 @@ export class ProjectService {
     }
 
     // ==================== Private Methods ====================
+
+    /**
+     * Migrate a loaded project (possibly from an older version) to the
+     * current format, filling in any missing structures in place.
+     * @private
+     */
+    _migrateProject(project) {
+        if (!project.version) {
+            project.version = '1.0.0';
+        }
+
+        project.settings = migrateProjectProfiles({
+            profiles: [],
+            patch: {},
+            fieldLayout: {},
+            palettes: DEFAULT_PALETTES.map(p => ({ ...p })),
+            ...(project.settings || {})
+        });
+
+        if (!Array.isArray(project.propGroups)) {
+            project.propGroups = [];
+        }
+        if (!Array.isArray(project.cues) || project.cues.length === 0) {
+            project.cues = createDefaultCues();
+        }
+    }
 
     /**
      * Prepare project data for saving

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"PicoLume/bingen"
 	"PicoLume/logger"
@@ -19,12 +20,14 @@ import (
 // App struct
 type App struct {
 	ctx                   context.Context
+	dirty                 atomic.Bool
 	portEnum              PortEnumerator
 	portOpener            PortOpener
 	drives                DriveScanner
 	saveFileDialogFn      func(context.Context, runtime.SaveDialogOptions) (string, error)
 	openFileDialogFn      func(context.Context, runtime.OpenDialogOptions) (string, error)
 	openDirectoryDialogFn func(context.Context, runtime.OpenDialogOptions) (string, error)
+	messageDialogFn       func(context.Context, runtime.MessageDialogOptions) (string, error)
 	generateBinaryFn      func(string) ([]byte, int, error)
 	writeBinaryFn         func(string, []byte) error
 	serialResetFn         func(string, PortEnumerator, PortOpener, func(string), func(string, string)) SerialResetResult
@@ -39,6 +42,7 @@ func NewApp() *App {
 		saveFileDialogFn:      runtime.SaveFileDialog,
 		openFileDialogFn:      runtime.OpenFileDialog,
 		openDirectoryDialogFn: runtime.OpenDirectoryDialog,
+		messageDialogFn:       runtime.MessageDialog,
 		generateBinaryFn:      generateBinaryBytes,
 		writeBinaryFn:         writeBinaryToUSBDrive,
 		serialResetFn:         trySerialReset,
@@ -47,6 +51,32 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+// SetDirty lets the frontend report whether there are unsaved changes so
+// beforeClose can prompt before quitting.
+func (a *App) SetDirty(dirty bool) {
+	a.dirty.Store(dirty)
+}
+
+// beforeClose is wired to Wails OnBeforeClose. Returning true prevents the
+// application from closing.
+func (a *App) beforeClose(ctx context.Context) bool {
+	if !a.dirty.Load() {
+		return false
+	}
+	choice, err := a.messageDialog(runtime.MessageDialogOptions{
+		Type:          runtime.QuestionDialog,
+		Title:         "Unsaved Changes",
+		Message:       "You have unsaved changes. Quit anyway?",
+		Buttons:       []string{"Yes", "No"},
+		DefaultButton: "No",
+	})
+	if err != nil {
+		logger.Warn("beforeClose: message dialog failed: %v", err)
+		return false
+	}
+	return choice != "Yes"
 }
 
 func (a *App) saveFileDialog(options runtime.SaveDialogOptions) (string, error) {
@@ -68,6 +98,13 @@ func (a *App) openDirectoryDialog(options runtime.OpenDialogOptions) (string, er
 		return a.openDirectoryDialogFn(a.ctx, options)
 	}
 	return runtime.OpenDirectoryDialog(a.ctx, options)
+}
+
+func (a *App) messageDialog(options runtime.MessageDialogOptions) (string, error) {
+	if a != nil && a.messageDialogFn != nil {
+		return a.messageDialogFn(a.ctx, options)
+	}
+	return runtime.MessageDialog(a.ctx, options)
 }
 
 func (a *App) generateBinary(projectJSON string) ([]byte, int, error) {
@@ -132,7 +169,7 @@ func generateBinaryBytes(projectJSON string) ([]byte, int, error) {
 // ==========================================================
 
 func (a *App) RequestSavePath() string {
-	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	filename, err := a.saveFileDialog(runtime.SaveDialogOptions{
 		DefaultFilename: "myshow.lum",
 		Title:           "Save Project",
 		Filters: []runtime.FileFilter{
@@ -217,6 +254,9 @@ func (a *App) SaveProjectToPath(path string, projectJson string, audioFiles map[
 
 	if len(audioErrors) > 0 {
 		logger.Warn("SaveProject: Completed with %d audio file errors", len(audioErrors))
+		return warningResult("saved_with_audio_errors", fmt.Sprintf(
+			"Saved, but %d audio file(s) could not be written: %s",
+			len(audioErrors), strings.Join(audioErrors, "; ")))
 	}
 
 	return okResult("saved", "Saved")

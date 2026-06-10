@@ -126,9 +126,15 @@ func TestGenerateAppendsCueBlockForEnabledCues(t *testing.T) {
 }
 
 func TestHelperFunctions(t *testing.T) {
-	ids := parseIDRange("1, 3-4, bad, 0, 500, 9-7")
+	ids := parseIDRange("1, 3-4, bad, 0, 500")
 	if len(ids) != 3 || ids[0] != 1 || ids[1] != 3 || ids[2] != 4 {
 		t.Fatalf("unexpected parsed ids: %v", ids)
+	}
+
+	// Reversed ranges are normalized to min..max, matching the UI/preview.
+	reversed := parseIDRange("9-7")
+	if len(reversed) != 3 || reversed[0] != 7 || reversed[1] != 8 || reversed[2] != 9 {
+		t.Fatalf("expected reversed range to normalize to 7,8,9, got: %v", reversed)
 	}
 
 	mask := calculateMask("1,33,64")

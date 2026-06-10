@@ -2,14 +2,33 @@
 
 package main
 
-import "os"
+import (
+	"os"
+
+	"golang.org/x/sys/windows"
+)
+
+// isRemovableDrive reports whether the drive root (e.g. "E:/") is a removable
+// volume. The Pico presents as removable in both UF2 bootloader and USB modes;
+// requiring this prevents fixed disks (like C:) from ever being treated as a
+// device just because a show.bin or INDEX.HTM exists at their root.
+func isRemovableDrive(root string) bool {
+	p, err := windows.UTF16PtrFromString(root)
+	if err != nil {
+		return false
+	}
+	return windows.GetDriveType(p) == windows.DRIVE_REMOVABLE
+}
 
 // findPicoUSBDrives scans Windows drive letters for PicoLume/RP2040 USB volumes.
 func findPicoUSBDrives() []DriveSearchResult {
 	var results []DriveSearchResult
-	for _, drive := range "CDEFGHIJKLMNOPQRSTUVWXYZ" {
+	for _, drive := range "DEFGHIJKLMNOPQRSTUVWXYZ" {
 		driveRoot := string(drive) + ":/"
 		if _, err := os.Stat(driveRoot); err != nil {
+			continue
+		}
+		if !isRemovableDrive(driveRoot) {
 			continue
 		}
 
