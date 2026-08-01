@@ -1300,12 +1300,226 @@
 }
 :root[data-theme="latte"] #btn-add-track-audio:hover { background: rgba(249, 115, 22, 0.18); }
 
+:root[data-theme="frost"] {
+    /* Neutral charcoal glass inspired by RADAR's dark Graphite Glass+ look. */
+    --bg-dark: #111318;
+    --bg-panel: rgba(41, 42, 45, 0.44);
+    --border-color: rgba(255, 255, 255, 0.11);
+    --accent: #a6b2c0;
+    --playhead-color: #fb7185;
+    --fg: #d7d7d7;
+
+    --menu-sep-color: rgba(255, 255, 255, 0.10);
+
+    --btn-bg: rgba(255, 255, 255, 0.065);
+    --btn-border: rgba(255, 255, 255, 0.11);
+    --btn-text: #dedede;
+    --btn-hover-bg: rgba(255, 255, 255, 0.11);
+    --btn-hover-border: rgba(255, 255, 255, 0.22);
+
+    --btn-primary-bg: rgba(166, 178, 192, 0.16);
+    --btn-primary-border: rgba(190, 201, 213, 0.28);
+    --btn-primary-text: #eef1f4;
+    --btn-primary-hover-bg: rgba(166, 178, 192, 0.25);
+
+    --btn-success-bg: rgba(16, 185, 129, 0.22);
+    --btn-success-border: rgba(110, 231, 183, 0.34);
+    --btn-success-text: #ecfdf5;
+    --btn-success-hover-bg: rgba(16, 185, 129, 0.34);
+
+    --overlay-bg: rgba(10, 14, 20, 0.62);
+    --modal-bg: rgba(43, 44, 47, 0.70);
+    --modal-border: rgba(255, 255, 255, 0.13);
+    --modal-header-bg-from: rgba(63, 64, 68, 0.68);
+    --modal-header-bg-to: rgba(38, 39, 42, 0.62);
+    --modal-frame-bg: rgba(35, 36, 39, 0.72);
+
+    --dropdown-bg: rgba(42, 43, 46, 0.78);
+    --dropdown-border: rgba(255, 255, 255, 0.13);
+
+    --kbd-bg: rgba(17, 18, 20, 0.58);
+    --kbd-text: #b9b9b9;
+    --kbd-border: rgba(255, 255, 255, 0.12);
+
+    --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.30);
+    --scrollbar-button-hover: rgba(255, 255, 255, 0.09);
+
+    --statusbar-bg: rgba(31, 32, 34, 0.58);
+    --statusbar-fg: #a7a7a7;
+
+    --ui-header-from: rgba(60, 61, 65, 0.58);
+    --ui-header-to: rgba(31, 32, 35, 0.48);
+
+    --ui-panel-bg: rgba(41, 42, 45, 0.40);
+    --ui-panel-border: rgba(255, 255, 255, 0.10);
+
+    --ui-toolbar-bg: rgba(56, 57, 61, 0.42);
+    --ui-toolbar-hover-bg: rgba(255, 255, 255, 0.09);
+
+    --ui-border: rgba(255, 255, 255, 0.10);
+    --ui-border-strong: rgba(255, 255, 255, 0.22);
+
+    --ui-text-strong: #eeeeee;
+    --ui-text: #d7d7d7;
+    --ui-text-muted: #b8b8b8;
+    --ui-text-subtle: #9b9b9b;
+    --ui-text-faint: #77777b;
+
+    --ui-select-bg: #1d1e21;
+    --ui-select-border: rgba(255, 255, 255, 0.13);
+
+    /* Keep the preview canvas dark and stable; the surrounding shell carries the glass. */
+    --ui-canvas-bg: #151619;
+    --ui-canvas-overlay: #242528;
+    --ui-canvas-grid: #414145;
+    --ui-canvas-label: #a8a8aa;
+    --ui-canvas-dim: #dedede;
+
+    --ui-tick: #99999c;
+    --ui-audio-track-bg: rgba(38, 39, 42, 0.84);
+    --ui-audio-clip-bg: #7c2d12;
+    --ui-audio-waveform: #fdba74;
+
+    --ui-timeline-bg: rgba(24, 25, 28, 0.76);
+    --ui-track-headers-bg: rgba(35, 36, 39, 0.74);
+    --ui-grid-line: rgba(255, 255, 255, 0.13);
+    --ui-ruler-bg: rgba(48, 49, 53, 0.62);
+    --ui-ruler-border: rgba(255, 255, 255, 0.10);
+    --ui-track-lane-border: rgba(255, 255, 255, 0.075);
+    --ui-audio-lane-border: rgba(255, 255, 255, 0.065);
+
+    --ui-palette-item-bg: rgba(56, 57, 61, 0.38);
+    --ui-palette-item-border: rgba(255, 255, 255, 0.09);
+    --ui-palette-item-hover-bg: rgba(255, 255, 255, 0.09);
+    --ui-palette-item-hover-border: rgba(255, 255, 255, 0.20);
+}
+
 body {
     background-color: var(--bg-dark);
     color: var(--fg);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     overflow: hidden;
     user-select: none;
+}
+
+/* Frost: the background provides depth; major surfaces refract it. */
+:root[data-theme="frost"] body {
+    background-color: #111318;
+    background-image:
+        radial-gradient(50rem 34rem at 10% -8%, rgba(166, 178, 192, 0.24), transparent 64%),
+        radial-gradient(56rem 38rem at 108% 6%, rgba(139, 92, 246, 0.08), transparent 66%),
+        radial-gradient(48rem 34rem at 50% 115%, rgba(166, 178, 192, 0.12), transparent 68%),
+        linear-gradient(145deg, #111318 0%, #1a1b1f 48%, #131519 100%);
+    background-attachment: fixed;
+}
+
+/* Older utility classes predate semantic theme tokens. Fold their cyan
+   accents into Frost's graphite accent without changing the other themes. */
+:root[data-theme="frost"] [class*="text-cyan-"] {
+    color: var(--accent) !important;
+}
+
+:root[data-theme="frost"] [class*="bg-cyan-"] {
+    background-color: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+}
+
+:root[data-theme="frost"] [class*="border-cyan-"] {
+    border-color: color-mix(in srgb, var(--accent) 28%, transparent) !important;
+}
+
+:root[data-theme="frost"] [class*="accent-cyan-"] {
+    accent-color: var(--accent) !important;
+}
+
+:root[data-theme="frost"] .btn.btn--icon.btn--pane-toggle[aria-pressed="false"] {
+    border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+:root[data-theme="frost"] .btn:focus-visible {
+    outline-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+:root[data-theme="frost"] body > header,
+:root[data-theme="frost"] #pane-palette,
+:root[data-theme="frost"] #pane-inspector,
+:root[data-theme="frost"] .status-bar,
+:root[data-theme="frost"] .modal-panel,
+:root[data-theme="frost"] .hamburger-dropdown,
+:root[data-theme="frost"] .hamburger-submenu-panel,
+:root[data-theme="frost"] .cue-context-menu {
+    -webkit-backdrop-filter: blur(24px) saturate(135%);
+    backdrop-filter: blur(24px) saturate(135%);
+}
+
+:root[data-theme="frost"] body > header {
+    box-shadow: 0 10px 30px rgba(1, 8, 22, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="frost"] #pane-palette,
+:root[data-theme="frost"] #pane-inspector {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+:root[data-theme="frost"] .btn,
+:root[data-theme="frost"] .window-controls,
+:root[data-theme="frost"] .palette-item,
+:root[data-theme="frost"] .inspector-panel,
+:root[data-theme="frost"] .inspector-stat {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    -webkit-backdrop-filter: blur(12px) saturate(125%);
+    backdrop-filter: blur(12px) saturate(125%);
+}
+
+:root[data-theme="frost"] .modal-panel,
+:root[data-theme="frost"] .hamburger-dropdown,
+:root[data-theme="frost"] .hamburger-submenu-panel,
+:root[data-theme="frost"] .cue-context-menu {
+    -webkit-backdrop-filter: blur(28px) saturate(145%);
+    backdrop-filter: blur(28px) saturate(145%);
+    box-shadow: 0 28px 72px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    :root[data-theme="frost"] {
+        --bg-panel: #292a2d;
+        --modal-bg: #2b2c2f;
+        --dropdown-bg: #2a2b2e;
+        --ui-panel-bg: #292a2d;
+        --ui-toolbar-bg: #38393d;
+        --statusbar-bg: #1f2022;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    :root[data-theme="frost"] {
+        --bg-panel: #292a2d;
+        --modal-bg: #2b2c2f;
+        --dropdown-bg: #2a2b2e;
+        --ui-panel-bg: #292a2d;
+        --ui-toolbar-bg: #38393d;
+        --statusbar-bg: #1f2022;
+    }
+
+    :root[data-theme="frost"] body {
+        background-image: none;
+    }
+
+    :root[data-theme="frost"] body > header,
+    :root[data-theme="frost"] #pane-palette,
+    :root[data-theme="frost"] #pane-inspector,
+    :root[data-theme="frost"] .status-bar,
+    :root[data-theme="frost"] .modal-panel,
+    :root[data-theme="frost"] .hamburger-dropdown,
+    :root[data-theme="frost"] .hamburger-submenu-panel,
+    :root[data-theme="frost"] .cue-context-menu,
+    :root[data-theme="frost"] .palette-item,
+    :root[data-theme="frost"] .inspector-panel,
+    :root[data-theme="frost"] .inspector-stat {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
 }
 
 /* Pane Toggles */

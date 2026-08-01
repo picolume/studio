@@ -26,6 +26,7 @@ const MENU_PAGES = {
                 icon: 'fa-palette',
                 children: [
                     { type: 'theme', label: 'Standard', themeId: 'standard' },
+                    { type: 'theme', label: 'Frost', themeId: 'frost' },
                     { type: 'theme', label: 'Daylight', themeId: 'daylight' },
                     { type: 'theme', label: 'Lilac', themeId: 'lilac' },
                     { type: 'theme', label: 'Rose', themeId: 'rose' },

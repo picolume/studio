@@ -14,7 +14,7 @@ export class ThemeManager {
         this.DEFAULT_LIGHT_THEME = 'daylight';
         this.LIGHT_THEMES = new Set(['daylight', 'lilac', 'rose', 'latte']);
         this.THEMES = new Set([
-            'standard', 'daylight', 'lilac', 'rose', 'latte',
+            'standard', 'frost', 'daylight', 'lilac', 'rose', 'latte',
             'aurora', 'nord', 'solarized', 'gruvbox',
             'hc-dark', 'crimson', 'graphite', 'forest'
         ]);
