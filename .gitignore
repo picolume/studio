@@ -1,0 +1,39 @@
+# Wails specific
+/build/bin/
+/frontend/dist/
+/frontend/wailsjs/
+/frontend/src/wailsjs/
+
+# Windows artifacts
+nul
+
+# Go (go.sum is intentionally tracked for reproducible, verified builds)
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Node.js
+node_modules/
+*.md5
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+/frontend/src/style.css
+/frontend/coverage/
+/build/vitest/
+
+# Development tools
+.vite/
+
+# LLM/AI assistant files
+.claude/
+AGENTS.md
+CLAUDE.md
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.vscode/

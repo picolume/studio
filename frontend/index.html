@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicoLume Studio</title>
+    <meta name="wails-options" content="noautoinject" />
+    <meta name="picolume-version" content="0.2.4" />
+    <meta name="wails-version" content="2.11.0" />
+
+    <link href="./src/assets/fontawsome/all.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="./src/style.css">
+
+    <script src="/wailsjs/runtime/runtime.js"></script>
+</head>
+
+<body class="h-screen flex flex-col">
+    <a href="#timeline-container" class="skip-link">Skip to Timeline</a>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="window-frame" class="window-frame" aria-hidden="true" hidden></div>
+
+    <!-- Frameless window resize handles (shown only in desktop mode when not maximized) -->
+    <div id="resize-handles" aria-hidden="true" hidden>
+        <div class="window-resize-handle window-resize-handle--n" data-edge="n"></div>
+        <div class="window-resize-handle window-resize-handle--s" data-edge="s"></div>
+        <div class="window-resize-handle window-resize-handle--e" data-edge="e"></div>
+        <div class="window-resize-handle window-resize-handle--w" data-edge="w"></div>
+        <div class="window-resize-handle window-resize-handle--ne" data-edge="ne"></div>
+        <div class="window-resize-handle window-resize-handle--nw" data-edge="nw"></div>
+        <div class="window-resize-handle window-resize-handle--se" data-edge="se"></div>
+        <div class="window-resize-handle window-resize-handle--sw" data-edge="sw"></div>
+    </div>
+
+    <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
+        <symbol id="picolume-logo" viewBox="0 0 512 512">
+            <path style="fill:#E6EAEA;" d="M503.983,136.284H8.017c-4.428,0-8.017,3.589-8.017,8.017v359.683C0,508.411,3.588,512,8.017,512 h495.967c4.428,0,8.017-3.589,8.017-8.017V144.301C512,139.873,508.412,136.284,503.983,136.284z"></path>
+            <path style="fill:#FD6A33;" d="M311.582,162.472H46.497c-4.428,0-8.017,3.589-8.017,8.017v64.134c0,4.427,3.588,8.017,8.017,8.017 h265.086c4.428,0,8.017-3.589,8.017-8.017v-64.134C319.599,166.061,316.011,162.472,311.582,162.472z"></path>
+            <path style="fill:#FF8C29;" d="M384.267,269.361H46.497c-4.428,0-8.017,3.589-8.017,8.017v64.134c0,4.427,3.588,8.017,8.017,8.017 h337.77c4.428,0,8.017-3.589,8.017-8.017v-64.134C392.284,272.951,388.696,269.361,384.267,269.361z"></path>
+            <path style="fill:#4ACFD9;" d="M448.401,376.251H46.497c-4.428,0-8.017,3.589-8.017,8.017v64.134c0,4.427,3.588,8.017,8.017,8.017 h401.904c4.428,0,8.017-3.589,8.017-8.017v-64.134C456.418,379.84,452.829,376.251,448.401,376.251z"></path>
+            <path style="fill:#CDD4D5;" d="M8.017,136.284c-4.428,0-8.017,3.589-8.017,8.017v359.683C0,508.411,3.588,512,8.017,512H256V136.284 H8.017z"></path>
+            <path style="fill:#F0353D;" d="M46.497,162.472c-4.428,0-8.017,3.589-8.017,8.017v64.134c0,4.427,3.588,8.017,8.017,8.017H256 v-80.167H46.497z"></path>
+            <path style="fill:#FD6A33;" d="M46.497,269.361c-4.428,0-8.017,3.589-8.017,8.017v64.134c0,4.427,3.588,8.017,8.017,8.017H256 v-80.167H46.497z"></path>
+            <path style="fill:#0295AA;" d="M46.497,376.251c-4.428,0-8.017,3.589-8.017,8.017v64.134c0,4.427,3.588,8.017,8.017,8.017H256 v-80.167H46.497z"></path>
+            <path style="fill:#365558;" d="M256,512c-4.428,0-8.017-3.589-8.017-8.017V119.182c0-4.427,3.588-8.017,8.017-8.017 c4.428,0,8.017,3.589,8.017,8.017v384.802C264.017,508.411,260.428,512,256,512z"></path>
+            <path style="fill:#9BAAAB;" d="M307.307,0H200.418c-4.428,0-8.017,3.589-8.017,8.017v75.592c0,2.734,1.393,5.278,3.695,6.752 l55.582,35.573c1.319,0.844,2.821,1.265,4.322,1.265c1.599,0,3.196-0.478,4.567-1.428l51.307-35.573 c2.16-1.499,3.449-3.959,3.449-6.589V8.017C315.324,3.589,311.735,0,307.307,0z"></path>
+            <path style="fill:#687F82;" d="M200.418,0c-4.428,0-8.017,3.589-8.017,8.017v75.592c0,2.734,1.393,5.278,3.695,6.752l55.582,35.573 c1.319,0.844,2.821,1.265,4.322,1.265V0H200.418z"></path>
+            <path style="fill:#FFFFFF;" d="M273.102,71.616c-4.428,0-8.017-3.589-8.017-8.017V33.67c0-4.427,3.588-8.017,8.017-8.017 s8.017,3.589,8.017,8.017v29.929C281.119,68.027,277.531,71.616,273.102,71.616z"></path>
+        </symbol>
+    </svg>
+
+    <header class="h-14 bg-gradient-to-b from-[var(--ui-header-from)] to-[var(--ui-header-to)] border-b border-[var(--ui-panel-border)] flex items-center justify-between px-4 shrink-0" role="banner" style="--wails-draggable: drag;">
+        <div class="flex items-center gap-3" style="--wails-draggable: drag;">
+            <svg class="app-logo-svg" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+                <use href="#picolume-logo"></use>
+            </svg>
+            <h1 id="app-title" class="font-bold text-lg tracking-wide text-[var(--ui-text-strong)]">PICOLUME STUDIO</h1>
+        </div>
+
+        <div class="flex items-center gap-4" style="--wails-draggable: no-drag;">
+            <div class="flex bg-[var(--ui-toolbar-bg)] rounded p-1" role="group">
+                <button id="btn-undo" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)] disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-undo"></i></button>
+                <button id="btn-redo" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)] disabled:opacity-30 disabled:cursor-not-allowed" disabled><i class="fas fa-redo"></i></button>
+            </div>
+
+            <div class="flex bg-[var(--ui-toolbar-bg)] rounded p-1" role="group">
+                <button id="btn-to-start" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)]"><i class="fas fa-step-backward"></i></button>
+                <button id="btn-play" class="w-10 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-strong)]"><i class="fas fa-play"></i></button>
+                <button id="btn-stop" class="w-8 h-7 hover:bg-[var(--ui-toolbar-hover-bg)] rounded text-[var(--ui-text-muted)]"><i class="fas fa-stop"></i></button>
+            </div>
+
+            <div class="flex items-center gap-2 ml-2 mr-2 group">
+                <i id="vol-icon" class="fas fa-volume-up text-[var(--ui-text-subtle)] text-xs group-hover:text-[var(--ui-text)] w-5 text-center"></i>
+                <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="1" class="w-20 h-1 bg-[var(--ui-border)] rounded-lg appearance-none cursor-pointer accent-green-500">
+            </div>
+
+            <div class="h-8 border-l border-[var(--ui-border)] mx-2"></div>
+            <span id="time-display" class="font-mono text-cyan-400 text-lg w-24 text-center">00:00.00</span>
+        </div>
+
+        <div class="flex items-center gap-2" style="--wails-draggable: no-drag;">
+            <div class="menu-bar">
+                <div class="menu-group" role="group" aria-label="Project">
+                    <button id="btn-upload" class="btn btn--success btn--wide">
+                        <i class="fas fa-microchip"></i><span>Upload</span>
+                    </button>
+                    <button id="btn-export-bin" class="btn btn--primary btn--wide">
+                        <i class="fas fa-download"></i><span>Export</span>
+                    </button>
+                    <button id="btn-new" class="btn btn--icon" title="New Project (Ctrl+N)">
+                        <i class="fas fa-file"></i>
+                    </button>
+                    <button id="btn-save" class="btn btn--icon" title="Save (Ctrl+S)">
+                        <i class="fas fa-save"></i>
+                    </button>
+                    <button id="btn-save-as" class="btn btn--icon" title="Save As (Ctrl+Shift+S)">
+                        <i class="fas fa-file-export"></i>
+                    </button>
+                    <button id="btn-open" class="btn btn--icon" title="Open Project (Ctrl+O)">
+                        <i class="fas fa-folder-open"></i>
+                    </button>
+                </div>
+                <div class="menu-sep" aria-hidden="true"></div>
+
+            <div class="menu-group" role="group" aria-label="Layout">
+                <button id="btn-toggle-palette" class="btn btn--icon btn--pane-toggle" aria-pressed="true" title="Toggle Palette (Alt+1)">
+                    <i class="fas fa-palette"></i>
+                </button>
+                <button id="btn-toggle-preview" class="btn btn--icon btn--pane-toggle" aria-pressed="true" title="Toggle Preview (Alt+2)">
+                    <i class="fas fa-tv"></i>
+                </button>
+                <button id="btn-toggle-inspector" class="btn btn--icon btn--pane-toggle" aria-pressed="true" title="Toggle Inspector (Alt+3)">
+                    <i class="fas fa-sliders-h"></i>
+                </button>
+                <button id="btn-settings" class="btn btn--icon" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+
+            <div class="menu-sep" aria-hidden="true"></div>
+
+            <div class="hamburger-menu" id="hamburger-menu">
+                <button id="btn-theme-toggle" class="btn btn--icon" title="Switch to light theme (Alt+T)" aria-pressed="false">
+                    <i class="fas fa-circle-half-stroke" aria-hidden="true"></i>
+                </button>
+                <button id="btn-hamburger" class="btn btn--icon" title="Menu" aria-expanded="false" aria-haspopup="true">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            </div>
+
+            <div id="window-controls" class="window-controls" aria-label="Window controls" style="--wails-draggable: no-drag;" hidden>
+                <button id="btn-window-minimize" class="window-btn" type="button" title="Minimize" aria-label="Minimize">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                        <path d="M1 7.5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                    </svg>
+                </button>
+                <button id="btn-window-maximize" class="window-btn" type="button" title="Maximize/Restore" aria-label="Maximize or restore">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                        <rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+                    </svg>
+                </button>
+                <button id="btn-window-close" class="window-btn window-btn--close" type="button" title="Close" aria-label="Close">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                        <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        <div id="pane-palette" class="sidebar-palette bg-[var(--ui-panel-bg)] border-r border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--palette-width);">
+            <div class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)] flex items-center gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <i class="fas fa-palette text-[var(--ui-text-subtle)] text-xs" aria-hidden="true"></i>
+                    <span class="truncate">Effect Palette</span>
+                </div>
+            </div>
+            <div class="p-3 overflow-y-auto flex-1" id="palette-container">
+                <div class="text-xs text-[var(--ui-text-faint)] mb-2 italic">Drag to LED Tracks</div>
+
+                <div class="palette-item" draggable="true" data-type="solid"><div class="w-6 h-6 rounded bg-solid"></div><div><div class="text-sm font-medium">Solid Color</div><div class="text-xs text-[var(--ui-text-subtle)]">Static color</div></div></div>
+                <div class="palette-item" draggable="true" data-type="flash"><div class="w-6 h-6 rounded bg-flash"></div><div><div class="text-sm font-medium">Camera Flash</div><div class="text-xs text-[var(--ui-text-subtle)]">Quick White Bursts</div></div></div>
+                <div class="palette-item" draggable="true" data-type="strobe"><div class="w-6 h-6 rounded bg-strobe"></div><div><div class="text-sm font-medium">Strobe</div><div class="text-xs text-[var(--ui-text-subtle)]">Rapid flashing</div></div></div>
+                <div class="palette-item" draggable="true" data-type="wipe"><div class="w-6 h-6 rounded bg-wipe"></div><div><div class="text-sm font-medium">Wipe</div><div class="text-xs text-[var(--ui-text-subtle)]">Linear fill</div></div></div>
+                <div class="palette-item" draggable="true" data-type="chase"><div class="w-6 h-6 rounded bg-chase"></div><div><div class="text-sm font-medium">Chase</div><div class="text-xs text-[var(--ui-text-subtle)]">Moving segment</div></div></div>
+                <div class="palette-item" draggable="true" data-type="rainbow"><div class="w-6 h-6 rounded bg-rainbow"></div><div><div class="text-sm font-medium">Rainbow</div><div class="text-xs text-[var(--ui-text-subtle)]">Moving hue shift</div></div></div>
+                <div class="palette-item" draggable="true" data-type="scanner"><div class="w-6 h-6 rounded bg-scanner"></div><div><div class="text-sm font-medium">Scanner</div><div class="text-xs text-[var(--ui-text-subtle)]">Bouncing eye</div></div></div>
+                <div class="palette-item" draggable="true" data-type="meteor"><div class="w-6 h-6 rounded bg-meteor"></div><div><div class="text-sm font-medium">Meteor</div><div class="text-xs text-[var(--ui-text-subtle)]">Trail projectile</div></div></div>
+                <div class="palette-item" draggable="true" data-type="fire"><div class="w-6 h-6 rounded bg-fire"></div><div><div class="text-sm font-medium">Fire</div><div class="text-xs text-[var(--ui-text-subtle)]">Heat flicker</div></div></div>
+                <div class="palette-item" draggable="true" data-type="breathe"><div class="w-6 h-6 rounded bg-breathe"></div><div><div class="text-sm font-medium">Breathe</div><div class="text-xs text-[var(--ui-text-subtle)]">Pulse in/out</div></div></div>
+                <div class="palette-item" draggable="true" data-type="heartbeat"><div class="w-6 h-6 rounded bg-heartbeat"></div><div><div class="text-sm font-medium">Heartbeat</div><div class="text-xs text-[var(--ui-text-subtle)]">Double pulse rhythm</div></div></div>
+                <div class="palette-item" draggable="true" data-type="sparkle"><div class="w-6 h-6 rounded bg-sparkle"></div><div><div class="text-sm font-medium">Sparkle</div><div class="text-xs text-[var(--ui-text-subtle)]">Random glitters</div></div></div>
+                <div class="palette-item" draggable="true" data-type="glitch"><div class="w-6 h-6 rounded bg-glitch"></div><div><div class="text-sm font-medium">Glitch</div><div class="text-xs text-[var(--ui-text-subtle)]">Digital noise</div></div></div>
+                <div class="palette-item" draggable="true" data-type="energy"><div class="w-6 h-6 rounded bg-energy"></div><div><div class="text-sm font-medium">Energy</div><div class="text-xs text-[var(--ui-text-subtle)]">Flowing plasma</div></div></div>
+                <div class="palette-item" draggable="true" data-type="alternate"><div class="w-6 h-6 rounded bg-alternate"></div><div><div class="text-sm font-medium">Alternate</div><div class="text-xs text-[var(--ui-text-subtle)]">ABAB Pattern</div></div></div>
+                <div class="palette-item" draggable="true" data-type="rainbowHold" role="listitem" tabindex="0"><div class="w-6 h-6 rounded bg-rainbow" style="opacity: 0.5;"></div><div><div class="text-sm font-medium">Rainbow Hold</div><div class="text-xs text-[var(--ui-text-subtle)]">Static rainbow</div></div></div>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col min-w-0">
+            <div id="pane-preview" class="bg-[var(--ui-canvas-bg)] relative led-preview-container flex items-center justify-center border-b border-[var(--ui-panel-border)] shrink-0 overflow-hidden" style="height: var(--preview-height);">
+                <canvas id="preview-canvas"></canvas>
+                <div class="absolute top-2 left-2 flex items-center gap-3">
+                    <span class="text-xs text-[var(--ui-text-subtle)]">Preview</span>
+                    <div class="flex bg-[var(--ui-toolbar-bg)] rounded p-0.5 gap-0.5 opacity-90" id="preview-mode-selector">
+                        <button data-mode="track" class="preview-mode-btn active" title="Track view">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <button data-mode="field" class="preview-mode-btn" title="Field view">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button data-mode="off" class="preview-mode-btn" title="Preview off">
+                            <i class="fas fa-eye-slash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="preview-resize-handle" class="preview-resize-handle" title="Drag to resize preview"></div>
+
+            <div class="h-8 bg-[var(--ui-toolbar-bg)] border-b border-[var(--ui-border)] flex items-center px-2 justify-between shrink-0">
+                <div class="flex gap-2">
+                    <button id="btn-add-track-led" class="text-xs bg-cyan-900/50 hover:bg-cyan-800 px-2 py-1 rounded text-cyan-200 border border-cyan-900"><i class="fas fa-plus mr-1"></i> LED Track</button>
+                    <button id="btn-add-track-audio" class="text-xs bg-orange-900/50 hover:bg-orange-800 px-2 py-1 rounded text-orange-200 border border-orange-900"><i class="fas fa-music mr-1"></i> Audio Track</button>
+                    <div class="border-l border-[var(--ui-border)] pl-2 ml-1 flex gap-1">
+                        <button id="btn-copy" class="text-xs bg-[var(--ui-toolbar-hover-bg)] hover:bg-[var(--ui-border)] px-2 py-1 rounded text-[var(--ui-text)] disabled:opacity-30" disabled><i class="fas fa-copy"></i></button>
+                        <button id="btn-paste" class="text-xs bg-[var(--ui-toolbar-hover-bg)] hover:bg-[var(--ui-border)] px-2 py-1 rounded text-[var(--ui-text)] disabled:opacity-30" disabled><i class="fas fa-paste"></i></button>
+                        <button id="btn-duplicate" class="text-xs bg-[var(--ui-toolbar-hover-bg)] hover:bg-[var(--ui-border)] px-2 py-1 rounded text-[var(--ui-text)] disabled:opacity-30" disabled><i class="fas fa-clone"></i></button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 border-r border-[var(--ui-border)] pr-3 mr-2">
+                        <label class="flex items-center gap-2 text-xs text-[var(--ui-text-muted)] cursor-pointer hover:text-[var(--ui-text-strong)] select-none">
+                            <input type="checkbox" id="chk-snap" class="accent-cyan-500" checked> <i class="fas fa-magnet"></i> Snap
+                        </label>
+                        <select id="sel-grid" class="bg-[var(--ui-select-bg)] text-xs text-[var(--ui-text)] border border-[var(--ui-select-border)] rounded px-1 outline-none py-0.5">
+                            <option value="1000">1s</option><option value="500">1/2s</option><option value="250">1/4s</option><option value="125">1/8s</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="zoom-slider" min="10" max="200" value="50" class="w-24 accent-cyan-500">
+                        <span id="zoom-display" class="text-xs text-[var(--ui-text-subtle)] w-12">50px/s</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 timeline-container" id="timeline-container">
+                <div class="track-headers" id="track-headers"></div>
+                <div class="timeline-scroll-area" id="timeline-scroll-area">
+                    <div class="timeline-content" id="timeline-content">
+                        <div class="ruler" id="ruler"><div class="playhead-handle" id="playhead-handle" tabindex="0"></div></div>
+                        <div id="tracks-container"></div>
+                        <div class="playhead" id="playhead-line"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            <div id="pane-inspector" class="sidebar-inspector bg-[var(--ui-panel-bg)] border-l border-[var(--ui-panel-border)] flex flex-col shrink-0 overflow-hidden" style="width: var(--inspector-width);" data-sidebar-mode="inspector">
+            <!-- Dynamic sidebar header -->
+            <div id="sidebar-header" class="p-3 border-b border-[var(--ui-panel-border)] text-xs font-bold uppercase tracking-wider text-[var(--ui-text-subtle)] flex items-center justify-between">
+                <div class="flex items-center gap-2 min-w-0">
+                    <button id="sidebar-back-btn" class="hidden btn--icon-sm" title="Back" aria-label="Go back">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </button>
+                    <i id="sidebar-icon" class="fas fa-sliders-h text-[var(--ui-text-subtle)] text-xs" aria-hidden="true"></i>
+                    <span id="sidebar-title" class="truncate">Inspector</span>
+                </div>
+                <button id="sidebar-close-btn" class="btn--icon-sm" title="Close menu (Esc)" aria-label="Close menu">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <!-- Content wrapper for slide animation -->
+            <div id="sidebar-content-wrapper">
+                <div id="inspector-content" class="p-4"></div>
+                <div id="menu-content" class="p-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="text-[var(--ui-text-faint)]">Project</span>
+                <span id="status-project" class="truncate text-[var(--ui-text)] font-semibold">Untitled</span>
+                <span id="status-dirty" class="hidden text-[var(--accent)]" title="Unsaved changes">●</span>
+            </div>
+            <div id="status-pico-sep" class="h-4 w-px bg-[var(--ui-border)] hidden md:block" aria-hidden="true"></div>
+            <span id="status-pico" class="truncate text-[var(--ui-text-subtle)] hidden md:inline">Pico: Not detected</span>
+            <div class="h-4 w-px bg-[var(--ui-border)] hidden md:block" aria-hidden="true"></div>
+            <span id="status-selection" class="truncate text-[var(--ui-text-subtle)] hidden md:inline">Selection: none</span>
+            <div class="h-4 w-px bg-[var(--ui-border)] hidden lg:block" aria-hidden="true"></div>
+            <span id="status-snap" class="text-[var(--ui-text-subtle)] hidden lg:inline">Snap: On</span>
+            <span id="status-grid" class="text-[var(--ui-text-subtle)] hidden lg:inline">Grid: 1s</span>
+        </div>
+        <div class="flex items-center gap-4 shrink-0"><span id="status-history">History: 0/0</span><span>Space Play | Tab Navigate | Arrows Move | Shift+Arrows Resize</span></div>
+    </div>
+
+    <div id="confirm-modal" class="modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title" id="confirm-title">PicoLume Studio</div>
+            </div>
+            <div class="confirm-body">
+                <p id="confirm-message" class="confirm-message"></p>
+                <div class="confirm-actions">
+                    <button id="confirm-cancel" class="btn">Cancel</button>
+                    <button id="confirm-ok" class="btn btn--primary">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="upload-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="upload-title" aria-describedby="upload-message" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title" id="upload-title">Uploading to PicoLume</div>
+            </div>
+            <div class="upload-body">
+                <div class="upload-spinner" aria-hidden="true"><i class="fas fa-spinner fa-spin"></i></div>
+                <p id="upload-message" class="upload-message" role="status" aria-live="polite">Preparing upload...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="export-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="export-title" aria-describedby="export-message" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title" id="export-title">Exporting Binary</div>
+            </div>
+            <div class="upload-body">
+                <div class="upload-spinner" aria-hidden="true"><i class="fas fa-spinner fa-spin"></i></div>
+                <p id="export-message" class="upload-message" role="status" aria-live="polite">Generating binary...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="manual-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="User Manual" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title">User Manual</div>
+                <button id="btn-manual-close" class="btn btn--icon" title="Close (Esc)" aria-label="Close manual">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <iframe id="manual-frame" class="modal-frame" title="PicoLume Manual"></iframe>
+        </div>
+    </div>
+
+    <div id="about-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title" id="about-title">About PicoLume Studio</div>
+                <button id="btn-about-close" class="btn btn--icon" title="Close (Esc)" aria-label="Close about">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="about-body">
+                <div class="about-hero">
+                    <div class="about-logo" aria-hidden="true">
+                        <svg class="about-logo-svg" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+                            <use href="#picolume-logo"></use>
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="about-app-name">PicoLume Studio</div>
+                        <div class="about-tagline">Timeline-based LED show editor</div>
+                    </div>
+                </div>
+
+                <div class="about-grid">
+                    <div class="about-row"><span class="about-k">Version</span><span id="about-version" class="about-v">—</span></div>
+                    <div class="about-row"><span class="about-k">License</span><span class="about-v">GPL-v3.0</span></div>
+                    <div class="about-row"><span class="about-k">Copyright</span><span class="about-v">© 2025 PicoLume Project</span></div>
+                    <div class="about-row"><span class="about-k">Framework</span><span class="about-v">Wails <span id="about-wails-version">—</span></span></div>
+                </div>
+
+                <p class="about-note">This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3.</p>
+                <p class="about-note">Full license text is available in <span class="about-mono">studio/LICENSE.txt</span>.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="inspector-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="inspector-title" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title" id="inspector-title">Binary Inspector</div>
+                <button id="btn-inspector-close" class="btn btn--icon" title="Close (Esc)" aria-label="Close inspector">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="inspector-body">
+                <!-- File Input -->
+                <div class="inspector-input" id="inspector-drop-zone">
+                    <div class="inspector-input-content">
+                        <i class="fas fa-file-import inspector-input-icon"></i>
+                        <div class="inspector-input-text">
+                            <strong>Drop show.bin file here</strong>
+                            <span>or click to browse</span>
+                        </div>
+                        <input type="file" id="inspector-file" accept=".bin,application/octet-stream" class="inspector-file-input" />
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="inspector-status" id="inspector-status">
+                    <span class="inspector-status-dot"></span>
+                    <span id="inspector-status-text">Select or drop a file...</span>
+                </div>
+
+                <!-- Error Display -->
+                <div id="inspector-error" class="inspector-error" style="display: none;"></div>
+
+                <!-- Stats Grid -->
+                <div class="inspector-stats" id="inspector-stats" style="display: none;">
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-events">0</div>
+                        <div class="inspector-stat-label">Events</div>
+                    </div>
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-duration">0:00</div>
+                        <div class="inspector-stat-label">Duration</div>
+                    </div>
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-props">0</div>
+                        <div class="inspector-stat-label">Props</div>
+                    </div>
+                    <div class="inspector-stat">
+                        <div class="inspector-stat-value" id="inspector-stat-size">0 KB</div>
+                        <div class="inspector-stat-label">Size</div>
+                    </div>
+                </div>
+
+                <!-- Header & PropConfig -->
+                <div class="inspector-grid" id="inspector-details" style="display: none;">
+                    <div class="inspector-panel">
+                        <div class="inspector-panel-header">
+                            <i class="fas fa-file-code"></i> Header
+                        </div>
+                        <div class="inspector-panel-content" id="inspector-header"></div>
+                    </div>
+                    <div class="inspector-panel">
+                        <div class="inspector-panel-header">
+                            <i class="fas fa-microchip"></i> PropConfig
+                            <select id="inspector-prop-select" class="inspector-prop-select">
+                                <option value="1">Prop 1</option>
+                            </select>
+                        </div>
+                        <div class="inspector-panel-content" id="inspector-propconfig"></div>
+                    </div>
+                </div>
+
+                <!-- Validation Warnings -->
+                <div class="inspector-panel" id="inspector-validation" style="display: none;">
+                    <div class="inspector-panel-header">
+                        <i class="fas fa-triangle-exclamation"></i> Validation
+                        <span class="inspector-badge" id="inspector-validation-count">0</span>
+                    </div>
+                    <div class="inspector-panel-content">
+                        <ul class="inspector-warnings" id="inspector-warnings"></ul>
+                    </div>
+                </div>
+
+                <!-- Events Table -->
+                <div class="inspector-panel" id="inspector-events-panel" style="display: none;">
+                    <div class="inspector-panel-header">
+                        <i class="fas fa-list"></i> Events
+                        <div class="inspector-toolbar">
+                            <label class="inspector-checkbox">
+                                <input type="checkbox" id="inspector-filter-prop" checked />
+                                Only selected prop
+                            </label>
+                            <button class="btn btn--small" id="btn-inspector-export-json" title="Export as JSON">
+                                <i class="fas fa-file-code"></i> JSON
+                            </button>
+                            <button class="btn btn--small" id="btn-inspector-export-csv" title="Export as CSV">
+                                <i class="fas fa-file-csv"></i> CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="inspector-table-container">
+                        <table class="inspector-table" id="inspector-events-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Start</th>
+                                    <th>Duration</th>
+                                    <th>Effect</th>
+                                    <th>Reverse</th>
+                                    <th>Color 1</th>
+                                    <th>Color 2</th>
+                                    <th>Speed</th>
+                                    <th>Width</th>
+                                    <th>Props</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inspector-events-tbody">
+                                <tr><td colspan="10" class="inspector-empty">No events</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>
